@@ -17,18 +17,14 @@ exch = Exchange(app.conf.get('CELERY_DEFAULT_EXCHANGE', 'adsmp'),
                 type=app.conf.get('CELERY_DEFAULT_EXCHANGE_TYPE', 'topic'))
 app.conf.CELERY_QUEUES = (
     Queue('errors', exch, routing_key='errors', durable=False, message_ttl=24*3600*5),
-    Queue('some-queue', exch, routing_key='check-orcidid')
+    Queue('update-record', exch, routing_key='update-record'),
 )
 
 # set of logger used by the workers below
 error_logger = utils.setup_logging('error-queue', 'task:error', app.conf.get('LOGGING_LEVEL', 'INFO'))
-hello_world_logger = utils.setup_logging('some-queue', 'task:hello_world', app.conf.get('LOGGING_LEVEL', 'INFO'))
+update_record_logger = utils.setup_logging('update-record', 'task:update_record', app.conf.get('LOGGING_LEVEL', 'INFO'))
 
 
-# connection to the other virtual host (for sending data out)
-forwarding_connection = BrokerConnection(app.conf.get('OUTPUT_CELERY_BROKER',
-                              '%s/%s' % (app.conf.get('CELRY_BROKER', 'pyamqp://'),
-                                         app.conf.get('OUTPUT_EXCHANGE', 'other-pipeline'))))
 class MyTask(Task):
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         error_logger.error('{0!r} failed: {1!r}'.format(task_id, exc))
@@ -37,36 +33,22 @@ class MyTask(Task):
 
 # ============================= TASKS ============================================= #
 
-@app.task(base=MyTask, queue='some-queue')
-def task_hello_world(message):
+@app.task(base=MyTask, queue='update-record')
+def task_update_record(msg):
+    """Receives payload to update the record.
+    
+    @param msg: protobuff that contains the following fields
+        - bibcode
+        - origin: (str) pipeline
+        - payload: (dict)
     """
-    Fetch a message from the queue. Save it into the database.
-    And print out into a log.
+    type = msg.origin
+    if type not in ('metadata', 'orcid_claims', 'nonbib_data', 'fulltext'):
+        raise exceptions.IgnorableException('Unkwnown type {0} submitted for update'.format(type))
     
-
-    :param: message: contains the message inside the packet
-        {
-         'name': '.....',
-         'start': 'ISO8801 formatted date (optional), indicates 
-             the moment we checked the orcid-service'
-        }
-    :return: no return
-    """
+    # save into a database
+    app.update_storage(msg.bibcode, type, msg.payload)
     
-    if 'name' not in message:
-        raise exceptions.IgnorableException('Received garbage: {}'.format(message))
-    
-    with app.session_scope() as session:
-        kv = session.query(KeyValue).filter_by(key=message['name']).first()
-        if kv is None:
-            kv = KeyValue(key=message['name'])
-        
-        now = utils.get_date()
-        kv.value = now
-        session.add(kv)
-        session.commit()
-        
-        hello_world_logger.info('Hello {key} we have recorded seeing you at {value}'.format(**kv.toJSON()))
         
         
     

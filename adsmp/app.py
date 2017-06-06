@@ -1,10 +1,11 @@
-from .models import KeyValue
+from .models import KeyValue, Records
 from . import utils
 from celery import Celery
 from contextlib import contextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import scoped_session
 from sqlalchemy.orm import sessionmaker
+import json
 
 
 
@@ -17,7 +18,7 @@ def create_app(app_name='adsmp',
     if local_config:
         conf.update(local_config)
 
-    app = adsmpCelery(app_name,
+    app = ADSMasterPipelineCelery(app_name,
              broker=conf.get('CELERY_BROKER', 'pyamqp://'),
              include=conf.get('CELERY_INCLUDE', ['adsmp.tasks']))
 
@@ -26,7 +27,7 @@ def create_app(app_name='adsmp',
 
 
 
-class adsmpCelery(Celery):
+class ADSMasterPipelineCelery(Celery):
     
     def __init__(self, app_name, *args, **kwargs):
         Celery.__init__(self, *args, **kwargs)
@@ -90,5 +91,33 @@ class adsmpCelery(Celery):
             s.rollback()
             raise
         finally:
-            s.close()  
+            s.close()
+            
+    
+    def update_storage(self, bibcode, type, payload):
+        if not isinstance(payload, basestring):
+            payload = json.dumps(payload)
+        with self.session_scope() as session:
+            r = session.query(Records).filter_by(bibcode=bibcode).first()
+            if r is None:
+                r = Records(bibcode=bibcode)
+                session.add(r)
+            now = utils.get_date()
+            if type == 'metadata' or type == 'bib_data':
+                r.bib_data = payload
+                r.bib_data_updated = now 
+            elif type == 'nonbib_data':
+                r.nonbib_data = payload
+                r.nonbib_data_updated = now
+            elif type == 'orcid_claims':
+                r.orcid_claims = payload
+                r.orcid_claims_updated = now
+            elif type == 'fulltext':
+                r.fulltext = payload
+                r.fulltext_updated = now
+            else:
+                raise Exception('Unknown type: %s' % type)
+            r.updated = now
+            
+            session.commit()
             

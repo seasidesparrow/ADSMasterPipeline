@@ -31,14 +31,15 @@ class TestWorkers(unittest.TestCase):
         tasks.app = self._app
 
 
-    def test_task_hello_world(self):
-        
-        # just for illustration how to mock multiple objects in one go
-        with patch.object(self.app, 'close_app') as example_method, \
-            patch.object(tasks.hello_world_logger, 'info') as logger:
-            
-            tasks.task_hello_world({'name': 'Elgar'})
-            self.assertTrue('Hello Elgar we have recorded' in logger.call_args[0][0])
+    def test_task_update_record(self, next_task, update_storage, *args):
+        with patch(tasks.task_after_record_update, 'delay') as next_task:
+            self.assertFalse(next_task.called)
+            tasks.task_update_record(RecordMessage(bibcode='2015ApJ...815..133S', 
+                                                   update_type='metadata', 
+                                                   payload={'bibcode': '2015ApJ...815..133S', 'title': 'foo bar'})
+            self.assertTrue(next_task.called)
+            rec = next_task.call_args[0][1].payload
+            print rec # test it is the full record
             
 
 

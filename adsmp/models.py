@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 
+
 from adsmp.utils import get_date
 from datetime import datetime
 from dateutil.tz import tzutc
-from sqlalchemy import Column, Integer, String, Text, TIMESTAMP
+from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Boolean
 from sqlalchemy import types
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.types import Enum
-import datetime
 import json
 
 Base = declarative_base()
@@ -98,8 +98,9 @@ class ChangeLog(Base):
     id = Column(Integer, primary_key=True)
     created = Column(UTCDateTime, default=get_date)
     key = Column(String(255))
+    type = Column(String(255))
     oldvalue = Column(Text)
-    newvalue = Column(Text)
+    permanent = Column(Boolean, default=False)
     
     
     def toJSON(self):
@@ -111,3 +112,12 @@ class ChangeLog(Base):
                 }
         
 
+class IdentifierMapping(Base):
+    """Storage for the mapping (bibcode translation) - it is a directed
+    graph pointing to the most recent canonical identifier"""
+    __tablename__ = 'identifiers'
+    key = Column(String(255), primary_key=True)
+    target = Column(String(255))
+    
+    def toJSON(self):
+        return {'key': self.key, 'target': self.target } 

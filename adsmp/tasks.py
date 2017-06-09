@@ -23,7 +23,7 @@ app.conf.CELERY_QUEUES = (
     Queue('route-record', exch, routing_key='route-record'),
 )
 
-logger = utils.setup_logging('pipeline.log', 'tasks', app.conf.get('LOGGING_LEVEL', 'INFO'))
+logger = utils.setup_logging('master-pipeline.log', 'tasks', app.conf.get('LOGGING_LEVEL', 'INFO'))
 
 
 class MyTask(Task):
@@ -44,12 +44,11 @@ def task_update_record(msg):
         - payload: (dict)
     """
     logger.debug('Updating record: %s', msg)
-    type = msg.origin
-    if type not in ('metadata', 'orcid_claims', 'nonbib_data', 'fulltext'):
-        raise exceptions.IgnorableException('Unkwnown type {0} submitted for update'.format(type))
+    type = app.get_msg_type(msg)
+    
     
     # save into a database
-    record = app.update_storage(msg.bibcode, type, msg.payload)
+    record = app.update_storage(msg.bibcode, type, msg) #TODO: turn into JSON before submitting it
     logger.debug('Saved record: %s', record)
     
     # trigger futher processing
@@ -95,7 +94,7 @@ def task_route_record(bibcode, force=False, delayed=1):
     orcid_claims_updated = r.get('orcid_claims_updated', None)
     nonbib_data_updated = r.get('nonbib_data_updated', None)
     fulltext_updated = r.get('fulltext_updated', None)
-    processed = r.get('processed', utils.get_date('0')) # year zero!
+    processed = r.get('processed', utils.get_date('1972')) # year zero!
      
     is_complete = all([bib_data_updated, orcid_claims_updated, nonbib_data_updated])
     

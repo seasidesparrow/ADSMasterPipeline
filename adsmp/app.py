@@ -1,5 +1,5 @@
 
-from . import utils
+from . import utils, exceptions
 from .models import KeyValue, Records, ChangeLog, IdentifierMapping
 from celery import Celery
 from contextlib import contextmanager
@@ -208,5 +208,21 @@ class ADSMasterPipelineCelery(Celery):
                         to_collect.append(x.oldvalue)
                     out.append(x.toJSON())
         return out
+    
+    def get_msg_type(self, msg):
+        """Identifies the type of this supplied message.
+        
+        :param: Protobuf instance
+        :return: str
+        """
+        
+        #if isinstance(msg, BibRecord)):
+        #    return 'metadata'
+        type = None
+        return None
+        
+        if type not in ('metadata', 'orcid_claims', 'nonbib_data', 'fulltext'):
+            raise exceptions.IgnorableException('Unkwnown type {0} submitted for update'.format(type))
+    
                 
             

@@ -1,12 +1,12 @@
 
 from __future__ import absolute_import, unicode_literals
+import adsputils
+from adsmsg import OrcidClaims
 from adsmp import app as app_module
-from adsmp import utils
 from adsmp import exceptions
 from adsmp import solr_updater
 from adsmp.models import KeyValue
 from celery import Task
-from celery.utils.log import get_task_logger
 from kombu import Exchange, Queue, BrokerConnection
 import datetime
 import math
@@ -18,12 +18,12 @@ app = app_module.create_app()
 exch = Exchange(app.conf.get('CELERY_DEFAULT_EXCHANGE', 'adsmp'), 
                 type=app.conf.get('CELERY_DEFAULT_EXCHANGE_TYPE', 'topic'))
 app.conf.CELERY_QUEUES = (
-    Queue('errors', exch, routing_key='errors', durable=False, message_ttl=24*3600*5),
     Queue('update-record', exch, routing_key='update-record'),
     Queue('route-record', exch, routing_key='route-record'),
+    Queue('delete-documents', exch, routing_key='delete-documents'),
 )
 
-logger = utils.setup_logging('master-pipeline.log', 'tasks', app.conf.get('LOGGING_LEVEL', 'INFO'))
+logger = adsputils.setup_logging('master-pipeline', level=app.conf.get('LOGGING_LEVEL', 'INFO'))
 
 
 class MyTask(Task):
@@ -48,11 +48,11 @@ def task_update_record(msg):
     
     
     # save into a database
-    record = app.update_storage(msg.bibcode, type, msg) #TODO: turn into JSON before submitting it
+    record = app.update_storage(msg.bibcode, type, msg.toJSON())
     logger.debug('Saved record: %s', record)
     
     # trigger futher processing
-    task_route_record.delay(msg.bibcode)
+    task_route_record.delay(record['bibcode'])
     
 
     
@@ -94,7 +94,7 @@ def task_route_record(bibcode, force=False, delayed=1):
     orcid_claims_updated = r.get('orcid_claims_updated', None)
     nonbib_data_updated = r.get('nonbib_data_updated', None)
     fulltext_updated = r.get('fulltext_updated', None)
-    processed = r.get('processed', utils.get_date('1972')) # year zero!
+    processed = r.get('processed', adsputils.get_date('1972')) # year zero!
      
     is_complete = all([bib_data_updated, orcid_claims_updated, nonbib_data_updated])
     

@@ -1,13 +1,9 @@
 import requests
 import json
-import os
-import sys
-import re
-import traceback
-from adsmp.utils import setup_logging
+from adsputils import setup_logging
 
 
-logger = setup_logging('solr_updater.log', 'SolrAdapter')
+logger = setup_logging('solr_updater')
 
 def delete_by_bibcodes(bibcodes, urls):
     '''Deletes records from SOLR, it returns the databstructure with 

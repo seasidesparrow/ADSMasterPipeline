@@ -1,5 +1,7 @@
 
-from . import utils, exceptions
+from __future__ import absolute_import, unicode_literals
+import adsputils
+from . import exceptions
 from .models import KeyValue, Records, ChangeLog, IdentifierMapping
 from celery import Celery
 from contextlib import contextmanager
@@ -10,6 +12,7 @@ from sqlalchemy.orm import sessionmaker
 import collections
 import copy
 import json
+from adsmsg import OrcidClaims, BibRecord
 
 
 
@@ -17,7 +20,7 @@ def create_app(app_name='adsmp',
                local_config=None):
     """Builds and initializes the Celery application."""
     
-    conf = utils.load_config()
+    conf = adsputils.load_config()
     if local_config:
         conf.update(local_config)
 
@@ -34,10 +37,10 @@ class ADSMasterPipelineCelery(Celery):
     
     def __init__(self, app_name, *args, **kwargs):
         Celery.__init__(self, *args, **kwargs)
-        self._config = utils.load_config()
+        self._config = adsputils.load_config()
         self._session = None
         self._engine = None
-        self.logger = utils.setup_logging(app_name, app_name) #default logger
+        self.logger = adsputils.setup_logging(app_name) #default logger
         
     
 
@@ -55,7 +58,7 @@ class ADSMasterPipelineCelery(Celery):
             self._config.update(config) #our config
             self.conf.update(config) #celery's config (devs should be careful to avoid clashes)
         
-        self.logger = utils.setup_logging(__file__, 'app', self._config.get('LOGGING_LEVEL', 'INFO'))
+        self.logger = adsputils.setup_logging('app', self._config.get('LOGGING_LEVEL', 'INFO'))
         self._engine = create_engine(config.get('SQLALCHEMY_URL', 'sqlite:///'),
                                echo=config.get('SQLALCHEMY_ECHO', False))
         self._session_factory = sessionmaker()
@@ -106,7 +109,7 @@ class ADSMasterPipelineCelery(Celery):
             if r is None:
                 r = Records(bibcode=bibcode)
                 session.add(r)
-            now = utils.get_date()
+            now = adsputils.get_date()
             oldval = None
             if type == 'metadata' or type == 'bib_data':
                 oldval = r.bib_data
@@ -191,7 +194,7 @@ class ADSMasterPipelineCelery(Celery):
             r = session.query(Records).filter_by(bibcode=bibcode).first()
             if r is None:
                 raise Exception('Cant find bibcode {0} to update timestamp'.format(bibcode))
-            r.processed = utils.get_date()
+            r.processed = adsputils.get_date()
             session.commit()
 
 
@@ -216,13 +219,12 @@ class ADSMasterPipelineCelery(Celery):
         :return: str
         """
         
-        #if isinstance(msg, BibRecord)):
-        #    return 'metadata'
-        type = None
-        return None
-        
-        if type not in ('metadata', 'orcid_claims', 'nonbib_data', 'fulltext'):
-            raise exceptions.IgnorableException('Unkwnown type {0} submitted for update'.format(type))
+        if isinstance(msg, OrcidClaims):
+            return 'orcid_claims'
+        elif isinstance(msg, BibRecord):
+            return 'metadata'
+        else:
+            raise exceptions.IgnorableException('Unkwnown type {0} submitted for update'.format(repr(msg)))
     
                 
             

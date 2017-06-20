@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
-from adsmp.utils import get_date
+from adsputils import get_date
 from datetime import datetime
 from dateutil.tz import tzutc
 from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Boolean

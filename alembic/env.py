@@ -47,11 +47,10 @@ def get_app_config(key):
     if opath not in sys.path:
         sys.path.insert(0, opath)
         
-    from adsmp import app
-    app.init_app()
+    from adsmp.tasks import app
     
-    print 'Getting actual config for', key, app.config.get(key)
-    return app.config.get(key)
+    print 'Getting actual config for', key, app.conf.get(key)
+    return app.conf.get(key)
 
 def run_migrations_online():
     """Run migrations in 'online' mode.

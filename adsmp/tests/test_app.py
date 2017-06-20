@@ -12,10 +12,11 @@ import re
 import os
 import math
 import mock
+import adsputils
 from mock import patch
 from io import BytesIO
 from datetime import datetime
-from adsmp import app, utils, models
+from adsmp import app, models
 from adsmp.models import Base
 
 class TestAdsOrcidCelery(unittest.TestCase):
@@ -51,8 +52,8 @@ class TestAdsOrcidCelery(unittest.TestCase):
     
     def test_update_records(self):
         """Makes sure we can write recs into the storage."""
-        now = utils.get_date()
-        last_time = utils.get_date()
+        now = adsputils.get_date()
+        last_time = adsputils.get_date()
         for k in ['bib_data', 'nonbib_data', 'orcid_claims']:
             self.app.update_storage('abc', k, {'foo': 'bar', 'hey': 1})
             with self.app.session_scope() as session:

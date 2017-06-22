@@ -1,5 +1,5 @@
-[![Build Status](https://travis-ci.org/adsabs/adsmp.svg)](https://travis-ci.org/adsabs/adsmp)
-[![Coverage Status](https://coveralls.io/repos/adsabs/adsmp/badge.svg)](https://coveralls.io/r/adsabs/adsmp)
+[![Build Status](https://travis-ci.org/adsabs/ADSMasterPipeline.svg)](https://travis-ci.org/adsabs/ADSMasterPipeline)
+[![Coverage Status](https://coveralls.io/repos/adsabs/ADSMasterPipeline/badge.svg)](https://coveralls.io/r/adsabs/ADSMasterPipeline)
 
 # adsmp
 

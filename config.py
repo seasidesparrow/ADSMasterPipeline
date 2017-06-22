@@ -1,3 +1,6 @@
+CELERY_DEFAULT_EXCHANGE = 'master_pipeline'
+CELERY_DEFAULT_EXCHANGE_TYPE = "topic"
+
 # Connection to the database where we save orcid-claims (this database
 # serves as a running log of claims and storage of author-related
 # information). It is not consumed by others (ie. we 'push' results) 

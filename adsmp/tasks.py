@@ -1,40 +1,27 @@
 
 from __future__ import absolute_import, unicode_literals
 import adsputils
-from adsmsg import OrcidClaims
 from adsmp import app as app_module
-from adsmp import exceptions
 from adsmp import solr_updater
-from adsmp.models import KeyValue
-from celery import Task
-from kombu import Exchange, Queue, BrokerConnection
-import datetime
+from kombu import Queue
 import math
 
 
 # ============================= INITIALIZATION ==================================== #
 
-app = app_module.create_app()
-exch = Exchange(app.conf.get('CELERY_DEFAULT_EXCHANGE', 'adsmp'), 
-                type=app.conf.get('CELERY_DEFAULT_EXCHANGE_TYPE', 'topic'))
+app = app_module.ADSMasterPipelineCelery('master-pipeline')
+logger = app.logger
+
 app.conf.CELERY_QUEUES = (
-    Queue('update-record', exch, routing_key='update-record'),
-    Queue('route-record', exch, routing_key='route-record'),
-    Queue('delete-documents', exch, routing_key='delete-documents'),
+    Queue('update-record', app.exchange, routing_key='update-record'),
+    Queue('route-record', app.exchange, routing_key='route-record'),
+    Queue('delete-documents', app.exchange, routing_key='delete-documents'),
 )
-
-logger = adsputils.setup_logging('master-pipeline', level=app.conf.get('LOGGING_LEVEL', 'INFO'))
-
-
-class MyTask(Task):
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        logger.error('{0!r} failed: {1!r}'.format(task_id, exc))
-
 
 
 # ============================= TASKS ============================================= #
 
-@app.task(base=MyTask, queue='update-record')
+@app.task(queue='update-record')
 def task_update_record(msg):
     """Receives payload to update the record.
     
@@ -56,7 +43,7 @@ def task_update_record(msg):
     
 
     
-@app.task(base=MyTask, queue='route-record')
+@app.task(queue='route-record')
 def task_route_record(bibcode, force=False, delayed=1):
     """Receives the bibcode of a document that was updated.
     (note: we could have sent the full record however we don't
@@ -129,7 +116,7 @@ def task_route_record(bibcode, force=False, delayed=1):
 
 
 
-@app.task(base=MyTask, queue='delete-documents')
+@app.task(queue='delete-documents')
 def task_delete_documents(bibcode):
     """Delete document from SOLR and from our storage.
     @param bibcode: string 

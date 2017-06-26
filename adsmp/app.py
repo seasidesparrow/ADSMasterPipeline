@@ -2,7 +2,7 @@
 from __future__ import absolute_import, unicode_literals
 from . import exceptions
 from .models import Records, ChangeLog, IdentifierMapping
-from adsmsg import OrcidClaims, BibRecord
+from adsmsg import OrcidClaims, DenormalizedRecord
 from adsputils import ADSCelery
 from sqlalchemy.orm import load_only as _load_only
 import adsputils
@@ -135,7 +135,7 @@ class ADSMasterPipelineCelery(ADSCelery):
         
         if isinstance(msg, OrcidClaims):
             return 'orcid_claims'
-        elif isinstance(msg, BibRecord):
+        elif isinstance(msg, DenormalizedRecord):
             return 'metadata'
         else:
             raise exceptions.IgnorableException('Unkwnown type {0} submitted for update'.format(repr(msg)))

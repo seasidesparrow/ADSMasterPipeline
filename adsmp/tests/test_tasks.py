@@ -7,7 +7,7 @@ import unittest
 from adsmp import app, tasks
 from adsmp.models import Base
 from adsputils import get_date
-from adsmsg import BibRecord
+from adsmsg import DenormalizedRecord
 
 class TestWorkers(unittest.TestCase):
     
@@ -35,7 +35,7 @@ class TestWorkers(unittest.TestCase):
     def test_task_update_record(self):
         with patch('adsmp.tasks.task_route_record.delay') as next_task:
             self.assertFalse(next_task.called)
-            tasks.task_update_record(BibRecord(bibcode='2015ApJ...815..133S'))
+            tasks.task_update_record(DenormalizedRecord(bibcode='2015ApJ...815..133S'))
             self.assertTrue(next_task.called)
             self.assertTrue(next_task.call_args[0], ('2015ApJ...815..133S',))
 

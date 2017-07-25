@@ -7,7 +7,7 @@ import unittest
 from adsmp import app, tasks
 from adsmp.models import Base
 from adsputils import get_date
-from adsmsg import DenormalizedRecord
+from adsmsg import DenormalizedRecord, FulltextUpdate
 
 class TestWorkers(unittest.TestCase):
 
@@ -40,6 +40,12 @@ class TestWorkers(unittest.TestCase):
             self.assertTrue(next_task.call_args[0], ('2015ApJ...815..133S',))
 
 
+    def test_task_update_record_fulltext(self):
+        with patch('adsmp.tasks.task_route_record.delay') as next_task:
+            self.assertFalse(next_task.called)
+            tasks.task_update_record(FulltextUpdate(bibcode='2015ApJ...815..133S', body='INTRODUCTION'))
+            self.assertTrue(next_task.called)
+            self.assertTrue(next_task.call_args[0], ('2015ApJ...815..133S',))
 
 
     def test_task_update_solr(self):
@@ -135,6 +141,21 @@ class TestWorkers(unittest.TestCase):
             self.assertTrue(update_solr.called)
             self.assertTrue(update_timestamp.called)
             self.assertFalse(task_route_record.called)
+
+    def test_task_update_solr7(self):
+        with patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
+            patch('adsmp.solr_updater.update_solr', return_value=None) as update_solr, \
+            patch.object(self.app, 'get_record', return_value={'bib_data_updated': None,
+                                                               'nonbib_data_updated': None,
+                                                               'orcid_claims_updated': None,
+                                                               'fulltext_claims_updated': get_date(),
+                                                               'processed': None,}), \
+            patch('adsmp.tasks.task_route_record.apply_async', return_value=None) as task_route_record:
+
+            self.assertFalse(update_solr.called)
+            tasks.task_route_record('2015ApJ...815..133S')
+            self.assertFalse(update_solr.called)
+            self.assertFalse(update_timestamp.called)
 
 
 if __name__ == '__main__':

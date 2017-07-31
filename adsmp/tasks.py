@@ -31,16 +31,21 @@ def task_update_record(msg):
         - payload: (dict)
     """
     logger.debug('Updating record: %s', msg)
-    type = app.get_msg_type(msg)
-
-
-    # save into a database
-    record = app.update_storage(msg.bibcode, type, msg.toJSON())
-    logger.debug('Saved record: %s', record)
-
-    # trigger futher processing
-    task_route_record.delay(record['bibcode'])
-
+    status = app.get_msg_status(msg)
+    
+    if status == 'deleted':
+        task_delete_documents(msg.bibcode)
+    elif status == 'active':
+        type = app.get_msg_type(msg)
+        
+        # save into a database
+        record = app.update_storage(msg.bibcode, type, msg.toJSON())
+        logger.debug('Saved record: %s', record)
+    
+        # trigger futher processing
+        task_route_record.delay(record['bibcode'])
+    else:
+        logger.error('Received a message with unclear status: %s', msg)
 
 
 @app.task(queue='route-record')
@@ -99,7 +104,8 @@ def task_route_record(bibcode, force=False, delayed=1):
         else:
             # build the record and send it to solr
             logger.debug('Updating solr')
-            solr_updater.update_solr(r, app.conf.get('SOLR_URLS'))
+            solr_doc = solr_updater.transform_json_record(r)
+            solr_updater.update_solr(solr_doc, app.conf.get('SOLR_URLS'))
             app.update_processed_timestamp(bibcode)
     else:
         # if we have at least the bib data, index it
@@ -107,21 +113,16 @@ def task_route_record(bibcode, force=False, delayed=1):
             logger.warn('Forced indexing of: %s (metadata=%s, orcid=%s, nonbib=%s, fulltext=%s)' % \
                         (bibcode, bib_data_updated, orcid_claims_updated, nonbib_data_updated, fulltext_updated))
             # build the record and send it to solr
-            solr_updater.update_solr(r, app.conf.get('SOLR_URLS'))
+            solr_doc = solr_updater.transform_json_record(r)
+            solr_updater.update_solr(solr_doc, app.conf.get('SOLR_URLS'))
             app.update_processed_timestamp(bibcode)
-        # NOTE:
-        # I suggest to remove this piece of code because it may go out of control.
-        # For instance, if fulltext is executed several times before the rest of
-        # the information is in place, we will create a new recurring callback
-        # each time and I interpret that none of them will find a end...
-        #else:
-            ## if not complete, register a delayed execution
-            #c = min(app.conf.get('MAX_DELAY', 24*3600*2), # two days
-                                #math.pow(app.conf.get('DELAY_BASE', 10), delayed))
-            #logger.warn('{bibcode} is not yet complete, registering delayed execution in {time}s'.format(
-                            #bibcode=bibcode, time=c))
-            #task_route_record.apply_async((bibcode, delayed+1), countdown = c)
-            #return
+        else:
+            # if not complete, register a delayed execution
+            c = min(app.conf.get('MAX_DELAY', 24*3600*2), # two days
+                                math.pow(app.conf.get('DELAY_BASE', 10), delayed))
+            logger.warn('{bibcode} is not yet complete, registering delayed execution in {time}s'.format(
+                            bibcode=bibcode, time=c))
+            return task_route_record.apply_async((bibcode, delayed+1), countdown = c)
 
 
 

@@ -12,33 +12,43 @@ warnings.simplefilter('ignore', exceptions.InsecurePlatformWarning)
 
 from adsputils import setup_logging, get_date
 from adsmp.models import KeyValue, Records
-from adsmp import tasks
+from adsmp import tasks, solr_updater
 
 app = tasks.app
 logger = setup_logging('run.py')
 
 
-
+def _print_record(bibcode):
+    with app.session_scope() as session:
+        print 'stored by us:', bibcode
+        r = session.query(Records).filter_by(bibcode=bibcode).first()
+        if r:
+            print r.toJSON()
+        else:
+            print 'None'
+        print '-' * 80
+        
+        print 'as seen by SOLR'
+        solr_doc = solr_updater.transform_json_record(r.toJSON())
+        print solr_doc
+        print '=' * 80
+        
 def diagnostics(bibcodes):
     """
     Show information about what we have in our storage.
     
     :param: bibcodes - list of bibcodes
     """
-    with app.session_scope() as session:
-        if bibcodes:
-            for b in bibcodes:
-                print 'bibcode:', b
-                r = session.query(Records).filter_by(bibcode=b).first()
-                if r:
-                    print r.toJSON()
-                else:
-                    print 'None'
-        else:
-            'Printing 3 randomly selected records (if any)'
+    if bibcodes:
+        for b in bibcodes:
+            _print_record(b)
+    else:
+        'Printing 3 randomly selected records (if any)'
+        with app.session_scope() as session:
             for r in session.query(Records).limit(3).all():
-                print r.toJSON()
-        
+                _print_record(r.bibcode)
+    
+    with app.session_scope() as session:
         print '# of records in db:', session.query(Records.id).count()
     
             

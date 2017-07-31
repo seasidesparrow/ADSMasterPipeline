@@ -16,7 +16,7 @@ logger = setup_logging('solr_updater')
 DB_COLUMN_DESTINATIONS = {
     'bib_data': '', 
     'orcid_claims': 'orcid_claims', 
-    'nonbib_data': None,
+    'nonbib_data': '',
     'id': 'id', 
     'fulltext': 'body'}
 

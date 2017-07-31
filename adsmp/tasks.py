@@ -86,6 +86,7 @@ def task_route_record(bibcode, force=False, delayed=1):
     orcid_claims_updated = r.get('orcid_claims_updated', None)
     nonbib_data_updated = r.get('nonbib_data_updated', None)
     fulltext_updated = r.get('fulltext_updated', None)
+    metrics_updated = r.get('metrics_updated', None)
 
     year_zero = '1972'
     processed = r.get('processed', adsputils.get_date(year_zero))
@@ -117,12 +118,9 @@ def task_route_record(bibcode, force=False, delayed=1):
             solr_updater.update_solr(solr_doc, app.conf.get('SOLR_URLS'))
             app.update_processed_timestamp(bibcode)
         else:
-            # if not complete, register a delayed execution
-            c = min(app.conf.get('MAX_DELAY', 24*3600*2), # two days
-                                math.pow(app.conf.get('DELAY_BASE', 10), delayed))
-            logger.warn('{bibcode} is not yet complete, registering delayed execution in {time}s'.format(
-                            bibcode=bibcode, time=c))
-            return task_route_record.apply_async((bibcode, delayed+1), countdown = c)
+            
+            logger.warn('{bibcode} is missing bib data, even with force=True, this cannot proceed'.format(
+                            bibcode=bibcode))
 
 
 

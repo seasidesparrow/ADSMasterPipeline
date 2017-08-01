@@ -48,11 +48,13 @@ class Records(Base):
     orcid_claims = Column(Text)
     nonbib_data = Column(Text)
     fulltext = Column(Text)
+    metrics = Column(Text)
 
     bib_data_updated = Column(UTCDateTime, default=None)
     orcid_claims_updated = Column(UTCDateTime, default=None)
     nonbib_data_updated = Column(UTCDateTime, default=None)
     fulltext_updated = Column(UTCDateTime, default=None)
+    metrics_updated = Column(UTCDateTime, default=None)
 
     created = Column(UTCDateTime, default=get_date)
     updated = Column(UTCDateTime, default=get_date)
@@ -60,9 +62,9 @@ class Records(Base):
 
     _date_fields = ['created', 'updated', 'processed',  # dates
                       'bib_data_updated', 'orcid_claims_updated', 'nonbib_data_updated',
-                      'fulltext_updated']
+                      'fulltext_updated', 'metrics_updated']
     _text_fields = ['id', 'bibcode', 'fulltext']
-    _json_fields = ['bib_data', 'orcid_claims', 'nonbib_data']
+    _json_fields = ['bib_data', 'orcid_claims', 'nonbib_data', 'metrics']
 
     def toJSON(self, for_solr=False, load_only=None):
         if for_solr:

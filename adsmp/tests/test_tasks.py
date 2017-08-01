@@ -51,7 +51,8 @@ class TestWorkers(unittest.TestCase):
     def test_task_update_solr(self):
         with patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
             patch('adsmp.solr_updater.update_solr', return_value=None) as update_solr, \
-            patch.object(self.app, 'get_record', return_value={'bib_data_updated': get_date(),
+            patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
+                                                               'bib_data_updated': get_date(),
                                                                'nonbib_data_updated': get_date(),
                                                                'orcid_claims_updated': get_date(),
                                                                'processed': get_date('2012'),}), \
@@ -66,7 +67,8 @@ class TestWorkers(unittest.TestCase):
     def test_task_update_solr2(self):
         with patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
             patch('adsmp.solr_updater.update_solr', return_value=None) as update_solr, \
-            patch.object(self.app, 'get_record', return_value={'bib_data_updated': get_date(),
+            patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
+                                                               'bib_data_updated': get_date(),
                                                                'nonbib_data_updated': get_date(),
                                                                'orcid_claims_updated': get_date(),
                                                                'processed': get_date('2025'),}), \
@@ -82,7 +84,8 @@ class TestWorkers(unittest.TestCase):
     def test_task_update_solr3(self):
         with patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
             patch('adsmp.solr_updater.update_solr', return_value=None) as update_solr, \
-            patch.object(self.app, 'get_record', return_value={'bib_data_updated': get_date(),
+            patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
+                                                               'bib_data_updated': get_date(),
                                                                'nonbib_data_updated': get_date(),
                                                                'orcid_claims_updated': get_date(),
                                                                'processed': get_date('2025'),}), \
@@ -97,7 +100,8 @@ class TestWorkers(unittest.TestCase):
     def test_task_update_solr4(self):
         with patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
             patch('adsmp.solr_updater.update_solr', return_value=None) as update_solr, \
-            patch.object(self.app, 'get_record', return_value={'bib_data_updated': None,
+            patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
+                                                               'bib_data_updated': None,
                                                                'nonbib_data_updated': get_date(),
                                                                'orcid_claims_updated': get_date(),
                                                                'processed': None,}), \
@@ -113,7 +117,8 @@ class TestWorkers(unittest.TestCase):
     def test_task_update_solr5(self):
         with patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
             patch('adsmp.solr_updater.update_solr', return_value=None) as update_solr, \
-            patch.object(self.app, 'get_record', return_value={'bib_data_updated': None,
+            patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
+                                                               'bib_data_updated': None,
                                                                'nonbib_data_updated': get_date(),
                                                                'orcid_claims_updated': get_date(),
                                                                'processed': None,}), \
@@ -130,7 +135,8 @@ class TestWorkers(unittest.TestCase):
     def test_task_update_solr6(self):
         with patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
             patch('adsmp.solr_updater.update_solr', return_value=None) as update_solr, \
-            patch.object(self.app, 'get_record', return_value={'bib_data_updated': get_date(),
+            patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
+                                                               'bib_data_updated': get_date(),
                                                                'nonbib_data_updated': None,
                                                                'orcid_claims_updated': get_date(),
                                                                'processed': None,}), \
@@ -145,7 +151,8 @@ class TestWorkers(unittest.TestCase):
     def test_task_update_solr7(self):
         with patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
             patch('adsmp.solr_updater.update_solr', return_value=None) as update_solr, \
-            patch.object(self.app, 'get_record', return_value={'bib_data_updated': None,
+            patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
+                                                               'bib_data_updated': None,
                                                                'nonbib_data_updated': None,
                                                                'orcid_claims_updated': None,
                                                                'fulltext_claims_updated': get_date(),

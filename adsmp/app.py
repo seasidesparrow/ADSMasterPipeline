@@ -3,6 +3,7 @@ from __future__ import absolute_import, unicode_literals
 from . import exceptions
 from .models import Records, ChangeLog, IdentifierMapping
 from adsmsg import OrcidClaims, DenormalizedRecord, FulltextUpdate
+from adsmsg.msg import Msg
 from adsputils import ADSCelery
 from sqlalchemy.orm import load_only as _load_only
 import adsputils
@@ -143,4 +144,19 @@ class ADSMasterPipelineCelery(ADSCelery):
             raise exceptions.IgnorableException('Unkwnown type {0} submitted for update'.format(repr(msg)))
 
 
+    
+    def get_msg_status(self, msg):
+        """Identifies the type of this supplied message.
 
+        :param: Protobuf instance
+        :return: str
+        """
+
+        if isinstance(msg, Msg):
+            status = msg.status
+            if status == 1:
+                return 'deleted'
+            else:
+                return 'active'
+        else:
+            return 'unknown'

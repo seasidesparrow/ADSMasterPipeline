@@ -14,8 +14,8 @@ logger = app.logger
 
 app.conf.CELERY_QUEUES = (
     Queue('update-record', app.exchange, routing_key='update-record'),
-    Queue('route-record', app.exchange, routing_key='route-record'),
-    Queue('delete-documents', app.exchange, routing_key='delete-documents'),
+    Queue('index-records', app.exchange, routing_key='route-record'),
+    Queue('delete-records', app.exchange, routing_key='delete-records'),
 )
 
 
@@ -43,14 +43,18 @@ def task_update_record(msg):
         logger.debug('Saved record: %s', record)
     
         # trigger futher processing
-        task_route_record.delay(record['bibcode'])
+        task_index_records.delay(record['bibcode'])
     else:
         logger.error('Received a message with unclear status: %s', msg)
 
 
-@app.task(queue='route-record')
-def task_route_record(bibcode, force=False, delayed=1):
-    """Receives the bibcode of a document that was updated.
+@app.task(queue='index-records')
+def task_index_records(bibcodes, force=False):
+    """
+    This task is (normally) called by the cronjob task
+    (that one, quite obviously, is in turn started by cron)
+    
+    Receives the bibcode of a document that was updated.
     (note: we could have sent the full record however we don't
     do it because the messages might be delayed and we can have
     multiple workers updating the same record; so we want to
@@ -74,57 +78,76 @@ def task_route_record(bibcode, force=False, delayed=1):
 
     """
 
-    logger.debug('Running after-update for: %s', bibcode)
-
+    logger.debug('Running after-update for: %s', bibcodes)
+    batch = []
+    batch_insert = []
+    batch_update = []
+    
     #check if we have complete record
-    r = app.get_record(bibcode)
-
-    if r is None:
-        raise Exception('The bibcode {0} doesn\'t exist!'.format(bibcode))
-
-    bib_data_updated = r.get('bib_data_updated', None)
-    orcid_claims_updated = r.get('orcid_claims_updated', None)
-    nonbib_data_updated = r.get('nonbib_data_updated', None)
-    fulltext_updated = r.get('fulltext_updated', None)
-    metrics_updated = r.get('metrics_updated', None)
-
-    year_zero = '1972'
-    processed = r.get('processed', adsputils.get_date(year_zero))
-    if processed is None:
-        # It was never sent to Solr
-        processed = adsputils.get_date(year_zero)
-
-    is_complete = all([bib_data_updated, orcid_claims_updated, nonbib_data_updated])
-
-    if is_complete:
-        if force is False and all([bib_data_updated and bib_data_updated < processed,
-               orcid_claims_updated and orcid_claims_updated < processed,
-               nonbib_data_updated and nonbib_data_updated < processed]):
-            logger.debug('Nothing to do, it was already indexed/processed')
-            return
+    for bibcode in bibcodes:
+        r = app.get_record(bibcode)
+    
+        if r is None:
+            raise Exception('The bibcode {0} doesn\'t exist!'.format(bibcode))
+    
+        bib_data_updated = r.get('bib_data_updated', None)
+        orcid_claims_updated = r.get('orcid_claims_updated', None)
+        nonbib_data_updated = r.get('nonbib_data_updated', None)
+        fulltext_updated = r.get('fulltext_updated', None)
+        metrics_updated = r.get('metrics_updated', None)
+    
+        year_zero = '1972'
+        processed = r.get('processed', adsputils.get_date(year_zero))
+        if processed is None:
+            # It was never sent to Solr
+            processed = adsputils.get_date(year_zero)
+    
+        is_complete = all([bib_data_updated, orcid_claims_updated, nonbib_data_updated])
+    
+        if is_complete:
+            if force is False and all([bib_data_updated and bib_data_updated < processed,
+                   orcid_claims_updated and orcid_claims_updated < processed,
+                   nonbib_data_updated and nonbib_data_updated < processed]):
+                logger.debug('Nothing to do for %s, it was already indexed/processed', bibcode)
+                continue
+            else:
+                # build the solr record
+                batch.append(solr_updater.transform_json_record(r))
+                # get data for metrics
+                m = r.get('metrics', None)
+                if m:
+                    if r.get('processed'):
+                        batch_update.append((bibcode, m))
+                    else:
+                        batch_insert((bibcode, m))
         else:
-            # build the record and send it to solr
-            logger.debug('Updating solr')
-            solr_doc = solr_updater.transform_json_record(r)
-            solr_updater.update_solr(solr_doc, app.conf.get('SOLR_URLS'))
-            app.update_processed_timestamp(bibcode)
-    else:
-        # if we have at least the bib data, index it
-        if force is True and bib_data_updated:
-            logger.warn('Forced indexing of: %s (metadata=%s, orcid=%s, nonbib=%s, fulltext=%s)' % \
-                        (bibcode, bib_data_updated, orcid_claims_updated, nonbib_data_updated, fulltext_updated))
-            # build the record and send it to solr
-            solr_doc = solr_updater.transform_json_record(r)
-            solr_updater.update_solr(solr_doc, app.conf.get('SOLR_URLS'))
-            app.update_processed_timestamp(bibcode)
-        else:
-            
-            logger.warn('{bibcode} is missing bib data, even with force=True, this cannot proceed'.format(
-                            bibcode=bibcode))
+            # if forced and we have at least the bib data, index it
+            if force is True and bib_data_updated:
+                logger.warn('Forced indexing of: %s (metadata=%s, orcid=%s, nonbib=%s, fulltext=%s, metrics=%s)' % \
+                            (bibcode, bib_data_updated, orcid_claims_updated, nonbib_data_updated, fulltext_updated, \
+                             metrics_updated))
+                # build the record and send it to solr
+                batch.append(solr_updater.transform_json_record(r))
+                # get data for metrics
+                m = r.get('metrics', None)
+                if m:
+                    if r.get('processed'):
+                        batch_update.append((bibcode, m))
+                    else:
+                        batch_insert((bibcode, m))
+            else:
+                
+                logger.warn('{bibcode} is missing bib data, even with force=True, this cannot proceed'.format(
+                                bibcode=bibcode))
+        
+        app.reindex(batch, batch_insert, batch_update, app.conf.get('SOLR_URLS'))
 
 
 
-@app.task(queue='delete-documents')
+
+
+
+@app.task(queue='delete-records')
 def task_delete_documents(bibcode):
     """Delete document from SOLR and from our storage.
     @param bibcode: string

@@ -4,10 +4,11 @@
 from adsputils import get_date
 from datetime import datetime
 from dateutil.tz import tzutc
-from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Boolean
+from sqlalchemy import Column, Integer, String, Text, TIMESTAMP, Boolean, DateTime
 from sqlalchemy import types
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.types import Enum
+from sqlalchemy.dialects import postgresql
 import json
 
 Base = declarative_base()
@@ -123,3 +124,26 @@ class IdentifierMapping(Base):
 
     def toJSON(self):
         return {'key': self.key, 'target': self.target }
+
+
+## This definition is copied directly from: https://github.com/adsabs/metrics_service/blob/master/service/models.py
+## We need to have it when we are sending/writing data into the metrics database
+class MetricsModel(Base):
+    __tablename__ = 'metrics'
+    __bind_key__ = 'metrics'
+    id = Column(Integer, primary_key=True)
+    bibcode = Column(String, nullable=False, index=True)
+    refereed = Column(Boolean)
+    rn_citations = Column(postgresql.REAL)
+    rn_citation_data = Column(postgresql.JSON)
+    downloads = Column(postgresql.ARRAY(Integer))
+    reads = Column(postgresql.ARRAY(Integer))
+    an_citations = Column(postgresql.REAL)
+    refereed_citation_num = Column(Integer)
+    citation_num = Column(Integer)
+    reference_num = Column(Integer)
+    citations = Column(postgresql.ARRAY(String))
+    refereed_citations = Column(postgresql.ARRAY(String))
+    author_num = Column(Integer)
+    an_refereed_citations = Column(postgresql.REAL)
+    modtime = Column(DateTime)

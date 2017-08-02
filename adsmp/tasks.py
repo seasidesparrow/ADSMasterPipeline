@@ -107,47 +107,38 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
     
         is_complete = all([bib_data_updated, orcid_claims_updated, nonbib_data_updated])
     
-        if is_complete:
+        if is_complete or (force is True and bib_data_updated):
+            
             if force is False and all([bib_data_updated and bib_data_updated < processed,
                    orcid_claims_updated and orcid_claims_updated < processed,
                    nonbib_data_updated and nonbib_data_updated < processed]):
                 logger.debug('Nothing to do for %s, it was already indexed/processed', bibcode)
                 continue
-            else:
-                # build the solr record
-                if update_solr:
-                    batch.append(solr_updater.transform_json_record(r))
-                # get data for metrics
-                if update_metrics:
-                    m = r.get('metrics', None)
-                    if m:
-                        m['bibcode'] = bibcode 
-                        if r.get('processed'):
-                            batch_update.append(m)
-                        else:
-                            batch_insert(m)
-        else:
-            # if forced and we have at least the bib data, index it
-            if force is True and bib_data_updated:
+            
+            if force:
                 logger.warn('Forced indexing of: %s (metadata=%s, orcid=%s, nonbib=%s, fulltext=%s, metrics=%s)' % \
                             (bibcode, bib_data_updated, orcid_claims_updated, nonbib_data_updated, fulltext_updated, \
                              metrics_updated))
-                # build the record and send it to solr
-                if update_solr:
-                    batch.append(solr_updater.transform_json_record(r))
-                # get data for metrics
-                if update_metrics:
-                    m = r.get('metrics', None) # could do dict(m), but seems overkill
-                    if m:
-                        m['bibcode'] = bibcode # it should be there already, but let's play safe...
-                        if r.get('processed'):
-                            batch_update.append(m)
-                        else:
-                            batch_insert.append(m)
+
+            # build the solr record
+            if update_solr:
+                batch.append(solr_updater.transform_json_record(r))
+            # get data for metrics
+            if update_metrics:
+                m = r.get('metrics', None)
+                if m:
+                    m['bibcode'] = bibcode 
+                    if r.get('processed'):
+                        batch_update.append(m)
+                    else:
+                        batch_insert(m)
+        else:
+            # if forced and we have at least the bib data, index it
+            if force is True:
+                logger.warn('%s is missing bib data, even with force=True, this cannot proceed', bibcode)
             else:
+                logger.debug('%s not ready for indexing yet', bibcode)
                 
-                logger.warn('{bibcode} is missing bib data, even with force=True, this cannot proceed'.format(
-                                bibcode=bibcode))
         
         failed_bibcodes = None
         if len(batch):

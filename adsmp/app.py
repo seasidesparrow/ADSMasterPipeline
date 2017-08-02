@@ -11,7 +11,7 @@ import adsputils
 import json
 from adsmp.models import MetricsModel
 from adsmp import solr_updater
-
+from adsputils import serializer
 
 
 
@@ -108,7 +108,7 @@ class ADSMasterPipelineCelery(ADSCelery):
         with self.session_scope() as session:
             r = session.query(Records).filter_by(bibcode=bibcode).first()
             if r is not None:
-                session.add(ChangeLog(key=bibcode, type='deleted', oldvalue=r.toJSON()))
+                session.add(ChangeLog(key='bibcode:%s' % bibcode, type='deleted', oldvalue=serializer.dumps(r.toJSON())))
                 session.delete(r)
                 session.commit()
 
@@ -121,19 +121,21 @@ class ADSMasterPipelineCelery(ADSCelery):
             r = session.query(Records).filter_by(bibcode=old_bibcode).first()
             if r is not None:
 
-                t = session.query(IdentifierMapping).filter_by(bibcode=old_bibcode).first()
+                t = session.query(IdentifierMapping).filter_by(key=old_bibcode).first()
                 if t is None:
                     session.add(IdentifierMapping(key=old_bibcode, target=new_bibcode))
                 else:
                     while t is not None:
                         target = t.target
                         t.target = new_bibcode
-                        t = session.query(IdentifierMapping).filter_by(bibcode=target).first()
+                        t = session.query(IdentifierMapping).filter_by(key=target).first()
 
 
-                session.add(ChangeLog(key=new_bibcode, type='renamed', oldvalue=r.bibcode, permanent=True))
+                session.add(ChangeLog(key='bibcode:%s' % new_bibcode, type='renamed', oldvalue=r.bibcode, permanent=True))
                 r.bibcode = new_bibcode
                 session.commit()
+            else:
+                self.logger.error('Rename operation, bibcode doesnt exist: old=%s, new=%s', old_bibcode, new_bibcode)
 
 
     def get_record(self, bibcode, load_only=None):
@@ -175,8 +177,7 @@ class ADSMasterPipelineCelery(ADSCelery):
             to_collect = [bibcode]
             while len(to_collect):
                 for x in session.query(IdentifierMapping).filter_by(key=to_collect.pop()).all():
-                    if x.type == 'renamed':
-                        to_collect.append(x.oldvalue)
+                    to_collect.append(x.target)
                     out.append(x.toJSON())
         return out
 
@@ -244,7 +245,8 @@ class ADSMasterPipelineCelery(ADSCelery):
                     failed_bibcode = doc['bibcode']
                     self.logger.error('Failed posting data to %s\noffending payload: %s', solr_urls, doc)
                     failed_bibcodes.append(failed_bibcode)
-                    
+
+        return failed_bibcodes
 
     
     def _mark_processed(self, solr_docs):

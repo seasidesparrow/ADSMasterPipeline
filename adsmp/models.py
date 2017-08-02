@@ -111,7 +111,6 @@ class ChangeLog(Base):
         return {'id': self.id,
                 'key': self.key,
                 'created': self.created and get_date(self.created).isoformat() or None,
-                'newvalue': self.newvalue,
                 'oldvalue': self.oldvalue
                 }
 

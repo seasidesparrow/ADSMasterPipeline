@@ -60,7 +60,7 @@ def print_kvs():
             print kv.key, kv.value
 
 
-def reindex(since=None, batch_size=None, force=False):
+def reindex(since=None, batch_size=None, force=False, update_solr=True, update_metrics=True):
     """
     Initiates routing of the records (everything that was updated)
     since point in time T.
@@ -69,6 +69,14 @@ def reindex(since=None, batch_size=None, force=False):
         key = 'last.reindex.forced'
     else:
         key = 'last.reindex.normal'
+        
+    if update_solr and update_metrics:
+        pass # default
+    elif update_solr:
+        key = key + '.solr-only'
+    else:
+        key = key + '.metrics-only'
+        
         
     now = get_date()
     if since is None:
@@ -109,11 +117,11 @@ def reindex(since=None, batch_size=None, force=False):
                 batch.append(rec.bibcode)
                 continue
             
-            tasks.task_index_records.delay(batch)
+            tasks.task_index_records.delay(batch, force=force, update_solr=update_solr, update_metrics=update_metrics)
             batch = []
             
     if len(batch) > 0:
-        tasks.task_index_records.delay(batch)
+        tasks.task_index_records.delay(batch, force=force, update_solr=update_solr, update_metrics=update_metrics)
     
     logger.info('Done processing %s records (%s were ignored)', sent+ignored, ignored)
     
@@ -143,7 +151,7 @@ if __name__ == '__main__':
     
     parser.add_argument('-s', 
                         '--since', 
-                        dest='since_date', 
+                        dest='since', 
                         action='store',
                         default=None,
                         help='Starting date for reindexing')
@@ -158,10 +166,12 @@ if __name__ == '__main__':
     parser.add_argument('-r',
                         '--index',
                         dest='reindex',
-                        action='store_true',
-                        help='Sent all updated documents to SOLR/Postgres (you can combine with --since)')
+                        action='store',
+                        help='Sent all updated documents to SOLR/Postgres (you can combine with --since).' + 
+                        'Default is to update both solr and metrics. You can choose what to update.' + 
+                        '(s = update solr, m = update metrics)')
     
-    parser.add_argument('-b', 
+    parser.add_argument('-e', 
                         '--batch_size', 
                         dest='batch_size', 
                         action='store_true',
@@ -180,5 +190,9 @@ if __name__ == '__main__':
     if args.diagnostics:
         diagnostics(args.bibcodes)
         
+    print args
     if args.reindex:
-        reindex(since=args.since, batch_size=args.batch_size, force=args.force)
+        update_solr = 's' in args.reindex.lower()
+        update_metrics = 'm' in args.reindex.lower()
+        reindex(since=args.since, batch_size=args.batch_size, force=args.force, 
+                update_solr=update_solr, update_metrics=update_metrics)

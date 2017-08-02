@@ -220,21 +220,19 @@ class ADSMasterPipelineCelery(ADSCelery):
         
     
 
-    def reindex(self, solr_docs, batch_insert, batch_update, solr_urls):
+    def reindex(self, solr_docs, solr_urls):
         """Sends documents to solr and to Metrics DB.
         
         :param: solr_docs - list of json objects (solr documents)
-        :param: batch_insert - list of json objects to insert into the metrics
-        :param: batch_update - list of json objects to update in metrics db
         :param: solr_urls - list of strings, solr servers.
         """
         
         out = solr_updater.update_solr(solr_docs, solr_urls, ignore_errors=True)
+        failed_bibcodes = []
         errs = [x for x in out if x != 200]
         
         if len(errs) == 0:
             self._mark_processed(solr_docs)
-            self._insert_into_metrics_db(batch_insert, batch_update)
         else:
             # recover from erros by inserting docs one by one
             for doc in solr_docs:
@@ -244,16 +242,8 @@ class ADSMasterPipelineCelery(ADSCelery):
                 except:
                     failed_bibcode = doc['bibcode']
                     self.logger.error('Failed posting data to %s\noffending payload: %s', solr_urls, doc)
+                    failed_bibcodes.append(failed_bibcode)
                     
-                    # when solr_urls > 1, some of the servers may have successfully indexed
-                    # but here we are refusing to pass data to metrics db; this seems the 
-                    # right choice because there is only one metrics db (but if we had many,
-                    # then we could differentiate) 
-                    
-                    batch_insert = filter(lambda x: x['bibcode'] != failed_bibcode, batch_insert)
-                    batch_update = filter(lambda x: x['bibcode'] != failed_bibcode, batch_update)
-                    
-            self._insert_into_metrics_db(batch_insert, batch_update)
 
     
     def _mark_processed(self, solr_docs):
@@ -264,12 +254,16 @@ class ADSMasterPipelineCelery(ADSCelery):
             session.commit()
 
 
-    def _insert_into_metrics_db(self, batch_insert, batch_update):
-        """Inserts data into the metrics DB."""
+    def update_metrics_db(self, batch_insert, batch_update):
+        """Inserts data into the metrics DB.
+        :param: batch_insert - list of json objects to insert into the metrics
+        :param: batch_update - list of json objects to update in metrics db
+        
+        """
         if not self._metrics_table:
             raise Exception('You cant do this! Missing METRICS_SQLALACHEMY_URL?')
         
         # Note: PSQL v9.5 has UPSERT statements, the older versions don't have
         # efficient UPDATE ON DUPLICATE INSERT .... so we do it twice 
         self._metrics_conn.execute(self._metrics_table_insert, batch_insert)
-        self._metrics_conn.execute(self._metrics_table_insert, batch_update)            
+        self._metrics_conn.execute(self._metrics_table_update, batch_update)            

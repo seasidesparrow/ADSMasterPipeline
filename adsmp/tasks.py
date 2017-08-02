@@ -25,10 +25,9 @@ app.conf.CELERY_QUEUES = (
 def task_update_record(msg):
     """Receives payload to update the record.
 
-    @param msg: protobuff that contains the following fields
+    @param msg: protobuff that contains at minimum
         - bibcode
-        - origin: (str) pipeline
-        - payload: (dict)
+        - and specific payload
     """
     logger.debug('Updating record: %s', msg)
     status = app.get_msg_status(msg)
@@ -49,7 +48,7 @@ def task_update_record(msg):
 
 
 @app.task(queue='index-records')
-def task_index_records(bibcodes, force=False):
+def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=True):
     """
     This task is (normally) called by the cronjob task
     (that one, quite obviously, is in turn started by cron)
@@ -77,6 +76,9 @@ def task_index_records(bibcodes, force=False):
     indexed twice; first with only metadata and later on incl fulltext)
 
     """
+    
+    if not (update_solr or update_metrics):
+        raise Exception('Hmmm, I dont think I let you do NOTHING, sorry!')
 
     logger.debug('Running after-update for: %s', bibcodes)
     batch = []
@@ -113,14 +115,16 @@ def task_index_records(bibcodes, force=False):
                 continue
             else:
                 # build the solr record
-                batch.append(solr_updater.transform_json_record(r))
+                if update_solr:
+                    batch.append(solr_updater.transform_json_record(r))
                 # get data for metrics
-                m = r.get('metrics', None)
-                if m:
-                    if r.get('processed'):
-                        batch_update.append((bibcode, m))
-                    else:
-                        batch_insert((bibcode, m))
+                if update_metrics:
+                    m = r.get('metrics', None)
+                    if m:
+                        if r.get('processed'):
+                            batch_update.append((bibcode, m))
+                        else:
+                            batch_insert((bibcode, m))
         else:
             # if forced and we have at least the bib data, index it
             if force is True and bib_data_updated:
@@ -128,20 +132,37 @@ def task_index_records(bibcodes, force=False):
                             (bibcode, bib_data_updated, orcid_claims_updated, nonbib_data_updated, fulltext_updated, \
                              metrics_updated))
                 # build the record and send it to solr
-                batch.append(solr_updater.transform_json_record(r))
+                if update_solr:
+                    batch.append(solr_updater.transform_json_record(r))
                 # get data for metrics
-                m = r.get('metrics', None)
-                if m:
-                    if r.get('processed'):
-                        batch_update.append((bibcode, m))
-                    else:
-                        batch_insert((bibcode, m))
+                if update_metrics:
+                    m = r.get('metrics', None)
+                    if m:
+                        if r.get('processed'):
+                            batch_update.append((bibcode, m))
+                        else:
+                            batch_insert.append((bibcode, m))
             else:
                 
                 logger.warn('{bibcode} is missing bib data, even with force=True, this cannot proceed'.format(
                                 bibcode=bibcode))
         
-        app.reindex(batch, batch_insert, batch_update, app.conf.get('SOLR_URLS'))
+        if len(batch):
+            failed_bibcodes = app.reindex(batch, app.conf.get('SOLR_URLS'))
+        
+        if failed_bibcodes and len(failed_bibcodes):
+            failed_bibcodes = set(failed_bibcodes)
+            # when solr_urls > 1, some of the servers may have successfully indexed
+            # but here we are refusing to pass data to metrics db; this seems the 
+            # right choice because there is only one metrics db (but if we had many,
+            # then we could differentiate) 
+                    
+            batch_insert = filter(lambda x: x['bibcode'] not in failed_bibcodes, batch_insert)
+            batch_update = filter(lambda x: x['bibcode'] not in failed_bibcodes, batch_update)
+        
+        if len(batch_insert) or len(batch_update):
+            app.update_metrics_db(batch_insert, batch_update)
+        
 
 
 

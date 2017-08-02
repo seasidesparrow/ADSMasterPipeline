@@ -121,10 +121,11 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                 if update_metrics:
                     m = r.get('metrics', None)
                     if m:
+                        m['bibcode'] = bibcode 
                         if r.get('processed'):
-                            batch_update.append((bibcode, m))
+                            batch_update.append(m)
                         else:
-                            batch_insert((bibcode, m))
+                            batch_insert(m)
         else:
             # if forced and we have at least the bib data, index it
             if force is True and bib_data_updated:
@@ -136,17 +137,19 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                     batch.append(solr_updater.transform_json_record(r))
                 # get data for metrics
                 if update_metrics:
-                    m = r.get('metrics', None)
+                    m = r.get('metrics', None) # could do dict(m), but seems overkill
                     if m:
+                        m['bibcode'] = bibcode # it should be there already, but let's play safe...
                         if r.get('processed'):
-                            batch_update.append((bibcode, m))
+                            batch_update.append(m)
                         else:
-                            batch_insert.append((bibcode, m))
+                            batch_insert.append(m)
             else:
                 
                 logger.warn('{bibcode} is missing bib data, even with force=True, this cannot proceed'.format(
                                 bibcode=bibcode))
         
+        failed_bibcodes = None
         if len(batch):
             failed_bibcodes = app.reindex(batch, app.conf.get('SOLR_URLS'))
         

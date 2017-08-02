@@ -226,6 +226,7 @@ class ADSMasterPipelineCelery(ADSCelery):
         :param: solr_docs - list of json objects (solr documents)
         :param: solr_urls - list of strings, solr servers.
         """
+        self.logger.debug('Updating solr: num_docs=%s solr_urls=%s', len(solr_docs), solr_urls)
         
         out = solr_updater.update_solr(solr_docs, solr_urls, ignore_errors=True)
         failed_bibcodes = []
@@ -249,8 +250,9 @@ class ADSMasterPipelineCelery(ADSCelery):
     def _mark_processed(self, solr_docs):
         bibcodes = [x['bibcode'] for x in solr_docs]
         now = adsputils.get_date()
+        self.logger.debug('Marking docs as processed: now=%s, bibcodes=%s (num bibcodes=%s)', now, bibcodes[0:10], len(bibcodes))
         with self.session_scope() as session:
-            session.query(Records).filter(Records.bibcode == bibcodes).update({'processed': now})
+            session.query(Records).filter(Records.bibcode.in_(bibcodes)).update({'processed': now}, synchronize_session=False)
             session.commit()
 
 
@@ -262,6 +264,8 @@ class ADSMasterPipelineCelery(ADSCelery):
         """
         if not self._metrics_table:
             raise Exception('You cant do this! Missing METRICS_SQLALACHEMY_URL?')
+        
+        self.logger.debug('Updating metrics db: len(batch_insert)=%s len(batch_upate)=%s', len(batch_insert), len(batch_update))
         
         # Note: PSQL v9.5 has UPSERT statements, the older versions don't have
         # efficient UPDATE ON DUPLICATE INSERT .... so we do it twice 

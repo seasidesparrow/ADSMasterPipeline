@@ -31,11 +31,10 @@ The pipeline will NOT send anything to SOLR/Metrics DB by default. You should tr
     - normal mode (`python run.py -r`): will discover all updates that happened since the last invocation
         of the normal mode and will send them to the `index-records` queue; the parameter force will be set to False; hence only documents that have both metadata, orcid claims, and non-bib data will get sent to solr
         
-    - pushy mode (`python run.py -r -f`) will discover all updates since the last invocation of the 'pushy' mode; and will send them to `index-records` queue and set force=True; this will force the worker to submit data to solr
-        as soon as we have any updates (only biblio metadata need be present)
+    - pushy mode (`python run.py -r -f`) will discover all updates since the last invocation of the 'pushy' mode; and will send them to `index-records` queue and set force=True; this will force the worker to submit data to solr immediately (so effectively, this means any update to a record triggers push). Regardless, we always wait till we have bibliographic metadata.
         
- It is **imperative** that both modes of operation be used together in the 24h cycle. The normal operation will ignore some (many)
- records - so you must call the `busy` mode at least at the end of the quiet period. The suggested mode is the following:
+ It is **imperative** that both modes of operation be used together in the 24h cycle. The normal mode will ignore some (many)
+ records - so you must call the `pushy` mode at least at the end of the quiet period. The suggested schedule is the following (all times UTC):
  
   00:00-05:00 | normal mode, invoked every 5 mins
   05:00-06:00 | catch updates, invoke forced mode

@@ -12,6 +12,7 @@ from sqlalchemy.dialects import postgresql
 import json
 
 Base = declarative_base()
+MetricsBase = declarative_base()
 
 
 class UTCDateTime(types.TypeDecorator):
@@ -128,7 +129,7 @@ class IdentifierMapping(Base):
 
 ## This definition is copied directly from: https://github.com/adsabs/metrics_service/blob/master/service/models.py
 ## We need to have it when we are sending/writing data into the metrics database
-class MetricsModel(Base):
+class MetricsModel(MetricsBase):
     __tablename__ = 'metrics'
     __bind_key__ = 'metrics'
     id = Column(Integer, primary_key=True)

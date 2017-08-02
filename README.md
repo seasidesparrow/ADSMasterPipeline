@@ -28,11 +28,10 @@ This pipeline is collecting results from the sub-ordinate pipelines (bibliograph
 
 The pipeline will NOT send anything to SOLR/Metrics DB by default. You should trigger the update using a cronjob. There are two important modes:
 
-    - normal operation (`python run.py -r`) will discover all updates that happened since the last invocation
-        and will send them to the `index-records` queue; the parameter force will be False; hence only documents
-        that have both metadata, orcid claims, and non-bib data will get sent to solr
-    - busy operation (`python run.py -r -f`) will discover all updates since the last invocation; and will send
-        them to `index-records` queue and set force=True; this will force the worker to submit data to solr
+    - normal mode (`python run.py -r`): will discover all updates that happened since the last invocation
+        of the normal mode and will send them to the `index-records` queue; the parameter force will be set to False; hence only documents that have both metadata, orcid claims, and non-bib data will get sent to solr
+        
+    - pushy mode (`python run.py -r -f`) will discover all updates since the last invocation of the 'pushy' mode; and will send them to `index-records` queue and set force=True; this will force the worker to submit data to solr
         as soon as we have any updates (only biblio metadata need be present)
         
  It is **imperative** that both modes of operation be used together in the 24h cycle. The normal operation will ignore some (many)

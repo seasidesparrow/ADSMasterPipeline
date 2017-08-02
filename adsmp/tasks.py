@@ -88,7 +88,8 @@ def task_index_records(bibcodes, force=False):
         r = app.get_record(bibcode)
     
         if r is None:
-            raise Exception('The bibcode {0} doesn\'t exist!'.format(bibcode))
+            logger.error('The bibcode %s doesn\'t exist!', bibcode)
+            continue
     
         bib_data_updated = r.get('bib_data_updated', None)
         orcid_claims_updated = r.get('orcid_claims_updated', None)

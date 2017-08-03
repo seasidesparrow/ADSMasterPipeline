@@ -132,18 +132,38 @@ class MetricsModel(MetricsBase):
     __tablename__ = 'metrics'
     __bind_key__ = 'metrics'
     id = Column(Integer, primary_key=True)
-    bibcode = Column(String, nullable=False, index=True)
-    refereed = Column(Boolean)
-    rn_citations = Column(postgresql.REAL)
-    rn_citation_data = Column(postgresql.JSON)
+    bibcode = Column(String, nullable=False, index=True, unique=True)
+    
+    an_citations = Column(postgresql.REAL)
+    an_refereed_citations = Column(postgresql.REAL)
+    author_num = Column(Integer)
+    citations = Column(postgresql.ARRAY(String))
+    citation_num = Column(Integer)
     downloads = Column(postgresql.ARRAY(Integer))
     reads = Column(postgresql.ARRAY(Integer))
-    an_citations = Column(postgresql.REAL)
-    refereed_citation_num = Column(Integer)
-    citation_num = Column(Integer)
-    reference_num = Column(Integer)
-    citations = Column(postgresql.ARRAY(String))
+    refereed = Column(Boolean)
     refereed_citations = Column(postgresql.ARRAY(String))
-    author_num = Column(Integer)
-    an_refereed_citations = Column(postgresql.REAL)
-    modtime = Column(DateTime)
+    refereed_citation_num = Column(Integer)
+    reference_num = Column(Integer)
+    rn_citations = Column(postgresql.REAL)
+    rn_citation_data = Column(postgresql.JSON)
+    modtime = Column(DateTime, default=get_date)
+    
+    
+    def toJSON(self):
+        return dict(id = self.id,
+            bibcode = self.bibcode,
+            an_citations = self.an_citations,
+            an_refereed_citations = self.an_refereed_citations,
+            author_num = self.author_num,
+            citations = self.citations,
+            citation_num = self.citation_num,
+            downloads = self.downloads,
+            reads = self.reads,
+            refereed = self.refereed,
+            refereed_citations = self.refereed_citations,
+            refereed_citation_num = self.refereed_citation_num,
+            reference_num = self.reference_num,
+            rn_citations = self.rn_citations,
+            rn_citation_data = self.rn_citation_data,
+            modtime = self.modtime and get_date(self.modtime).isoformat() or None)  

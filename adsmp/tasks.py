@@ -160,9 +160,6 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
 
 
 
-
-
-
 @app.task(queue='delete-records')
 def task_delete_documents(bibcode):
     """Delete document from SOLR and from our storage.

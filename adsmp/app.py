@@ -12,7 +12,7 @@ import json
 from adsmp.models import MetricsModel
 from adsmp import solr_updater
 from adsputils import serializer
-
+from sqlalchemy import exc
 
 
 class ADSMasterPipelineCelery(ADSCelery):
@@ -28,40 +28,44 @@ class ADSMasterPipelineCelery(ADSCelery):
                                    echo=self._config.get('SQLALCHEMY_ECHO', False))
             MetricsModel.metadata.bind = self._metrics_engine
             self._metrics_table = Table('metrics', MetricsModel.metadata)
-            self._metrics_conn = self._metrics_engine.conne()
-            t = self._metrics_table
-            self._metrics_table_update = self._metrics_table.update() \
-                .where(t.c.bibcode == bindparam('bibcode')) \
-                .values({'refereed': bindparam('refereed'),
-                     'rn_citations': bindparam('rn_citations'),
-                     'rn_citation_data': bindparam('rn_citation_data'),
-                     'rn_citations_hist': bindparam('rn_citations_hist'),
-                     'downloads': bindparam('downloads'),
-                     'reads': bindparam('reads'),
-                     'an_citations': bindparam('an_citations'),
-                     'refereed_citation_num': bindparam('refereed_citation_num'),
-                     'citation_num': bindparam('citation_num'),
-                     'reference_num': bindparam('reference_num'),
-                     'citations': bindparam('citations'),
-                     'refereed_citations': bindparam('refereed_citations'),
-                     'author_num': bindparam('author_num'),
-                     'an_refereed_citations': bindparam('an_refereed_citations')})
+            self._metrics_conn = self._metrics_engine.connect()
+
             self._metrics_table_insert = self._metrics_table.insert() \
-                .values({'bibcode': bindparam('bibcode'),
-                     'refereed': bindparam('refereed'),
-                     'rn_citations': bindparam('rn_citations'),
-                     'rn_citation_data': bindparam('rn_citation_data'),
-                     'rn_citations_hist': bindparam('rn_citations_hist'),
-                     'downloads': bindparam('downloads'),
-                     'reads': bindparam('reads'),
-                     'an_citations': bindparam('an_citations'),
-                     'refereed_citation_num': bindparam('refereed_citation_num'),
-                     'citation_num': bindparam('citation_num'),
-                     'reference_num': bindparam('reference_num'),
-                     'citations': bindparam('citations'),
-                     'refereed_citations': bindparam('refereed_citations'),
-                     'author_num': bindparam('author_num'),
-                     'an_refereed_citations': bindparam('an_refereed_citations')})
+                .values({
+                     'an_refereed_citations': bindparam('an_refereed_citations', required=False),
+                     'an_citations': bindparam('an_citations', required=False),
+                     'author_num': bindparam('author_num', required=False),
+                     'bibcode': bindparam('bibcode'),
+                     'citations': bindparam('citations', required=False),
+                     'citation_num': bindparam('citation_num', required=False),
+                     'downloads': bindparam('downloads', required=False),
+                     'reads': bindparam('reads', required=False),
+                     'refereed': bindparam('refereed', required=False),
+                     'refereed_citations': bindparam('refereed_citations', required=False),
+                     'refereed_citation_num': bindparam('refereed_citation_num', required=False),
+                     'reference_num': bindparam('reference_num', required=False),
+                     'rn_citations': bindparam('rn_citations', required=False),
+                     'rn_citation_data': bindparam('rn_citation_data', required=False),
+                    })
+
+            self._metrics_table_update = self._metrics_table.update() \
+                .where(self._metrics_table.c.bibcode == bindparam('bibcode')) \
+                .values({
+                     'an_refereed_citations': bindparam('an_refereed_citations', required=False),
+                     'an_citations': bindparam('an_citations', required=False),
+                     'author_num': bindparam('author_num', required=False),
+                     'bibcode': bindparam('bibcode'),
+                     'citations': bindparam('citations', required=False),
+                     'citation_num': bindparam('citation_num', required=False),
+                     'downloads': bindparam('downloads', required=False),
+                     'reads': bindparam('reads', required=False),
+                     'refereed': bindparam('refereed', required=False),
+                     'refereed_citations': bindparam('refereed_citations', required=False),
+                     'refereed_citation_num': bindparam('refereed_citation_num', required=False),
+                     'reference_num': bindparam('reference_num', required=False),
+                     'rn_citations': bindparam('rn_citations', required=False),
+                     'rn_citation_data': bindparam('rn_citation_data', required=False),
+                })
 
 
     def update_storage(self, bibcode, type, payload):
@@ -264,12 +268,37 @@ class ADSMasterPipelineCelery(ADSCelery):
         :param: batch_update - list of json objects to update in metrics db
         
         """
-        if not self._metrics_table:
+        if not self._metrics_conn:
             raise Exception('You cant do this! Missing METRICS_SQLALACHEMY_URL?')
         
         self.logger.debug('Updating metrics db: len(batch_insert)=%s len(batch_upate)=%s', len(batch_insert), len(batch_update))
         
         # Note: PSQL v9.5 has UPSERT statements, the older versions don't have
-        # efficient UPDATE ON DUPLICATE INSERT .... so we do it twice 
-        self._metrics_conn.execute(self._metrics_table_insert, batch_insert)
-        self._metrics_conn.execute(self._metrics_table_update, batch_update)            
+        # efficient UPDATE ON DUPLICATE INSERT .... so we do it twice
+        if len(batch_insert):
+            try:
+                self._metrics_conn.execute(self._metrics_table_insert, batch_insert)
+            except exc.IntegrityError, e:
+                self.logger.error('Insert batch failed, will upsert one by one %s recs', len(batch_insert))
+                for x in batch_insert:
+                    self._metrics_upsert(x, insert_first=False)
+        if len(batch_update):
+            try:
+                self._metrics_conn.execute(self._metrics_table_update, batch_update)
+            except exc.IntegrityError, r:
+                self.logger.error('Update batch failed, will upsert one by one %s recs', len(batch_update))
+                for x in batch_update:
+                    self._metrics_upsert(x, insert_first=True)
+            
+    def _metrics_upsert(self, record, insert_first=True):
+        if insert_first:
+            try:
+                self._metrics_conn.execute(self._metrics_table_insert, record)
+            except exc.IntegrityError, e:
+                self._metrics_conn.execute(self._metrics_table_update, record)
+        else:
+            try:
+                self._metrics_conn.execute(self._metrics_table_update, record)
+            except exc.IntegrityError, e:
+                self._metrics_conn.execute(self._metrics_table_insert, record)
+        

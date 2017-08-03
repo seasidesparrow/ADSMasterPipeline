@@ -77,7 +77,8 @@ def reindex(since=None, batch_size=None, force=False, update_solr=True, update_m
     else:
         key = key + '.metrics-only'
         
-        
+    
+    previous_since = None
     now = get_date()
     if since is None:
         with app.session_scope() as session:
@@ -88,6 +89,7 @@ def reindex(since=None, batch_size=None, force=False, update_solr=True, update_m
                 session.add(kv)
             else:
                 since = get_date(kv.value)
+                previous_since = since
                 kv.value = now.isoformat()
             session.commit()
     else:
@@ -97,34 +99,44 @@ def reindex(since=None, batch_size=None, force=False, update_solr=True, update_m
     logger.info('Sending records changed since: {0}'.format(since.isoformat()))
     ignored = sent = 0
     
-    # select everything that was updated since
-    batch = []
-    with app.session_scope() as session:
-        for rec in session.query(Records) \
-            .filter(Records.updated >= since) \
-            .load_only(Records.bibcode, Records.updated, Records.processed) \
-            .all():
-            
-            if rec.processed and rec.processed > since:
-                ignored += 1
-                continue
-            
-            sent += 1
-            if sent % 1000 == 0:
-                logger.debug('Sending %s records', sent)
-            
-            if batch_size and batch_size < len(batch):
-                batch.append(rec.bibcode)
-                continue
-            
+    try:
+        # select everything that was updated since
+        batch = []
+        with app.session_scope() as session:
+            for rec in session.query(Records) \
+                .filter(Records.updated >= since) \
+                .load_only(Records.bibcode, Records.updated, Records.processed) \
+                .all():
+                
+                if rec.processed and rec.processed > since:
+                    ignored += 1
+                    continue
+                
+                sent += 1
+                if sent % 1000 == 0:
+                    logger.debug('Sending %s records', sent)
+                
+                if batch_size and batch_size < len(batch):
+                    batch.append(rec.bibcode)
+                    continue
+                
+                tasks.task_index_records.delay(batch, force=force, update_solr=update_solr, update_metrics=update_metrics)
+                batch = []
+                
+        if len(batch) > 0:
             tasks.task_index_records.delay(batch, force=force, update_solr=update_solr, update_metrics=update_metrics)
-            batch = []
-            
-    if len(batch) > 0:
-        tasks.task_index_records.delay(batch, force=force, update_solr=update_solr, update_metrics=update_metrics)
-    
-    logger.info('Done processing %s records (%s were ignored)', sent+ignored, ignored)
-    
+        
+        logger.info('Done processing %s records (%s were ignored)', sent+ignored, ignored)
+    except Exception, e:
+        if previous_since:
+            logger.error('Failed while submitting data to pipeline, resetting timestamp back to: %s', previous_since)
+            with app.session_scope() as session:
+                kv = session.query(KeyValue).filter_by(key=key).first()
+                kv.value = previous_since
+                session.commit()
+        else:
+            logger.error('Failed while submitting data to pipeline')
+        raise e
 
 if __name__ == '__main__':
 

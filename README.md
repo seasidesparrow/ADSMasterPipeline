@@ -3,29 +3,16 @@
 
 # adsmp
 
-A generic template for building ADS pipeline applicaitons.
-
-To build your own worker, first clone this repository and rename stuff.
-
-1. git clone git@github.com:adsabs/adsmp.git
-2. `init.sh ADSMyNewName`
-
-Then commit the results into a new repository. (and remove this section from the README)       
-       
-
-## Dev Dependencies
-
-For database/rabbitmq and others, please use: https://github.com/adsabs/devtools
-
-
 ## Short Summary
 
-This pipeline is doing XYZ.
+This pipeline is collecting results from the sub-ordinate pipelines (bibliographic, non-bibliographic, fulltext, orcid claims, metrics). It also updates SOLR and Metrics DB.
 
 
 ## Queues and objects
 
-    - some-queue: it receives a silly message with a name in it and saves it into a database
+    - update-record: input from the 'other' pipelines is collected here
+    - index-record: internal queue, it forwards data to solr/metrics
+    - delete-record: removes from solr/metrics db
 
 ## Setup (recommended)
 
@@ -36,6 +23,24 @@ This pipeline is doing XYZ.
     `$ pip install -r dev-requirements.txt`
     `$ vim local_config.py` # edit, edit
     `$ alembic upgrade head` # initialize database
+
+## Important note
+
+The pipeline will NOT send anything to SOLR/Metrics DB by default. You should trigger the update using a cronjob. There are two important modes:
+
+    - normal mode (`python run.py -r`): will discover all updates that happened since the last invocation
+        of the normal mode and will send them to the `index-records` queue; the parameter force will be set to False; hence only documents that have both metadata, orcid claims, and non-bib data will get sent to solr
+        
+    - pushy mode (`python run.py -r -f`) will discover all updates since the last invocation of the 'pushy' mode; and will send them to `index-records` queue and set force=True; this will force the worker to submit data to solr immediately (so effectively, this means any update to a record triggers push). Regardless, we always wait till we have bibliographic metadata.
+        
+ It is **imperative** that both modes of operation be used together in the 24h cycle. The normal mode will ignore some (many)
+ records - so you must call the `pushy` mode at least at the end of the quiet period. The suggested schedule is the following (all times UTC):
+ 
+  00:00-05:00 | normal mode, invoked every 5 mins
+  05:00-06:00 | catch updates, invoke forced mode
+  06:01-17:00 | --- do nothing, solr replication is not happening
+  17:01-22:00 | normal mode, invoked every 5 mins
+  22:01-23:59 | forced mode, catch updates 
     
 ## Testing
 
@@ -46,4 +51,4 @@ Always write unittests (even: always write unitests first!). Travis will run aut
 
 ## Maintainer(s)
 
-Name, Name        
+Roman, Sergi

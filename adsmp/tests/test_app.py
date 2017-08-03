@@ -90,8 +90,26 @@ class TestAdsOrcidCelery(unittest.TestCase):
         self.app.update_processed_timestamp('abc')
         r = self.app.get_record('abc')
         self.assertTrue(r['processed'] > now)
-
         
+        # now delete it
+        self.app.delete_by_bibcode('abc')
+        r = self.app.get_record('abc')
+        self.assertTrue(r is None)
+        with self.app.session_scope() as session:
+            r = session.query(models.ChangeLog).filter_by(key='bibcode:abc').first()
+            self.assertTrue(r.key, 'abc')
+        
+    def test_rename_bibcode(self):
+        self.app.update_storage('abc', 'metadata', {'foo': 'bar', 'hey': 1})
+        r = self.app.get_record('abc')
+        
+        self.app.rename_bibcode('abc', 'def')
+        
+        with self.app.session_scope() as session:
+            ref = session.query(models.IdentifierMapping).filter_by(key='abc').first()
+            self.assertTrue(ref.target, 'def')
+            
+        self.assertTrue(self.app.get_changelog('abc'), [{'target': u'def', 'key': u'abc'}])
     
 if __name__ == '__main__':
     unittest.main()

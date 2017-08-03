@@ -1,11 +1,6 @@
 #!/usr/bin/env python
 
-import sys
-import time
 import argparse
-import logging
-import traceback
-import requests
 import warnings
 from requests.packages.urllib3 import exceptions
 warnings.simplefilter('ignore', exceptions.InsecurePlatformWarning)
@@ -13,6 +8,7 @@ warnings.simplefilter('ignore', exceptions.InsecurePlatformWarning)
 from adsputils import setup_logging, get_date
 from adsmp.models import KeyValue, Records
 from adsmp import tasks, solr_updater
+from sqlalchemy.orm import load_only
 
 app = tasks.app
 logger = setup_logging('run.py')
@@ -64,6 +60,72 @@ def print_kvs():
             print kv.key, kv.value
 
 
+def reindex(since=None, batch_size=None, force=False, update_solr=True, update_metrics=True):
+    """
+    Initiates routing of the records (everything that was updated)
+    since point in time T.
+    """
+    if force:
+        key = 'last.reindex.forced'
+    else:
+        key = 'last.reindex.normal'
+        
+    if update_solr and update_metrics:
+        pass # default
+    elif update_solr:
+        key = key + '.solr-only'
+    else:
+        key = key + '.metrics-only'
+        
+        
+    now = get_date()
+    if since is None:
+        with app.session_scope() as session:
+            kv = session.query(KeyValue).filter_by(key=key).first()
+            if kv is None:
+                since = get_date('1972')
+                kv = KeyValue(key=key, value=now.isoformat())
+                session.add(kv)
+            else:
+                since = get_date(kv.value)
+                kv.value = now.isoformat()
+            session.commit()
+    else:
+        since = get_date(since)
+    
+    
+    logger.info('Sending records changed since: {0}'.format(since.isoformat()))
+    ignored = sent = 0
+    
+    # select everything that was updated since
+    batch = []
+    with app.session_scope() as session:
+        for rec in session.query(Records) \
+            .filter(Records.updated >= since) \
+            .load_only(Records.bibcode, Records.updated, Records.processed) \
+            .all():
+            
+            if rec.processed and rec.processed > since:
+                ignored += 1
+                continue
+            
+            sent += 1
+            if sent % 1000 == 0:
+                logger.debug('Sending %s records', sent)
+            
+            if batch_size and batch_size < len(batch):
+                batch.append(rec.bibcode)
+                continue
+            
+            tasks.task_index_records.delay(batch, force=force, update_solr=update_solr, update_metrics=update_metrics)
+            batch = []
+            
+    if len(batch) > 0:
+        tasks.task_index_records.delay(batch, force=force, update_solr=update_solr, update_metrics=update_metrics)
+    
+    logger.info('Done processing %s records (%s were ignored)', sent+ignored, ignored)
+    
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Process user input.')
@@ -81,14 +143,15 @@ if __name__ == '__main__':
                         help='List of bibcodes separated by spaces')
     
     parser.add_argument('-f',
-                        '--refetch_orcidids',
-                        dest='refetch_orcidids',
+                        '--force',
+                        dest='force',
                         action='store_true',
-                        help='Gets all orcidids changed since X (as discovered from ads api) and sends them to the queue.')
+                        default=False,
+                        help='Forces indexing of documents as soon as we receive them.')
     
     parser.add_argument('-s', 
                         '--since', 
-                        dest='since_date', 
+                        dest='since', 
                         action='store',
                         default=None,
                         help='Starting date for reindexing')
@@ -99,6 +162,21 @@ if __name__ == '__main__':
                         action='store_true',
                         default=False,
                         help='Show current values of KV store')
+    
+    parser.add_argument('-r',
+                        '--index',
+                        dest='reindex',
+                        action='store',
+                        help='Sent all updated documents to SOLR/Postgres (you can combine with --since).' + 
+                        'Default is to update both solr and metrics. You can choose what to update.' + 
+                        '(s = update solr, m = update metrics)')
+    
+    parser.add_argument('-e', 
+                        '--batch_size', 
+                        dest='batch_size', 
+                        action='store_true',
+                        default=1000,
+                        help='How many records to process/index in one batch')
     
     args = parser.parse_args()
     
@@ -111,3 +189,10 @@ if __name__ == '__main__':
 
     if args.diagnostics:
         diagnostics(args.bibcodes)
+        
+    print args
+    if args.reindex:
+        update_solr = 's' in args.reindex.lower()
+        update_metrics = 'm' in args.reindex.lower()
+        reindex(since=args.since, batch_size=args.batch_size, force=args.force, 
+                update_solr=update_solr, update_metrics=update_metrics)

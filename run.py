@@ -35,14 +35,17 @@ def diagnostics(bibcodes):
     
     :param: bibcodes - list of bibcodes
     """
-    if bibcodes:
-        for b in bibcodes:
-            _print_record(b)
-    else:
-        'Printing 3 randomly selected records (if any)'
+    
+    if not bibcodes:
+        print 'Printing 3 randomly selected records (if any)'
+        bibcodes = []
         with app.session_scope() as session:
             for r in session.query(Records).limit(3).all():
-                _print_record(r.bibcode)
+                bibcodes.append(r.bibcode)
+                
+    for b in bibcodes:
+        _print_record(b)
+        
     
     with app.session_scope() as session:
         print '# of records in db:', session.query(Records.id).count()

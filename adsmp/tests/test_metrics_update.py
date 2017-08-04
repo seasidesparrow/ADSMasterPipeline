@@ -9,6 +9,7 @@ import os
 import unittest
 from adsmp import app, models
 from adsmp.models import Base, MetricsBase
+from adsputils import load_config
 
 test1 = {"refereed": True, 
      "bibcode": "bib1", 
@@ -35,21 +36,22 @@ test3 = {"refereed": True,
      }
 
 unsafe = True
-if '--force' in sys.argv or os.getenv('CI') or os.getenv('TRAVIS'):
+if os.getenv('CI') or os.getenv('TRAVIS'):
     unsafe = False
 
-@unittest.skipIf(unsafe, 'This unittest is destructive! It will drop/recreate DB schema! If you want to execute it, use: --force')
+@unittest.skipIf(unsafe, 'This unittest is destructive! It will drop/recreate DB schema! If you want to execute it, export CI=True first!')
 class TestAdsOrcidCelery(unittest.TestCase):
     """
     Tests the appliction's methods
     """
     def setUp(self):
         unittest.TestCase.setUp(self)
+        config = load_config()
         proj_home = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
         self.app = app.ADSMasterPipelineCelery('test', local_config=\
             {
-            'SQLALCHEMY_URL': 'postgres://master_pipeline:master_pipeline@localhost:15432/master_pipeline',
-            'METRICS_SQLALCHEMY_URL': 'postgres://master_pipeline:master_pipeline@localhost:15432/master_pipeline',
+            'SQLALCHEMY_URL': config.get('METRICS_SQLALCHEMY_URL'),
+            'METRICS_SQLALCHEMY_URL': config.get('METRICS_SQLALCHEMY_URL'),
             'SQLALCHEMY_ECHO': False,
             'PROJ_HOME' : proj_home,
             'TEST_DIR' : os.path.join(proj_home, 'adsmp/tests'),

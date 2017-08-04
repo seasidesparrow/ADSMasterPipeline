@@ -6,7 +6,7 @@ python:
   - "2.7"
 
 services:
-  - redis-server
+  - postgresql
 
 install:
   - pip install --upgrade setuptools
@@ -23,3 +23,9 @@ notifications:
   email: false
 
 sudo: false
+
+addons:
+  postgresql: "9.3"
+
+before_script:
+  - psql -c 'create database metrics;' -U postgres

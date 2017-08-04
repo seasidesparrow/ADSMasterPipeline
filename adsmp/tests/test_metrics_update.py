@@ -7,15 +7,6 @@ import sys
 import os
 
 import unittest
-import json
-import re
-import os
-import math
-import mock
-import adsputils
-from mock import patch
-from io import BytesIO
-from datetime import datetime
 from adsmp import app, models
 from adsmp.models import Base, MetricsBase
 
@@ -43,6 +34,11 @@ test3 = {"refereed": True,
      "author_num": 3, 
      }
 
+unsafe = True
+if '--force' in sys.argv or os.getenv('CI') or os.getenv('TRAVIS'):
+    unsafe = False
+
+@unittest.skipIf(unsafe, 'This unittest is destructive! It will drop/recreate DB schema! If you want to execute it, use: --force')
 class TestAdsOrcidCelery(unittest.TestCase):
     """
     Tests the appliction's methods
@@ -54,7 +50,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
             {
             'SQLALCHEMY_URL': 'postgres://master_pipeline:master_pipeline@localhost:15432/master_pipeline',
             'METRICS_SQLALCHEMY_URL': 'postgres://master_pipeline:master_pipeline@localhost:15432/master_pipeline',
-            'SQLALCHEMY_ECHO': True,
+            'SQLALCHEMY_ECHO': False,
             'PROJ_HOME' : proj_home,
             'TEST_DIR' : os.path.join(proj_home, 'adsmp/tests'),
             })
@@ -97,13 +93,19 @@ class TestAdsOrcidCelery(unittest.TestCase):
             r = session.query(models.MetricsModel).filter_by(bibcode='bib2').first()
             self.assertTrue(r.toJSON()['refereed'])
             
-        # records already exist - try to insert them again (this should not fail)
-        t1['refereed'] = True
-        app.update_metrics_db([t2, test3], [t1, test3])
+        # records already exist - try to use wrong methods
+        # inserting t2 should update it instead
+        # updating test3 - should insert it instead
+        t2['refereed'] = False
+        app.update_metrics_db([t1, t2], [t1, test3])
         
         with app.session_scope() as session:
-            for r in session.query(models.MetricsModel).all():
-                print r.toJSON()
+            b1 = session.query(models.MetricsModel).filter_by(bibcode='bib1').first()
+            b2 = session.query(models.MetricsModel).filter_by(bibcode='bib2').first()
+            self.assertFalse(b2.toJSON()['refereed'])
+            b3 = session.query(models.MetricsModel).filter_by(bibcode='bib3').first()
+            
+            self.assertTrue(b1 and b2 and b3)
         
             
 if __name__ == '__main__':

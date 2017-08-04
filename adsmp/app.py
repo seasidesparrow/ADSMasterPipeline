@@ -276,29 +276,52 @@ class ADSMasterPipelineCelery(ADSCelery):
         # Note: PSQL v9.5 has UPSERT statements, the older versions don't have
         # efficient UPDATE ON DUPLICATE INSERT .... so we do it twice
         if len(batch_insert):
+            trans = self._metrics_conn.begin()
             try:
                 self._metrics_conn.execute(self._metrics_table_insert, batch_insert)
+                trans.commit()
             except exc.IntegrityError, e:
+                trans.rollback()
                 self.logger.error('Insert batch failed, will upsert one by one %s recs', len(batch_insert))
                 for x in batch_insert:
                     self._metrics_upsert(x, insert_first=False)
         if len(batch_update):
+            trans = self._metrics_conn.begin()
             try:
-                self._metrics_conn.execute(self._metrics_table_update, batch_update)
+                r = self._metrics_conn.execute(self._metrics_table_update, batch_update)
+                trans.commit()
+                if r.rowcount != len(batch_update):
+                    self.logger.warn('Tried to update=%s rows, but matched only=%s, running upsert...', 
+                                     len(batch_update), r.rowcount)
+                    for x in batch_update:
+                        self._metrics_upsert(x, insert_first=False) # do updates, db engine should not touch the same vals...
             except exc.IntegrityError, r:
+                trans.rollback()
                 self.logger.error('Update batch failed, will upsert one by one %s recs', len(batch_update))
                 for x in batch_update:
                     self._metrics_upsert(x, insert_first=True)
-            
+
+
     def _metrics_upsert(self, record, insert_first=True):
         if insert_first:
+            trans = self._metrics_conn.begin()
             try:
                 self._metrics_conn.execute(self._metrics_table_insert, record)
+                trans.commit()
             except exc.IntegrityError, e:
+                trans.rollback()
+                trans = self._metrics_conn.begin()
                 self._metrics_conn.execute(self._metrics_table_update, record)
+                trans.commit()
         else:
+            trans = self._metrics_conn.begin()
             try:
-                self._metrics_conn.execute(self._metrics_table_update, record)
+                r = self._metrics_conn.execute(self._metrics_table_update, record)
+                if r.rowcount == 0:
+                    self._metrics_conn.execute(self._metrics_table_insert, record)
+                trans.commit()
             except exc.IntegrityError, e:
+                trans.rollback()
+                trans = self._metrics_conn.begin()
                 self._metrics_conn.execute(self._metrics_table_insert, record)
-        
+                trans.commit()

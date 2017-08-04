@@ -9,3 +9,9 @@ SQLALCHEMY_ECHO = False
 # possible values: WARN, INFO, DEBUG
 LOGGING_LEVEL = 'INFO'
 CELERY_INCLUDE = ['adsmp.tasks']
+
+
+
+# db connection to the db instance where we should send data; if not present
+# the SOLR can still work but no metrics updates can be done
+METRICS_SQLALCHEMY_URL = 'postgres://postgres@localhost:5432/metrics'

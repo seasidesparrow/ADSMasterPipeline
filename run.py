@@ -108,7 +108,7 @@ def reindex(since=None, batch_size=None, force=False, update_solr=True, update_m
         with app.session_scope() as session:
             for rec in session.query(Records) \
                 .filter(Records.updated >= since) \
-                .load_only(Records.bibcode, Records.updated, Records.processed) \
+                .options(load_only(Records.bibcode, Records.updated, Records.processed)) \
                 .all():
                 
                 if rec.processed and rec.processed > since:

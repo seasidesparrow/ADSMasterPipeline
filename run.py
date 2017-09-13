@@ -182,6 +182,7 @@ if __name__ == '__main__':
                         '--index',
                         dest='reindex',
                         action='store',
+                        default='sm',
                         help='Sent all updated documents to SOLR/Postgres (you can combine with --since).' + 
                         'Default is to update both solr and metrics. You can choose what to update.' + 
                         '(s = update solr, m = update metrics)')

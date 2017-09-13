@@ -179,7 +179,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                 out.append(r.toJSON())
             to_collect = [bibcode]
             while len(to_collect):
-                for x in session.query(IdentifierMapping).filter_by(key=to_collect.pop()).all():
+                for x in session.query(IdentifierMapping).filter_by(key=to_collect.pop()).yield_per(100):
                     to_collect.append(x.target)
                     out.append(x.toJSON())
         return out

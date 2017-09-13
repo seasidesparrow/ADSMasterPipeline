@@ -59,7 +59,7 @@ def print_kvs():
     print 'Key, Value from the storage:'
     print '-' * 80
     with app.session_scope() as session:
-        for kv in session.query(KeyValue).order_by('key').all():
+        for kv in session.query(KeyValue).order_by('key').yield_per(100):
             print kv.key, kv.value
 
 
@@ -109,7 +109,7 @@ def reindex(since=None, batch_size=None, force=False, update_solr=True, update_m
             for rec in session.query(Records) \
                 .filter(Records.updated >= since) \
                 .options(load_only(Records.bibcode, Records.updated, Records.processed)) \
-                .all():
+                .yield_per(100):
                 
                 if rec.processed and rec.processed > since:
                     ignored += 1
@@ -180,8 +180,10 @@ if __name__ == '__main__':
     
     parser.add_argument('-r',
                         '--index',
+                        nargs='?',
                         dest='reindex',
                         action='store',
+                        const = 'sm',
                         default='sm',
                         help='Sent all updated documents to SOLR/Postgres (you can combine with --since).' + 
                         'Default is to update both solr and metrics. You can choose what to update.' + 
@@ -206,7 +208,8 @@ if __name__ == '__main__':
     if args.diagnostics:
         diagnostics(args.bibcodes)
         
-    print args
+    logger.info(args)
+    
     if args.reindex:
         update_solr = 's' in args.reindex.lower()
         update_metrics = 'm' in args.reindex.lower()

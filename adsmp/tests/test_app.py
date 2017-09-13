@@ -16,7 +16,7 @@ import adsputils
 from mock import patch
 from io import BytesIO
 from datetime import datetime
-from adsmp import app, models
+from adsmp import app, models, solr_updater
 from adsmp.models import Base
 
 class TestAdsOrcidCelery(unittest.TestCase):
@@ -43,73 +43,202 @@ class TestAdsOrcidCelery(unittest.TestCase):
         self.app.close_app()
 
     
-    def test_app(self):
-        assert self.app._config.get('SQLALCHEMY_URL') == 'sqlite:///'
-        assert self.app.conf.get('SQLALCHEMY_URL') == 'sqlite:///'
 
     
-
-    
-    def test_update_records(self):
+    def test_solr_transformer(self):
         """Makes sure we can write recs into the storage."""
-        now = adsputils.get_date()
-        last_time = adsputils.get_date()
-        for k in ['bib_data', 'nonbib_data', 'orcid_claims']:
-            self.app.update_storage('abc', k, {'foo': 'bar', 'hey': 1})
-            with self.app.session_scope() as session:
-                r = session.query(models.Records).filter_by(bibcode='abc').first()
-                self.assertTrue(r.id == 1)
-                j = r.toJSON()
-                self.assertEquals(j[k], {'foo': 'bar', 'hey': 1})
-                t = j[k + '_updated']
-                self.assertTrue(now < t)
-                self.assertTrue(last_time < j['updated'])
-                last_time = j['updated']
         
-        self.app.update_storage('abc', 'fulltext', 'foo bar')
-        with self.app.session_scope() as session:
-            r = session.query(models.Records).filter_by(bibcode='abc').first()
-            self.assertTrue(r.id == 1)
-            j = r.toJSON()
-            self.assertEquals(j['fulltext'], u'foo bar')
-            t = j['fulltext_updated']
-            self.assertTrue(now < t)
+        self.app.update_storage('bibcode', 'metadata', {u'abstract': u'abstract text',
+             u'aff': [u'-', u'-', u'-', u'-'],
+             u'alternate_bibcode': [u'2003adass..12..283B'],
+             u'author': [u'Blecksmith, E.', u'Paltani, S.', u'Rots, A.', u'Winkelman, S.'],
+             u'author_count': 4,
+             u'author_facet': [u'Blecksmith, E',
+              u'Paltani, S',
+              u'Rots, A',
+              u'Winkelman, S'],
+             u'author_facet_hier': [u'0/Blecksmith, E',
+              u'1/Blecksmith, E/Blecksmith, E.',
+              u'0/Paltani, S',
+              u'1/Paltani, S/Paltani, S.',
+              u'0/Rots, A',
+              u'1/Rots, A/Rots, A.',
+              u'0/Winkelman, S',
+              u'1/Winkelman, S/Winkelman, S.'],
+             u'author_norm': [u'Blecksmith, E',
+              u'Paltani, S',
+              u'Rots, A',
+              u'Winkelman, S'],
+             u'bibcode': u'2003ASPC..295..283B',
+             u'bibgroup': [u'CXC', u'CfA'],
+             u'bibgroup_facet': [u'CXC', u'CfA'],
+             u'bibstem': [u'ASPC', u'ASPC..295'],
+             u'bibstem_facet': u'ASPC',
+             u'database': [u'astronomy'],
+             u'date': u'2003-01-01T00:00:00.000000Z',
+             u'doctype': u'inproceedings',
+             u'doctype_facet_hier': [u'0/Article', u'1/Article/Proceedings Article'],
+             u'email': [u'-', u'-', u'-', u'-'],
+             u'first_author': u'Blecksmith, E.',
+             u'first_author_facet_hier': [u'0/Blecksmith, E',
+              u'1/Blecksmith, E/Blecksmith, E.'],
+             u'first_author_norm': u'Blecksmith, E',
+             u'id': u'1401492',
+             u'identifier': [u'2003adass..12..283B'],
+             u'links_data': u'',   ### TODO(rca): superconfusing string, but fortunately we are getting ridd of it
+             u'orcid_pub': [u'-', u'-', u'-', u'-'],
+             u'page': [u'283'],
+             u'property': [u'OPENACCESS', u'ADS_OPENACCESS', u'ARTICLE', u'NOT REFEREED'],
+             u'pub': u'Astronomical Data Analysis Software and Systems XII',
+             u'pub_raw': u'Astronomical Data Analysis Software and Systems XII ASP Conference Series, Vol. 295, 2003 H. E. Payne, R. I. Jedrzejewski, and R. N. Hook, eds., p.283',
+             u'pubdate': u'2003-00-00',
+             u'title': [u'Chandra Data Archive Download and Usage Database'],
+             u'volume': u'295',
+             u'year': u'2003'})
+        self.app.update_storage('bibcode', 'fulltext', 'fulltext')
+        self.app.update_storage('bibcode', 'metrics', {"downloads": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 1, 0, 0, 0, 1, 2], 
+                                                       "bibcode": "2003ASPC..295..361M", 
+                                                       "reads": [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 4, 2, 5, 1, 0, 0, 1, 0, 0, 2, 4, 5], 
+                                                       "author_num": 2})
+        self.app.update_storage('bibcode', 'orcid_claims', {'authors': ['Blecksmith, E.', 'Paltani, S.', 'Rots, A.', 'Winkelman, S.'],
+             'bibcode': '2003ASPC..295..283B',
+             'unverified': ['-', '-', '0000-0003-2377-2356', '-']})
+        self.app.update_storage('bibcode', 'nonbib_data', {u'authors': [u'Zaus, E',
+              u'Tedde, S',
+              u'Fuerst, J',
+              u'Henseler, D',
+              u'Doehler, G'],
+             u'bibcode': u'2007JAP...101d4501Z',
+             u'boost': 0.1899999976158142,
+             u'citation_count': 6,
+             u'citations': [u'2007ApPhL..91g1118P',
+              u'2010ApPhA..99..805K',
+              u'2011TSF...520..610L',
+              u'2012NatCo...3E1175B',
+              u'2014IPTL...26..305A',
+              u'2016ITED...63..197G'],
+             u'downloads': [0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              1,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0],
+             u'id': 7862455,
+             u'norm_cites': 4225,
+             u'reads': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 6, 2, 1, 0, 0, 1, 0, 1, 0, 0],
+             u'refereed': True,
+             u'reference': [u'1977JAP....48.4729M',
+              u'1981psd..book.....S',
+              u'1981wi...book.....S',
+              u'1986PhRvB..33.5545M',
+              u'1987ApPhL..51..913T',
+              u'1992Sci...258.1474S',
+              u'1994IJMPB...8..237S',
+              u'1995Natur.376..498H',
+              u'1995Sci...270.1789Y',
+              u'1998TSF...331...76O',
+              u'1999Natur.397..121F',
+              u'2000JaJAP..39...94P',
+              u'2002ApPhL..81.3885S',
+              u'2004ApPhL..85.3890C',
+              u'2004TSF...451..105S',
+              u'2005PhRvB..72s5208M',
+              u'2006ApPhL..89l3505L']})
         
-        r = self.app.get_record('abc')
-        self.assertEquals(r['id'], 1)
-        self.assertEquals(r['processed'], None)
+        rec = self.app.get_record('bibcode')
+        self.assertEqual(solr_updater.transform_json_record(rec),
+            {u'abstract': u'abstract text',
+             u'aff': [u'-', u'-', u'-', u'-'],
+             u'alternate_bibcode': [u'2003adass..12..283B'],
+             u'author': [u'Blecksmith, E.', u'Paltani, S.', u'Rots, A.', u'Winkelman, S.'],
+             u'author_count': 4,
+             u'author_facet': [u'Blecksmith, E',
+              u'Paltani, S',
+              u'Rots, A',
+              u'Winkelman, S'],
+             u'author_facet_hier': [u'0/Blecksmith, E',
+              u'1/Blecksmith, E/Blecksmith, E.',
+              u'0/Paltani, S',
+              u'1/Paltani, S/Paltani, S.',
+              u'0/Rots, A',
+              u'1/Rots, A/Rots, A.',
+              u'0/Winkelman, S',
+              u'1/Winkelman, S/Winkelman, S.'],
+             u'author_norm': [u'Blecksmith, E',
+              u'Paltani, S',
+              u'Rots, A',
+              u'Winkelman, S'],
+             'bibcode': u'2003ASPC..295..283B',
+             u'bibgroup': [u'CXC', u'CfA'],
+             u'bibgroup_facet': [u'CXC', u'CfA'],
+             u'bibstem': [u'ASPC', u'ASPC..295'],
+             u'bibstem_facet': u'ASPC',
+             'body': u'fulltext',
+             'citation': [u'2007ApPhL..91g1118P',
+              u'2010ApPhA..99..805K',
+              u'2011TSF...520..610L',
+              u'2012NatCo...3E1175B',
+              u'2014IPTL...26..305A',
+              u'2016ITED...63..197G'],
+             'citation_count': 6,
+             'cite_read_boost': 0.1899999976158142,
+             u'database': [u'astronomy'],
+             u'date': u'2003-01-01T00:00:00.000000Z',
+             u'doctype': u'inproceedings',
+             u'doctype_facet_hier': [u'0/Article', u'1/Article/Proceedings Article'],
+             u'email': [u'-', u'-', u'-', u'-'],
+             u'first_author': u'Blecksmith, E.',
+             u'first_author_facet_hier': [u'0/Blecksmith, E',
+              u'1/Blecksmith, E/Blecksmith, E.'],
+             u'first_author_norm': u'Blecksmith, E',
+             'id': u'1401492',
+             u'identifier': [u'2003adass..12..283B'],
+             u'links_data': u'',
+             'orcid_other' : [u'-', u'-', u'0000-0003-2377-2356', u'-'],
+             u'orcid_pub': [u'-', u'-', u'-', u'-'],
+             u'page': [u'283'],
+             u'property': [u'OPENACCESS', u'ADS_OPENACCESS', u'ARTICLE', u'NOT REFEREED'],
+             u'pub': u'Astronomical Data Analysis Software and Systems XII',
+             u'pub_raw': u'Astronomical Data Analysis Software and Systems XII ASP Conference Series, Vol. 295, 2003 H. E. Payne, R. I. Jedrzejewski, and R. N. Hook, eds., p.283',
+             u'pubdate': u'2003-00-00',
+             'reference': [u'1977JAP....48.4729M',
+              u'1981psd..book.....S',
+              u'1981wi...book.....S',
+              u'1986PhRvB..33.5545M',
+              u'1987ApPhL..51..913T',
+              u'1992Sci...258.1474S',
+              u'1994IJMPB...8..237S',
+              u'1995Natur.376..498H',
+              u'1995Sci...270.1789Y',
+              u'1998TSF...331...76O',
+              u'1999Natur.397..121F',
+              u'2000JaJAP..39...94P',
+              u'2002ApPhL..81.3885S',
+              u'2004ApPhL..85.3890C',
+              u'2004TSF...451..105S',
+              u'2005PhRvB..72s5208M',
+              u'2006ApPhL..89l3505L'],
+             u'title': [u'Chandra Data Archive Download and Usage Database'],
+             u'volume': u'295',
+             u'year': u'2003'})
+
         
-        r = self.app.get_record(['abc'])
-        self.assertEquals(r[0]['id'], 1)
-        self.assertEquals(r[0]['processed'], None)
-        
-        r = self.app.get_record('abc', load_only=['id'])
-        self.assertEquals(r['id'], 1)
-        self.assertFalse('processed' in r)
-        
-        self.app.update_processed_timestamp('abc')
-        r = self.app.get_record('abc')
-        self.assertTrue(r['processed'] > now)
-        
-        # now delete it
-        self.app.delete_by_bibcode('abc')
-        r = self.app.get_record('abc')
-        self.assertTrue(r is None)
-        with self.app.session_scope() as session:
-            r = session.query(models.ChangeLog).filter_by(key='bibcode:abc').first()
-            self.assertTrue(r.key, 'abc')
-        
-    def test_rename_bibcode(self):
-        self.app.update_storage('abc', 'metadata', {'foo': 'bar', 'hey': 1})
-        r = self.app.get_record('abc')
-        
-        self.app.rename_bibcode('abc', 'def')
-        
-        with self.app.session_scope() as session:
-            ref = session.query(models.IdentifierMapping).filter_by(key='abc').first()
-            self.assertTrue(ref.target, 'def')
-            
-        self.assertTrue(self.app.get_changelog('abc'), [{'target': u'def', 'key': u'abc'}])
     
 if __name__ == '__main__':
     unittest.main()

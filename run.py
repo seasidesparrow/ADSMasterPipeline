@@ -119,12 +119,14 @@ def reindex(since=None, batch_size=None, force=False, update_solr=True, update_m
                 if sent % 1000 == 0:
                     logger.debug('Sending %s records', sent)
                 
-                if batch_size and batch_size < len(batch):
+                if not batch_size or batch_size < 0:
                     batch.append(rec.bibcode)
-                    continue
-                
-                tasks.task_index_records.delay(batch, force=force, update_solr=update_solr, update_metrics=update_metrics)
-                batch = []
+                elif batch_size > len(batch):
+                    batch.append(rec.bibcode)
+                else:
+                    batch.append(rec.bibcode)
+                    tasks.task_index_records.delay(batch, force=force, update_solr=update_solr, update_metrics=update_metrics)
+                    batch = []
                 
         if len(batch) > 0:
             tasks.task_index_records.delay(batch, force=force, update_solr=update_solr, update_metrics=update_metrics)
@@ -192,8 +194,9 @@ if __name__ == '__main__':
     parser.add_argument('-e', 
                         '--batch_size', 
                         dest='batch_size', 
-                        action='store_true',
+                        action='store',
                         default=1000,
+                        type=int,
                         help='How many records to process/index in one batch')
     
     args = parser.parse_args()

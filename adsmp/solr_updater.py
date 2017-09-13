@@ -12,11 +12,28 @@ logger = setup_logging('solr_updater')
 # 'destination' (string) == insert the value into record[destination]
 # '' (empty value) == extend the existing values with what you find under this key
 # None == ignore the value completely
- 
+# function == receives the data (and solr doc as built already), should return dict 
+
+def get_nonbib_for_solr(data, solrdoc):
+    return dict(
+                citation=data.get('citations', []),
+                citation_count=data.get('citation_count', 0),
+                cite_read_boost=data.get('boost', 0.0),
+                reference=data.get('reference', []),
+                )
+def get_orcid_claims(data, solrdoc):
+    out = {}
+    # TODO(rca): shall we check that list of authors corresponds?
+    if 'verified' in data:
+        out['orcid_user'] = data['verified']
+    if 'unverified' in data:
+        out['orcid_other'] = data['unverified']
+    return out
+     
 DB_COLUMN_DESTINATIONS = {
     'bib_data': '', 
-    'orcid_claims': 'orcid_claims', 
-    'nonbib_data': '',
+    'orcid_claims': get_orcid_claims, 
+    'nonbib_data': get_nonbib_for_solr,
     'id': 'id', 
     'fulltext': 'body'}
 
@@ -85,13 +102,17 @@ def transform_json_record(db_record):
     for field, target, _ in timestamps:
         if db_record.get(field, None):
             if target:
-                out[target] = db_record.get(field)
+                if callable(target):
+                    out.update(target(db_record.get(field), out)) # in the interest of speed, don't create copy of out
+                else:
+                    out[target] = db_record.get(field)
             else:
                 if target is None:
                     continue
                 out.update(db_record.get(field))
     
     return out
+
 
 
 

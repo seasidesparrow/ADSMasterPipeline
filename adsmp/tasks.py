@@ -141,12 +141,15 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
 
             # build the solr record
             if update_solr:
-                batch.append(solr_updater.transform_json_record(r))
+                d = solr_updater.transform_json_record(r)
+                logger.debug('Built SOLR: %s', d)
+                batch.append(d)
             # get data for metrics
             if update_metrics:
                 m = r.get('metrics', None)
                 if m:
-                    m['bibcode'] = bibcode 
+                    m['bibcode'] = bibcode
+                    logger.debug('Got metrics: %s', m) 
                     if r.get('processed'):
                         batch_update.append(m)
                     else:

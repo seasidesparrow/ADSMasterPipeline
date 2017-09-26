@@ -245,11 +245,13 @@ class ADSMasterPipelineCelery(ADSCelery):
         if len(errs) == 0:
             self._mark_processed(solr_docs)
         else:
+            self.logger.error('%s docs failed indexing', len(errs))
             # recover from erros by inserting docs one by one
             for doc in solr_docs:
                 try:
                     solr_updater.update_solr([doc], solr_urls, ignore_errors=False)
                     self.update_processed_timestamp(doc['bibcode'])
+                    self.logger.debug('%s success', doc['bibcode'])
                 except:
                     failed_bibcode = doc['bibcode']
                     self.logger.error('Failed posting data to %s\noffending payload: %s', solr_urls, doc)

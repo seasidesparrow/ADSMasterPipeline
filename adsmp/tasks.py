@@ -164,7 +164,9 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
             failed_bibcodes = app.reindex(batch, app.conf.get('SOLR_URLS'))
         
         if failed_bibcodes and len(failed_bibcodes):
+            logger.warn('Some bibcodes failed: %s', failed_bibcodes)
             failed_bibcodes = set(failed_bibcodes)
+            
             # when solr_urls > 1, some of the servers may have successfully indexed
             # but here we are refusing to pass data to metrics db; this seems the 
             # right choice because there is only one metrics db (but if we had many,

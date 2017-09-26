@@ -153,7 +153,7 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                     if r.get('processed'):
                         batch_update.append(m)
                     else:
-                        batch_insert(m)
+                        batch_insert.append(m)
         else:
             # if forced and we have at least the bib data, index it
             if force is True:

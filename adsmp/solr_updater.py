@@ -99,6 +99,7 @@ def update_solr(json_records, solr_urls, ignore_errors=False):
     for url in solr_urls:
         r = requests.post(url, data=payload, headers={'content-type': 'application/json'})
         if r.status_code != 200:
+            logger.error("Error sending data to solr\nurl=%s\nresponse=%s\ndata=%s", url, payload, r.text)
             if ignore_errors == True:
                 out.append(r.status_code)
             else:

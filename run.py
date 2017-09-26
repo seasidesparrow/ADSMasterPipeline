@@ -2,6 +2,7 @@
 
 import argparse
 import warnings
+import json
 from requests.packages.urllib3 import exceptions
 warnings.simplefilter('ignore', exceptions.InsecurePlatformWarning)
 
@@ -19,14 +20,14 @@ def _print_record(bibcode):
         print 'stored by us:', bibcode
         r = session.query(Records).filter_by(bibcode=bibcode).first()
         if r:
-            print r.toJSON()
+            print json.dumps(r.toJSON(), indent=2, default=str)
         else:
             print 'None'
         print '-' * 80
         
         print 'as seen by SOLR'
         solr_doc = solr_updater.transform_json_record(r.toJSON())
-        print solr_doc
+        print json.dumps(solr_doc, indent=2, default=str)
         print '=' * 80
         
 def diagnostics(bibcodes):

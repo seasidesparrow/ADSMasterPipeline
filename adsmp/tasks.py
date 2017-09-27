@@ -99,7 +99,7 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
     if not (update_solr or update_metrics):
         raise Exception('Hmmm, I dont think I let you do NOTHING, sorry!')
 
-    logger.debug('Running after-update for: %s', bibcodes)
+    logger.debug('Running index-records for: %s', bibcodes)
     batch = []
     batch_insert = []
     batch_update = []
@@ -162,24 +162,24 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                 logger.debug('%s not ready for indexing yet', bibcode)
                 
         
-        failed_bibcodes = None
-        if len(batch):
-            failed_bibcodes = app.reindex(batch, app.conf.get('SOLR_URLS'))
+    failed_bibcodes = None
+    if len(batch):
+        failed_bibcodes = app.reindex(batch, app.conf.get('SOLR_URLS'))
+    
+    if failed_bibcodes and len(failed_bibcodes):
+        logger.warn('Some bibcodes failed: %s', failed_bibcodes)
+        failed_bibcodes = set(failed_bibcodes)
         
-        if failed_bibcodes and len(failed_bibcodes):
-            logger.warn('Some bibcodes failed: %s', failed_bibcodes)
-            failed_bibcodes = set(failed_bibcodes)
-            
-            # when solr_urls > 1, some of the servers may have successfully indexed
-            # but here we are refusing to pass data to metrics db; this seems the 
-            # right choice because there is only one metrics db (but if we had many,
-            # then we could differentiate) 
-                    
-            batch_insert = filter(lambda x: x['bibcode'] not in failed_bibcodes, batch_insert)
-            batch_update = filter(lambda x: x['bibcode'] not in failed_bibcodes, batch_update)
-        
-        if len(batch_insert) or len(batch_update):
-            app.update_metrics_db(batch_insert, batch_update)
+        # when solr_urls > 1, some of the servers may have successfully indexed
+        # but here we are refusing to pass data to metrics db; this seems the 
+        # right choice because there is only one metrics db (but if we had many,
+        # then we could differentiate) 
+                
+        batch_insert = filter(lambda x: x['bibcode'] not in failed_bibcodes, batch_insert)
+        batch_update = filter(lambda x: x['bibcode'] not in failed_bibcodes, batch_update)
+    
+    if len(batch_insert) or len(batch_update):
+        app.update_metrics_db(batch_insert, batch_update)
         
 
 

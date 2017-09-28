@@ -67,7 +67,7 @@ def task_update_record(msg):
 
 
 @app.task(queue='index-records')
-def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=True):
+def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=True, commit=False):
     """
     This task is (normally) called by the cronjob task
     (that one, quite obviously, is in turn started by cron)
@@ -164,7 +164,7 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
         
     failed_bibcodes = None
     if len(batch):
-        failed_bibcodes = app.reindex(batch, app.conf.get('SOLR_URLS'))
+        failed_bibcodes = app.reindex(batch, app.conf.get('SOLR_URLS'), commit=commit)
     
     if failed_bibcodes and len(failed_bibcodes):
         logger.warn('Some bibcodes failed: %s', failed_bibcodes)

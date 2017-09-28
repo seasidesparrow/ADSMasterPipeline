@@ -83,7 +83,7 @@ def delete_by_bibcodes(bibcodes, urls):
         
 
 
-def update_solr(json_records, solr_urls, ignore_errors=False):
+def update_solr(json_records, solr_urls, ignore_errors=False, commit=False):
     """ Sends data to solr
         :param: json_records - list of JSON formatted data (formatted in the way
                 that SOLR expects)
@@ -97,6 +97,11 @@ def update_solr(json_records, solr_urls, ignore_errors=False):
     payload = json.dumps(json_records)
     out = []
     for url in solr_urls:
+        if commit:
+            if '?' in url:
+                url = url + '&commit=true'
+            else:
+                url = url + '?commit=true'
         r = requests.post(url, data=payload, headers={'content-type': 'application/json'})
         if r.status_code != 200:
             logger.error("Error sending data to solr\nurl=%s\nresponse=%s\ndata=%s", url, payload, r.text)

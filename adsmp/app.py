@@ -230,7 +230,7 @@ class ADSMasterPipelineCelery(ADSCelery):
         
     
 
-    def reindex(self, solr_docs, solr_urls):
+    def reindex(self, solr_docs, solr_urls, commit=False):
         """Sends documents to solr and to Metrics DB.
         
         :param: solr_docs - list of json objects (solr documents)
@@ -249,7 +249,7 @@ class ADSMasterPipelineCelery(ADSCelery):
             # recover from erros by inserting docs one by one
             for doc in solr_docs:
                 try:
-                    solr_updater.update_solr([doc], solr_urls, ignore_errors=False)
+                    solr_updater.update_solr([doc], solr_urls, ignore_errors=False, commit=commit)
                     self.update_processed_timestamp(doc['bibcode'])
                     self.logger.debug('%s success', doc['bibcode'])
                 except:

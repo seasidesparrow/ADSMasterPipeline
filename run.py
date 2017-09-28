@@ -102,6 +102,7 @@ def reindex(since=None, batch_size=None, force=False, update_solr=True, update_m
     
     logger.info('Sending records changed since: {0}'.format(since.isoformat()))
     ignored = sent = 0
+    last_bibcode = None
     
     try:
         # select everything that was updated since
@@ -112,7 +113,7 @@ def reindex(since=None, batch_size=None, force=False, update_solr=True, update_m
                 .options(load_only(Records.bibcode, Records.updated, Records.processed)) \
                 .yield_per(100):
                 
-                if rec.processed and rec.processed > since:
+                if rec.processed and rec.processed < since:
                     ignored += 1
                     continue
                 
@@ -128,9 +129,15 @@ def reindex(since=None, batch_size=None, force=False, update_solr=True, update_m
                     batch.append(rec.bibcode)
                     tasks.task_index_records.delay(batch, force=force, update_solr=update_solr, update_metrics=update_metrics)
                     batch = []
+                    last_bibcode = rec.bibcode
                 
         if len(batch) > 0:
-            tasks.task_index_records.delay(batch, force=force, update_solr=update_solr, update_metrics=update_metrics)
+            tasks.task_index_records.delay(batch, force=force, update_solr=update_solr, update_metrics=update_metrics, 
+                                           commit=force)
+        elif force and last_bibcode:
+            # issue one extra call with the commit
+            tasks.task_index_records.delay([last_bibcode], force=force, update_solr=update_solr, update_metrics=update_metrics, 
+                                           commit=force)
         
         logger.info('Done processing %s records (%s were ignored)', sent+ignored, ignored)
     except Exception, e:

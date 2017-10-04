@@ -10,6 +10,8 @@ from adsputils import setup_logging, get_date
 from adsmp.models import KeyValue, Records
 from adsmp import tasks, solr_updater
 from sqlalchemy.orm import load_only
+from sqlalchemy.orm.attributes import InstrumentedAttribute
+
 
 app = tasks.app
 logger = setup_logging('run.py')
@@ -49,8 +51,10 @@ def diagnostics(bibcodes):
         
     
     with app.session_scope() as session:
-        print '# of records in db:', session.query(Records.id).count()
-    
+        for x in dir(Records):
+            if isinstance(getattr(Records, x), InstrumentedAttribute):
+                print '# of %s' % x, session.query(Records).filter(getattr(Records, x) != None).count()
+
             
 
 

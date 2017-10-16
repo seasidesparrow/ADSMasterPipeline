@@ -55,7 +55,8 @@ def diagnostics(bibcodes):
             if isinstance(getattr(Records, x), InstrumentedAttribute):
                 print '# of %s' % x, session.query(Records).filter(getattr(Records, x) != None).count()
 
-            
+    print 'sending test bibcodes to the queue for reindexing'
+    tasks.task_index_records.delay(bibcodes, force=True, update_solr=True, update_metrics=True)
 
 
 

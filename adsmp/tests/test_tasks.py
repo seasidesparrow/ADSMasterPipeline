@@ -19,7 +19,8 @@ class TestWorkers(unittest.TestCase):
             {
             'SQLALCHEMY_URL': 'sqlite:///',
             'SQLALCHEMY_ECHO': False,
-            'SOLR_URLS': ['http://foo.bar.com/solr/v1']
+            'SOLR_URLS': ['http://foo.bar.com/solr/v1'],
+            'METRICS_SQLALCHEMY_URL': None
             })
         tasks.app = self.app # monkey-patch the app object
         Base.metadata.bind = self.app._session.get_bind()
@@ -65,8 +66,8 @@ class TestWorkers(unittest.TestCase):
         with patch('adsmp.tasks.task_index_records.delay') as next_task:
             self.assertFalse(next_task.called)
             recs = NonBibRecordList()
-            nonbib_data = {'bibcode': '2003ASPC..295..361M', 'refereed': False}
-            nonbib_data2 = {'bibcode': '3003ASPC..295..361Z', 'refereed': True}
+            nonbib_data = {'bibcode': '2003ASPC..295..361M', 'boost': 3.1}
+            nonbib_data2 = {'bibcode': '3003ASPC..295..361Z', 'boost': 3.2}
             rec = NonBibRecord(**nonbib_data)
             rec2 = NonBibRecord(**nonbib_data2)
             recs.nonbib_records.extend([rec._data, rec2._data])

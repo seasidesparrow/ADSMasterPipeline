@@ -39,7 +39,7 @@ unsafe = True
 if os.getenv('CI') or os.getenv('TRAVIS'):
     unsafe = False
 
-@unittest.skipIf(unsafe, 'This unittest is destructive! It will drop/recreate DB schema! If you want to execute it, export CI=True first!')
+@unittest.skipIf(unsafe, 'This unittest is destructive! It will drop/recreate metrics DB schema! If you want to execute it, export CI=True first!')
 class TestAdsOrcidCelery(unittest.TestCase):
     """
     Tests the appliction's methods
@@ -50,8 +50,8 @@ class TestAdsOrcidCelery(unittest.TestCase):
         proj_home = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
         self.app = app.ADSMasterPipelineCelery('test', local_config=\
             {
-            'SQLALCHEMY_URL': config.get('METRICS_SQLALCHEMY_URL'),
-            'METRICS_SQLALCHEMY_URL': config.get('METRICS_SQLALCHEMY_URL'),
+            'SQLALCHEMY_URL': config.get('METRICS_SQLALCHEMY_URL', 'postgres://postgres@localhost:5432/metrics'),
+            'METRICS_SQLALCHEMY_URL': config.get('METRICS_SQLALCHEMY_URL', 'postgres://postgres@localhost:5432/metrics'),
             'SQLALCHEMY_ECHO': False,
             'PROJ_HOME' : proj_home,
             'TEST_DIR' : os.path.join(proj_home, 'adsmp/tests'),

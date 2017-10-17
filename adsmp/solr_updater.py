@@ -15,12 +15,26 @@ logger = setup_logging('solr_updater')
 # function == receives the data (and solr doc as built already), should return dict 
 
 def get_nonbib_for_solr(data, solrdoc):
-    return dict(
+    # almost all data from nonbib goes to solr
+    # some have different names
+    
+    out = dict(
                 citation=data.get('citations', []),
                 citation_count=data.get('citation_count', 0),
                 cite_read_boost=data.get('boost', 0.0),
-                reference=data.get('reference', []),
+                #reference=data.get('reference', []),
+                grant=data.get('grants', []),
+                read_count=data.get('read_count', []),
+                #simbad_objects=make_hier_facets(data.get('simbad_objects', [])),
+                read_count=data.get('read_count', 0),
+                reader=data.get('readers', []),
+                reference = data.get('reference', []),
+                #ned_object_facet_hier = make_hier_facets(data.get('ned_objects', [])),
+                data=data.get('data', []),
+                esources = data.get('esource', []),
+                property = data.get('property', []),
                 )
+    
 def get_orcid_claims(data, solrdoc):
     out = {}
     # TODO(rca): shall we check that list of authors corresponds?

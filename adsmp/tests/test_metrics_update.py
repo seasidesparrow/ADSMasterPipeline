@@ -50,8 +50,8 @@ class TestAdsOrcidCelery(unittest.TestCase):
         proj_home = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
         self.app = app.ADSMasterPipelineCelery('test', local_config=\
             {
-            'SQLALCHEMY_URL': config.get('METRICS_SQLALCHEMY_URL', 'postgres://postgres@localhost:5432/metrics'),
-            'METRICS_SQLALCHEMY_URL': config.get('METRICS_SQLALCHEMY_URL', 'postgres://postgres@localhost:5432/metrics'),
+            'SQLALCHEMY_URL': config.get('METRICS_SQLALCHEMY_URL') or 'postgres://postgres@localhost:5432/metrics',
+            'METRICS_SQLALCHEMY_URL': config.get('METRICS_SQLALCHEMY_URL') or 'postgres://postgres@localhost:5432/metrics',
             'SQLALCHEMY_ECHO': False,
             'PROJ_HOME' : proj_home,
             'TEST_DIR' : os.path.join(proj_home, 'adsmp/tests'),

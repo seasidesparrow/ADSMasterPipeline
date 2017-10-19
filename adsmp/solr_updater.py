@@ -6,34 +6,72 @@ import time
 
 logger = setup_logging('solr_updater')
 
-# When building SOLR record, we grab data from the database and insert them
-# into the dictionary with the following conventions:
 
-# 'destination' (string) == insert the value into record[destination]
-# '' (empty value) == extend the existing values with what you find under this key
-# None == ignore the value completely
-# function == receives the data (and solr doc as built already), should return dict 
-
-def get_nonbib_for_solr(data, solrdoc):
-    # almost all data from nonbib goes to solr
-    # some have different names
+def extract_data_pipeline(data, solrdoc):
     
-    out = dict(
-                citation=data.get('citations', []),
-                citation_count=data.get('citation_count', 0),
+    citation=data.get('citations', [])
+    citation_count=len(citation)
+    
+    reader=data.get('readers', [])
+    read_count=len(reader)
+    
+    grant = []
+    grant_facet_hier = []
+    for x in data.get('grants', []):
+        agency, grant_no = x.split(' ', 1)
+        grant.append(agency)
+        grant.append(grant_no)
+        grant_facet_hier.extend(generate_hier_facet(agency, grant_no))
+        
+    simbid = []
+    simbtype = []
+    simbad_object_facet_hier = []
+    for x in data.get('simbad_objects', []):
+        sid, stype = x.split(' ', 1)
+        simbid.append(int(sid))
+        simbtype.append(stype)
+        simbad_object_facet_hier.extend(generate_hier_facet(sid, stype))
+    
+    nedid = []
+    nedtype = []
+    ned_object_facet_hier = []
+    for x in data.get('ned_objects', []):
+        nid, ntype = x.split(' ', 1)
+        nedid.append(int(sid))
+        nedtype.append(stype)
+        ned_object_facet_hier.extend(generate_hier_facet(nid, ntype))
+    
+    return dict(citation=citation, 
+                citation_count=citation_count,
+                reader=reader, 
+                read_count=read_count,
                 cite_read_boost=data.get('boost', 0.0),
-                #reference=data.get('reference', []),
-                grant=data.get('grants', []),
-                read_count=data.get('read_count', []),
-                #simbad_objects=make_hier_facets(data.get('simbad_objects', [])),
-                read_count=data.get('read_count', 0),
-                reader=data.get('readers', []),
-                reference = data.get('reference', []),
-                #ned_object_facet_hier = make_hier_facets(data.get('ned_objects', [])),
+                classic_factor=data.get('norm_cites', 0.0),
+                reference=data.get('reference', []),
                 data=data.get('data', []),
                 esources = data.get('esource', []),
                 property = data.get('property', []),
+                grant=grant,
+                grant_facet_hier=grant_facet_hier,
+                simbid=simbid,
+                simbtype=simbtype,
+                simbad_object_facet_hier=simbad_object_facet_hier,
+                nedid=nedid,
+                nedtype=nedtype,
+                ned_object_facet_hier=ned_object_facet_hier
                 )
+
+def generate_hier_facet(*levels):
+    levels = list(levels)
+    out = []
+    i = 0
+    tmpl = u'{}/{}'
+    j = len(levels)
+    while i < j:
+        out.append(tmpl.format(*[i] + levels[0:i+1]))
+        tmpl += '/{}'
+        i += 1
+    return out
     
 def get_orcid_claims(data, solrdoc):
     out = {}
@@ -44,6 +82,13 @@ def get_orcid_claims(data, solrdoc):
         out['orcid_other'] = data['unverified']
     return out
 
+# When building SOLR record, we grab data from the database and insert them
+# into the dictionary with the following conventions:
+
+# 'destination' (string) == insert the value into record[destination]
+# '' (empty value) == extend the existing values with what you find under this key
+# None == ignore the value completely
+# function == receives the data (and solr doc as built already), should return dict 
 fmap = dict(metadata_mtime='bib_data_updated',
            nonbib_mtime='nonbib_data_updated',
            fulltext_mtime='fulltext_updated',
@@ -66,7 +111,7 @@ def get_timestamps(db_record, out):
 DB_COLUMN_DESTINATIONS = {
     'bib_data': '', 
     'orcid_claims': get_orcid_claims, 
-    'nonbib_data': get_nonbib_for_solr,
+    'nonbib_data': extract_data_pipeline,
     'id': 'id', 
     'fulltext': 'body',
     '#timestamps': get_timestamps, # use 'id' to be always called
@@ -161,7 +206,6 @@ def transform_json_record(db_record):
                     out.update(x) 
     
     return out
-
 
 
 

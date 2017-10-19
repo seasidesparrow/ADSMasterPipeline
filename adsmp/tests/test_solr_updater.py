@@ -161,7 +161,11 @@ class TestSolrUpdater(unittest.TestCase):
               u'2004ApPhL..85.3890C',
               u'2004TSF...451..105S',
               u'2005PhRvB..72s5208M',
-              u'2006ApPhL..89l3505L']})
+              u'2006ApPhL..89l3505L'],
+             u'simbad_objects': [u'2419335 sim', u'3111723 sim*'],
+             u'ned_objects': [u'2419335 ned', u'3111723 ned*'],
+             u'grants': [u'2419335 g', u'3111723 g*'],
+             })
         
         rec = self.app.get_record('bibcode')
         self.assertDictContainsSubset({u'abstract': u'abstract text',
@@ -218,6 +222,7 @@ class TestSolrUpdater(unittest.TestCase):
              u'pub': u'Astronomical Data Analysis Software and Systems XII',
              u'pub_raw': u'Astronomical Data Analysis Software and Systems XII ASP Conference Series, Vol. 295, 2003 H. E. Payne, R. I. Jedrzejewski, and R. N. Hook, eds., p.283',
              u'pubdate': u'2003-00-00',
+             u'read_count': 0,
              'reference': [u'1977JAP....48.4729M',
               u'1981psd..book.....S',
               u'1981wi...book.....S',
@@ -235,6 +240,9 @@ class TestSolrUpdater(unittest.TestCase):
               u'2004TSF...451..105S',
               u'2005PhRvB..72s5208M',
               u'2006ApPhL..89l3505L'],
+             u'simbid': [2419335, 3111723],
+             u'simbtype': [u'sim', u'sim*'],
+             u'simbad_object_facet_hier': [u'0/2419335', u'1/2419335/sim', u'0/3111723', u'1/3111723/sim*'],
              u'title': [u'Chandra Data Archive Download and Usage Database'],
              u'volume': u'295',
              u'year': u'2003'},

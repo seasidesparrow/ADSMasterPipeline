@@ -18,5 +18,5 @@ METRICS_SQLALCHEMY_URL = None #'postgres://postgres@localhost:5432/metrics'
 
 
 SOLR_URLS = ['http://localhost:9983/solr/collection1/update']
-SOLR_URL_NEW = ['http://localhost:9983/solr/collection1/query']
-SOLR_URL_OLD = ['http://localhost:9984/solr/collection1/query']
+SOLR_URL_NEW = 'http://localhost:9983/solr/collection1/query'
+SOLR_URL_OLD = 'http://localhost:9984/solr/collection1/query'

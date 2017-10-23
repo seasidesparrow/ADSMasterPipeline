@@ -5,13 +5,15 @@ import warnings
 import json
 from requests.packages.urllib3 import exceptions
 warnings.simplefilter('ignore', exceptions.InsecurePlatformWarning)
+import time
+import requests
+from difflib import SequenceMatcher
 
 from adsputils import setup_logging, get_date
 from adsmp.models import KeyValue, Records
-from adsmp import tasks, solr_updater
+from adsmp import tasks, solr_updater, validate
 from sqlalchemy.orm import load_only
 from sqlalchemy.orm.attributes import InstrumentedAttribute
-
 
 app = tasks.app
 logger = setup_logging('run.py')
@@ -156,6 +158,7 @@ def reindex(since=None, batch_size=None, force=False, update_solr=True, update_m
             logger.error('Failed while submitting data to pipeline')
         raise e
 
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Process user input.')
@@ -203,7 +206,7 @@ if __name__ == '__main__':
                         help='Sent all updated documents to SOLR/Postgres (you can combine with --since).' + 
                         'Default is to update both solr and metrics. You can choose what to update.' + 
                         '(s = update solr, m = update metrics)')
-    
+
     parser.add_argument('-e', 
                         '--batch_size', 
                         dest='batch_size', 
@@ -211,6 +214,18 @@ if __name__ == '__main__':
                         default=1000,
                         type=int,
                         help='How many records to process/index in one batch')
+
+    parser.add_argument('-c',
+                        '--validate_solr',
+                        dest='validate',
+                        action='store_true',
+                        help='Compares two SOLR instances for the given bibcodes or file of bibcodes')
+
+    parser.add_argument('-n',
+                        '--filename',
+                        dest='filename',
+                        action='store',
+                        help='File containing a list of bibcodes, one per line')
     
     args = parser.parse_args()
     
@@ -225,8 +240,33 @@ if __name__ == '__main__':
         diagnostics(args.bibcodes)
         
     logger.info(args)
-    
-    if args.reindex:
+
+    if args.validate:
+        fields = ('abstract', 'ack', 'aff', 'alternate_bibcode', 'alternate_title', 'arxiv_class', 'author',
+                  'author_count', 'author_facet', 'author_facet_hier', 'author_norm', 'bibgroup', 'bibgroup_facet',
+                  'bibstem', 'bibstem_facet', 'body', 'citation', 'citation_count', 'cite_read_boost', 'classic_factor',
+                  'comment', 'copyright', 'data', 'data_count', 'data_facet', 'database', 'date', 'doctype',
+                  'doctype_facet_hier',
+                  'doi', 'eid', 'email', 'entry_date', 'esources', 'first_author', 'first_author_facet_hier',
+                  'first_author_norm', 'fulltext_mtime', 'grant', 'grant_facet_hier', 'id', 'identifier', 'indexstamp',
+                  'isbn', 'issn', 'issue', 'keyword', 'keyword_facet', 'keyword_norm', 'keyword_schema', 'lang',
+                  'links_data', 'metadata_mtime', 'metrics_mtime', 'nedid', 'nedtype', 'ned_object_facet_hier',
+                  'nonbib_mtime',
+                  'origin', 'orcid_mtime', 'orcid', 'orcid_pub', 'orcid_user', 'orcid_other', 'page', 'page_range',
+                  'page_count', 'property', 'pub', 'pub_raw', 'pubdate', 'pubnote', 'read_count', 'reader', 'recid',
+                  'reference', 'simbad_object_facet_hier', 'simbid', 'simbtype', 'title', 'update_timestamp', 'vizier',
+                  'vizier_facet', 'volume', 'year')
+
+        ignore_fields = ('id', 'indexstamp', 'fulltext_mtime', 'links_data', 'metadata_mtime', 'metrics_mtime',
+                         'nonbib_mtime', 'orcid_mtime', 'recid', 'update_timestamp')
+
+        new_fields = ('data_count', 'entry_date', 'esources', 'nedid', 'nedtype', 'ned_object_facet_hier', 'origin',
+                      'page_count', 'page_range')
+
+        d = validate.Validate(fields, ignore_fields, new_fields)
+        d.compare_solr(bibcodelist=args.bibcodes,filename=args.filename)
+
+    elif args.reindex:
         update_solr = 's' in args.reindex.lower()
         update_metrics = 'm' in args.reindex.lower()
         reindex(since=args.since, batch_size=args.batch_size, force=args.force, 

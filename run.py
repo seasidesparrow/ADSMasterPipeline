@@ -24,14 +24,14 @@ def _print_record(bibcode):
         print 'stored by us:', bibcode
         r = session.query(Records).filter_by(bibcode=bibcode).first()
         if r:
-            print json.dumps(r.toJSON(), indent=2, default=str)
+            print json.dumps(r.toJSON(), indent=2, default=str, sort_keys=True)
         else:
             print 'None'
         print '-' * 80
         
         print 'as seen by SOLR'
         solr_doc = solr_updater.transform_json_record(r.toJSON())
-        print json.dumps(solr_doc, indent=2, default=str)
+        print json.dumps(solr_doc, indent=2, default=str, sort_keys=True)
         print '=' * 80
         
 def diagnostics(bibcodes):

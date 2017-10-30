@@ -44,7 +44,7 @@ def extract_data_pipeline(data, solrdoc):
     for x in data.get('ned_objects', []):
         nid, ntype = x.split(' ', 1)
         nedid.append(nid)
-        nedtype.append(stype)
+        nedtype.append(ntype)
         ned_object_facet_hier.extend(generate_hier_facet(nid, ntype))
     
     return dict(reader=reader, 

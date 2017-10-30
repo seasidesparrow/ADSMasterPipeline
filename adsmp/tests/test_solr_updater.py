@@ -105,6 +105,14 @@ class TestSolrUpdater(unittest.TestCase):
         self.app.update_storage('bibcode', 'orcid_claims', {'authors': ['Blecksmith, E.', 'Paltani, S.', 'Rots, A.', 'Winkelman, S.'],
              'bibcode': '2003ASPC..295..283B',
              'unverified': ['-', '-', '0000-0003-2377-2356', '-']})
+        self.app.update_storage('bibcode', 'metrics', {
+             u'citation_num': 6,
+             u'citations': [u'2007ApPhL..91g1118P',
+              u'2010ApPhA..99..805K',
+              u'2011TSF...520..610L',
+              u'2012NatCo...3E1175B',
+              u'2014IPTL...26..305A',
+              u'2016ITED...63..197G']})
         self.app.update_storage('bibcode', 'nonbib_data', {u'authors': [u'Zaus, E',
               u'Tedde, S',
               u'Fuerst, J',
@@ -112,13 +120,6 @@ class TestSolrUpdater(unittest.TestCase):
               u'Doehler, G'],
              u'bibcode': u'2007JAP...101d4501Z',
              u'boost': 0.1899999976158142,
-             u'citation_count': 6,
-             u'citations': [u'2007ApPhL..91g1118P',
-              u'2010ApPhA..99..805K',
-              u'2011TSF...520..610L',
-              u'2012NatCo...3E1175B',
-              u'2014IPTL...26..305A',
-              u'2016ITED...63..197G'],
              u'downloads': [0,
               0,
               0,

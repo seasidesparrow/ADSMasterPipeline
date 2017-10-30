@@ -7,10 +7,16 @@ import time
 logger = setup_logging('solr_updater')
 
 
-def extract_data_pipeline(data, solrdoc):
+def extract_metrics_pipeline(data, solrdoc):
     
     citation=data.get('citations', [])
     citation_count=len(citation)
+    
+    return dict(citation=citation, 
+                citation_count=citation_count,
+                )
+    
+def extract_data_pipeline(data, solrdoc):
     
     reader=data.get('readers', [])
     read_count=len(reader)
@@ -41,9 +47,7 @@ def extract_data_pipeline(data, solrdoc):
         nedtype.append(stype)
         ned_object_facet_hier.extend(generate_hier_facet(nid, ntype))
     
-    return dict(citation=citation, 
-                citation_count=citation_count,
-                reader=reader, 
+    return dict(reader=reader, 
                 read_count=read_count,
                 cite_read_boost=data.get('boost', 0.0),
                 classic_factor=data.get('norm_cites', 0.0),
@@ -112,6 +116,7 @@ DB_COLUMN_DESTINATIONS = {
     'bib_data': '', 
     'orcid_claims': get_orcid_claims, 
     'nonbib_data': extract_data_pipeline,
+    'metrics': extract_metrics_pipeline,
     'id': 'id', 
     'fulltext': 'body',
     '#timestamps': get_timestamps, # use 'id' to be always called

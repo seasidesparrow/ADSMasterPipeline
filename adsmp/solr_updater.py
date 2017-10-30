@@ -34,7 +34,7 @@ def extract_data_pipeline(data, solrdoc):
     simbad_object_facet_hier = []
     for x in data.get('simbad_objects', []):
         sid, stype = x.split(' ', 1)
-        simbid.append(int(sid))
+        simbid.append(sid)
         simbtype.append(stype)
         simbad_object_facet_hier.extend(generate_hier_facet(sid, stype))
     
@@ -43,7 +43,7 @@ def extract_data_pipeline(data, solrdoc):
     ned_object_facet_hier = []
     for x in data.get('ned_objects', []):
         nid, ntype = x.split(' ', 1)
-        nedid.append(int(nid))
+        nedid.append(nid)
         nedtype.append(stype)
         ned_object_facet_hier.extend(generate_hier_facet(nid, ntype))
     

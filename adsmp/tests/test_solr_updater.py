@@ -241,7 +241,7 @@ class TestSolrUpdater(unittest.TestCase):
               u'2004TSF...451..105S',
               u'2005PhRvB..72s5208M',
               u'2006ApPhL..89l3505L'],
-             u'simbid': [2419335, 3111723],
+             u'simbid': ['2419335', '3111723'],
              u'simbtype': [u'sim', u'sim*'],
              u'simbad_object_facet_hier': [u'0/2419335', u'1/2419335/sim', u'0/3111723', u'1/3111723/sim*'],
              u'title': [u'Chandra Data Archive Download and Usage Database'],

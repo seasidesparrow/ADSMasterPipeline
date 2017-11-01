@@ -292,6 +292,11 @@ class ADSMasterPipelineCelery(ADSCelery):
                 self.logger.error('Insert batch failed, will upsert one by one %s recs', len(batch_insert))
                 for x in batch_insert:
                     self._metrics_upsert(x, insert_first=False)
+            except Exception, e:
+                trans.rollback()
+                self.logger.error('DB failure: %s', e)
+                raise e
+
         if len(batch_update):
             trans = self._metrics_conn.begin()
             try:
@@ -307,6 +312,10 @@ class ADSMasterPipelineCelery(ADSCelery):
                 self.logger.error('Update batch failed, will upsert one by one %s recs', len(batch_update))
                 for x in batch_update:
                     self._metrics_upsert(x, insert_first=True)
+            except Exception, e:
+                trans.rollback()
+                self.logger.error('DB failure: %s', e)
+                raise e
 
 
     def _metrics_upsert(self, record, insert_first=True):
@@ -320,6 +329,10 @@ class ADSMasterPipelineCelery(ADSCelery):
                 trans = self._metrics_conn.begin()
                 self._metrics_conn.execute(self._metrics_table_update, record)
                 trans.commit()
+            except Exception, e:
+                trans.rollback()
+                self.logger.error('DB failure: %s', e)
+                raise e
         else:
             trans = self._metrics_conn.begin()
             try:
@@ -332,3 +345,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                 trans = self._metrics_conn.begin()
                 self._metrics_conn.execute(self._metrics_table_insert, record)
                 trans.commit()
+            except Exception, e:
+                trans.rollback()
+                self.logger.error('DB failure: %s', e)
+                raise e

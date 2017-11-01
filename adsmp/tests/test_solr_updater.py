@@ -164,7 +164,7 @@ class TestSolrUpdater(unittest.TestCase):
               u'2005PhRvB..72s5208M',
               u'2006ApPhL..89l3505L'],
              u'simbad_objects': [u'2419335 sim', u'3111723 sim*'],
-             u'ned_objects': [u'2419335 ned', u'3111723 ned*'],
+             u'ned_objects': [u'2419335 HII', u'3111723 ned*'],
              u'grants': [u'2419335 g', u'3111723 g*'],
              })
         
@@ -218,6 +218,9 @@ class TestSolrUpdater(unittest.TestCase):
              u'links_data': u'',
              'orcid_other' : [u'-', u'-', u'0000-0003-2377-2356', u'-'],
              u'orcid_pub': [u'-', u'-', u'-', u'-'],
+             u'nedid': [u'2419335', u'3111723'],
+             u'nedtype': [u'HII', u'ned*'],
+             u'ned_object_facet_hier': [u'0/HII Region', u'1/HII Region/2419335', u'0/Other', u'1/Other/3111723'],
              u'page': [u'283'],
              u'property': [u'OPENACCESS', u'ADS_OPENACCESS', u'ARTICLE', u'NOT REFEREED'],
              u'pub': u'Astronomical Data Analysis Software and Systems XII',
@@ -243,7 +246,7 @@ class TestSolrUpdater(unittest.TestCase):
               u'2006ApPhL..89l3505L'],
              u'simbid': ['2419335', '3111723'],
              u'simbtype': [u'sim', u'sim*'],
-             u'simbad_object_facet_hier': [u'0/2419335', u'1/2419335/sim', u'0/3111723', u'1/3111723/sim*'],
+             u'simbad_object_facet_hier': [u'0/Other', u'1/Other/2419335', u'0/Star', u'1/Star/3111723'],
              u'title': [u'Chandra Data Archive Download and Usage Database'],
              u'volume': u'295',
              u'year': u'2003'},

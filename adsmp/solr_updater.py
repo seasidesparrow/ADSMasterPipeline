@@ -36,7 +36,7 @@ def extract_data_pipeline(data, solrdoc):
         sid, stype = x.split(' ', 1)
         simbid.append(sid)
         simbtype.append(stype)
-        simbad_object_facet_hier.extend(generate_hier_facet(sid, stype))
+        simbad_object_facet_hier.extend(generate_hier_facet(map_simbad_type(stype), sid))
     
     nedid = []
     nedtype = []
@@ -45,7 +45,7 @@ def extract_data_pipeline(data, solrdoc):
         nid, ntype = x.split(' ', 1)
         nedid.append(nid)
         nedtype.append(ntype)
-        ned_object_facet_hier.extend(generate_hier_facet(nid, ntype))
+        ned_object_facet_hier.extend(generate_hier_facet(map_ned_type(ntype), nid))
     
     return dict(reader=reader, 
                 read_count=read_count,
@@ -53,6 +53,7 @@ def extract_data_pipeline(data, solrdoc):
                 classic_factor=data.get('norm_cites', 0.0),
                 reference=data.get('reference', []),
                 data=data.get('data', []),
+                data_count=data.get('total_link_counts', 0),
                 esources = data.get('esource', []),
                 property = data.get('property', []),
                 grant=grant,
@@ -85,6 +86,59 @@ def get_orcid_claims(data, solrdoc):
     if 'unverified' in data:
         out['orcid_other'] = data['unverified']
     return out
+
+
+#### TODO move to the data pipeline
+def map_simbad_type(otype):
+    """
+    Maps a native SIMBAD object type to a subset of basic classes
+    used for searching and faceting.  Based on Thomas Boch's mappings
+    used in AladinLite
+    """
+    if otype.startswith('G') or otype.endswith('G'):
+        return u'Galaxy'
+    elif otype == 'Star' or otype.find('*') >= 0:
+        return u'Star'
+    elif otype == 'Neb' or otype.startswith('PN') or otype.startswith('SNR'):
+        return u'Nebula'
+    elif otype == 'HII':
+        return u'HII Region'
+    elif otype == 'X':
+        return u'X-ray'
+    elif otype.startswith('Radio') or otype == 'Maser' or otype == 'HI':
+        return u'Radio'
+    elif otype == 'IR' or otype.startswith('Red'):
+        return u'Infrared'
+    elif otype == 'UV':
+        return u'UV'
+    else:
+        return u'Other'
+
+_o_types = {}
+[_o_types.__setitem__(x, u'Galaxy') for x in ["G","GClstr","GGroup","GPair","GTrpl","G_Lens","PofG"]]
+[_o_types.__setitem__(x, u'Nebula') for x in ['Neb','PN','RfN']]
+[_o_types.__setitem__(x, u'HII Region') for x in ['HII']]
+[_o_types.__setitem__(x, u'X-ray') for x in ['X']]
+[_o_types.__setitem__(x, u'Radio') for x in ['Maser', 'HI']]
+[_o_types.__setitem__(x, u'Infrared') for x in ['IrS']]
+[_o_types.__setitem__(x, u'Star') for x in ['Blue*','C*','exG*','Flare*','Nova','Psr','Red*','SN','SNR','V*','VisS','WD*','WR*']]
+def map_ned_type(otype):
+    """
+    Maps a native NED object type to a subset of basic classes
+    used for searching and faceting.
+    """
+    if otype.startswith('!'):
+        return u'Galactic Object'
+    elif otype.startswith('*'):
+        return u'Star'
+    elif otype.startswith('Uv'):
+        return u'UV'
+    elif otype.startswith('Radio'):
+        return u'Radio'
+    else:
+        return _o_types.get(otype, u'Other')
+
+
 
 # When building SOLR record, we grab data from the database and insert them
 # into the dictionary with the following conventions:

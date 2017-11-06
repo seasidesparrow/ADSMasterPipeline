@@ -208,7 +208,7 @@ def update_solr(json_records, solr_urls, ignore_errors=False, commit=False):
         :param: solr_urls: list of urls where to post data to
         :param: ignore_errors: (True) if to generate an exception if a status 
                 code as returned from SOLR is not 200
-        :return:  
+        :return:  list of status codes, one per each request
     """
     if not isinstance(json_records, list):
         json_records = [json_records]

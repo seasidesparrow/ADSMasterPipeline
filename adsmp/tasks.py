@@ -103,6 +103,7 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
     batch = []
     batch_insert = []
     batch_update = []
+    recs_to_process = set()
     
     #check if we have complete record
     for bibcode in bibcodes:
@@ -121,7 +122,6 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
         year_zero = '1972'
         processed = r.get('processed', adsputils.get_date(year_zero))
         if processed is None:
-            # It was never sent to Solr
             processed = adsputils.get_date(year_zero)
     
         is_complete = all([bib_data_updated, orcid_claims_updated, nonbib_data_updated])
@@ -144,12 +144,15 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                 d = solr_updater.transform_json_record(r)
                 logger.debug('Built SOLR: %s', d)
                 batch.append(d)
+                recs_to_process.add(bibcode)
+                
             # get data for metrics
             if update_metrics:
                 m = r.get('metrics', None)
                 if m:
                     m['bibcode'] = bibcode
                     logger.debug('Got metrics: %s', m) 
+                    recs_to_process.add(bibcode)
                     if r.get('processed'):
                         batch_update.append(m)
                     else:
@@ -179,10 +182,20 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                 
         batch_insert = filter(lambda x: x['bibcode'] not in failed_bibcodes, batch_insert)
         batch_update = filter(lambda x: x['bibcode'] not in failed_bibcodes, batch_update)
+        
+        recs_to_process = recs_to_process - failed_bibcodes
+        app.mark_processed(failed_bibcodes, type=None, status='solr-failed')
+    
+    
     
     if len(batch_insert) or len(batch_update):
-        app.update_metrics_db(batch_insert, batch_update)
+        metrics_done, exception = app.update_metrics_db(batch_insert, batch_update)
         
+        metrics_failed = recs_to_process - set(metrics_done)
+        app.mark_processed(metrics_failed, type=None, status='metrics-failed')
+    
+        if exception:
+            raise exception # will trigger retry
 
 
 

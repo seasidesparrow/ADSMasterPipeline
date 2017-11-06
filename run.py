@@ -239,7 +239,7 @@ if __name__ == '__main__':
     if args.diagnostics:
         diagnostics(args.bibcodes)
         
-    logger.info(args)
+    logger.info('Executing run.py: %s', args)
 
     if args.validate:
         fields = ('abstract', 'ack', 'aff', 'alternate_bibcode', 'alternate_title', 'arxiv_class', 'author',

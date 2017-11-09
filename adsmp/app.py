@@ -9,7 +9,7 @@ from sqlalchemy.orm import load_only as _load_only
 from sqlalchemy import Table, bindparam
 import adsputils
 import json
-from adsmp.models import MetricsModel
+from adsmp.models import MetricsModel, MetricsBase
 from adsmp import solr_updater
 from adsputils import serializer
 from sqlalchemy import exc
@@ -25,8 +25,8 @@ class ADSMasterPipelineCelery(ADSCelery):
         if self._config.get('METRICS_SQLALCHEMY_URL', None):
             self._metrics_engine = create_engine(self._config.get('METRICS_SQLALCHEMY_URL', 'sqlite:///'),
                                    echo=self._config.get('SQLALCHEMY_ECHO', False))
-            MetricsModel.metadata.bind = self._metrics_engine
-            self._metrics_table = Table('metrics', MetricsModel.metadata)
+            MetricsBase.metadata.bind = self._metrics_engine
+            self._metrics_table = Table('metrics', MetricsBase.metadata)
             self._metrics_conn = self._metrics_engine.connect()
 
             self._metrics_table_insert = self._metrics_table.insert() \
@@ -68,6 +68,9 @@ class ADSMasterPipelineCelery(ADSCelery):
 
 
     def update_storage(self, bibcode, type, payload):
+        """Update the document in the database, every time
+        empty the solr/metrics processed timestamps."""
+        
         if not isinstance(payload, basestring):
             payload = json.dumps(payload)
 
@@ -101,6 +104,7 @@ class ADSMasterPipelineCelery(ADSCelery):
             else:
                 raise Exception('Unknown type: %s' % type)
             session.add(ChangeLog(key=bibcode, type=type, oldvalue=oldval))
+            
             r.updated = now
             out = r.toJSON()
             session.commit()
@@ -162,12 +166,17 @@ class ADSMasterPipelineCelery(ADSCelery):
                 return r.toJSON(load_only=load_only)
 
 
-    def update_processed_timestamp(self, bibcode):
+    def update_processed_timestamp(self, bibcode, type=None):
         with self.session_scope() as session:
             r = session.query(Records).filter_by(bibcode=bibcode).first()
             if r is None:
                 raise Exception('Cant find bibcode {0} to update timestamp'.format(bibcode))
-            r.processed = adsputils.get_date()
+            if type == 'solr':
+                r.solr_processed = adsputils.get_date()
+            elif type == 'metrics':
+                r.metrics_processed = adsputils.get_date()
+            else:
+                r.processed = adsputils.get_date()
             session.commit()
 
 
@@ -231,7 +240,8 @@ class ADSMasterPipelineCelery(ADSCelery):
     
 
     def reindex(self, solr_docs, solr_urls, commit=False):
-        """Sends documents to solr and to Metrics DB.
+        """Sends documents to solr and to Metrics DB. It will update
+        the solr_processed timestamp for every document which succeeded.
         
         :param: solr_docs - list of json objects (solr documents)
         :param: solr_urls - list of strings, solr servers.
@@ -243,14 +253,14 @@ class ADSMasterPipelineCelery(ADSCelery):
         errs = [x for x in out if x != 200]
         
         if len(errs) == 0:
-            self._mark_processed(solr_docs)
+            self.mark_processed([x['bibcode'] for x in solr_docs], type='solr')
         else:
             self.logger.error('%s docs failed indexing', len(errs))
             # recover from erros by inserting docs one by one
             for doc in solr_docs:
                 try:
                     solr_updater.update_solr([doc], solr_urls, ignore_errors=False, commit=commit)
-                    self.update_processed_timestamp(doc['bibcode'])
+                    self.update_processed_timestamp(doc['bibcode'], type='solr')
                     self.logger.debug('%s success', doc['bibcode'])
                 except:
                     failed_bibcode = doc['bibcode']
@@ -260,12 +270,27 @@ class ADSMasterPipelineCelery(ADSCelery):
         return failed_bibcodes
 
     
-    def _mark_processed(self, solr_docs):
-        bibcodes = [x['bibcode'] for x in solr_docs]
+    def mark_processed(self, bibcodes, type=None, status = None):
+        """Updates the timesstamp for all documents that match the bibcodes.
+        Optionally also sets the status (which says what actually happened 
+        with the document).
+        
+        """
+        
+        if type == 'solr':
+            column = 'solr_processed'
+        elif type == 'metrics':
+            column = 'metrics_processed'
+        else:
+            column = 'processed'
+        
         now = adsputils.get_date()
-        self.logger.debug('Marking docs as processed: now=%s, bibcodes=%s (num bibcodes=%s)', now, bibcodes[0:10], len(bibcodes))
+        updt = {column:now}
+        if status:
+            updt['status'] = status
+        self.logger.debug('Marking docs as processed: now=%s, num bibcodes=%s', now, len(bibcodes))
         with self.session_scope() as session:
-            session.query(Records).filter(Records.bibcode.in_(bibcodes)).update({'processed': now}, synchronize_session=False)
+            session.query(Records).filter(Records.bibcode.in_(bibcodes)).update(updt, synchronize_session=False)
             session.commit()
 
 
@@ -274,7 +299,15 @@ class ADSMasterPipelineCelery(ADSCelery):
         :param: batch_insert - list of json objects to insert into the metrics
         :param: batch_update - list of json objects to update in metrics db
         
+        :return: tupple (list-of-processed-bibcodes, exception)
+        
+        It tries hard to avoid raising exceptions; it will return the list
+        of bibcodes that were successfully updated. It will also update
+        metrics_processed timestamp for every bibcode that succeeded.
+        
         """
+        out = []
+        
         if not self._metrics_conn:
             raise Exception('You cant do this! Missing METRICS_SQLALACHEMY_URL?')
         
@@ -287,15 +320,23 @@ class ADSMasterPipelineCelery(ADSCelery):
             try:
                 self._metrics_conn.execute(self._metrics_table_insert, batch_insert)
                 trans.commit()
+                bibx = map(lambda x: x['bibcode'], batch_insert)
+                out.extend(bibx)
+                
             except exc.IntegrityError, e:
                 trans.rollback()
                 self.logger.error('Insert batch failed, will upsert one by one %s recs', len(batch_insert))
                 for x in batch_insert:
-                    self._metrics_upsert(x, insert_first=False)
+                    try:
+                        self._metrics_upsert(x, insert_first=False)
+                        out.append(x['bibcode'])
+                    except Exception, e:
+                        self.logger.error('Failure while updating single metrics record: %s', e)
             except Exception, e:
                 trans.rollback()
                 self.logger.error('DB failure: %s', e)
-                raise e
+                self.mark_processed(out, type='metrics')
+                return out, e
 
         if len(batch_update):
             trans = self._metrics_conn.begin()
@@ -306,7 +347,14 @@ class ADSMasterPipelineCelery(ADSCelery):
                     self.logger.warn('Tried to update=%s rows, but matched only=%s, running upsert...', 
                                      len(batch_update), r.rowcount)
                     for x in batch_update:
-                        self._metrics_upsert(x, insert_first=False) # do updates, db engine should not touch the same vals...
+                        try:
+                            self._metrics_upsert(x, insert_first=False) # do updates, db engine should not touch the same vals...
+                            out.append(x['bibcode'])
+                        except Exception, e:
+                            self.logger.error('Failure while updating single metrics record: %s', e)
+                else:
+                    bibx = map(lambda x: x['bibcode'], batch_update)
+                    out.extend(bibx)
             except exc.IntegrityError, r:
                 trans.rollback()
                 self.logger.error('Update batch failed, will upsert one by one %s recs', len(batch_update))
@@ -315,7 +363,11 @@ class ADSMasterPipelineCelery(ADSCelery):
             except Exception, e:
                 trans.rollback()
                 self.logger.error('DB failure: %s', e)
-                raise e
+                self.mark_processed(out, type='metrics')
+                return out, e
+            
+        self.mark_processed(out, type='metrics')
+        return out, None
 
 
     def _metrics_upsert(self, record, insert_first=True):

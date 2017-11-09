@@ -35,7 +35,7 @@ def extract_data_pipeline(data, solrdoc):
     for x in data.get('simbad_objects', []):
         sid, stype = x.split(' ', 1)
         simbid.append(sid)
-        simbtype.append(stype)
+        simbtype.append(map_simbad_type(stype))
         simbad_object_facet_hier.extend(generate_hier_facet(map_simbad_type(stype), sid))
     
     nedid = []
@@ -44,7 +44,7 @@ def extract_data_pipeline(data, solrdoc):
     for x in data.get('ned_objects', []):
         nid, ntype = x.split(' ', 1)
         nedid.append(nid)
-        nedtype.append(ntype)
+        nedtype.append(map_ned_type(ntype))
         ned_object_facet_hier.extend(generate_hier_facet(map_ned_type(ntype), nid))
     
     return dict(reader=reader, 
@@ -208,7 +208,7 @@ def update_solr(json_records, solr_urls, ignore_errors=False, commit=False):
         :param: solr_urls: list of urls where to post data to
         :param: ignore_errors: (True) if to generate an exception if a status 
                 code as returned from SOLR is not 200
-        :return:  
+        :return:  list of status codes, one per each request
     """
     if not isinstance(json_records, list):
         json_records = [json_records]

@@ -10,6 +10,7 @@ import unittest
 from adsmp import app, models
 from adsmp.models import Base, MetricsBase
 from adsputils import load_config
+import testing.postgresql
 
 test1 = {"refereed": True, 
      "bibcode": "bib1", 
@@ -27,7 +28,7 @@ test2 = {"refereed": True,
      "author_num": 2, 
      }
 
-test3 = {"refereed": True, 
+test3 = {
      "bibcode": "bib3", 
      "downloads": [], 
      "reads": [], 
@@ -35,23 +36,33 @@ test3 = {"refereed": True,
      "author_num": 3, 
      }
 
-unsafe = True
-if os.getenv('CI') or os.getenv('TRAVIS'):
-    unsafe = False
 
-@unittest.skipIf(unsafe, 'This unittest is destructive! It will drop/recreate metrics DB schema! If you want to execute it, export CI=True first!')
+
+
 class TestAdsOrcidCelery(unittest.TestCase):
     """
     Tests the appliction's methods
     """
+    
+    @classmethod
+    def setUpClass(cls):
+        cls.postgresql = \
+            testing.postgresql.Postgresql(host='127.0.0.1', port=15678, user='postgres', 
+                                          database='test')
+            
+    @classmethod
+    def tearDownClass(cls):
+        cls.postgresql.stop()
+
+    
     def setUp(self):
         unittest.TestCase.setUp(self)
         config = load_config()
         proj_home = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
         self.app = app.ADSMasterPipelineCelery('test', local_config=\
             {
-            'SQLALCHEMY_URL': config.get('METRICS_SQLALCHEMY_URL') or 'postgres://postgres@localhost:5432/metrics',
-            'METRICS_SQLALCHEMY_URL': config.get('METRICS_SQLALCHEMY_URL') or 'postgres://postgres@localhost:5432/metrics',
+            'SQLALCHEMY_URL': 'sqlite:///',
+            'METRICS_SQLALCHEMY_URL': 'postgresql://postgres@127.0.0.1:15678/test',
             'SQLALCHEMY_ECHO': False,
             'PROJ_HOME' : proj_home,
             'TEST_DIR' : os.path.join(proj_home, 'adsmp/tests'),
@@ -59,7 +70,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
         Base.metadata.bind = self.app._session.get_bind()
         Base.metadata.create_all()
         
-        MetricsBase.metadata.bind = self.app._session.get_bind()
+        MetricsBase.metadata.bind = self.app._metrics_engine
         MetricsBase.metadata.create_all()
     
     
@@ -75,7 +86,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
         app = self.app
         app.update_metrics_db([test1, test2], [])
         
-        with app.session_scope() as session:
+        with app.metrics_session_scope() as session:
             r = session.query(models.MetricsModel).filter_by(bibcode='bib1').first()
             self.assertTrue(r.toJSON()['refereed'])
             
@@ -88,7 +99,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
         t1['refereed'] = False
         
         app.update_metrics_db([], [t1, t2])
-        with app.session_scope() as session:
+        with app.metrics_session_scope() as session:
             r = session.query(models.MetricsModel).filter_by(bibcode='bib1').first()
             self.assertFalse(r.toJSON()['refereed'])
             
@@ -101,7 +112,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
         t2['refereed'] = False
         app.update_metrics_db([t1, t2], [t1, test3])
         
-        with app.session_scope() as session:
+        with app.metrics_session_scope() as session:
             b1 = session.query(models.MetricsModel).filter_by(bibcode='bib1').first()
             b2 = session.query(models.MetricsModel).filter_by(bibcode='bib2').first()
             self.assertFalse(b2.toJSON()['refereed'])
@@ -109,6 +120,32 @@ class TestAdsOrcidCelery(unittest.TestCase):
             
             self.assertTrue(b1 and b2 and b3)
         
-            
+    def test_update_default_values(self):
+        app = self.app
+        app.update_metrics_db([{
+         "bibcode": "bib9", 
+         }], [])
+        
+        # test default values
+        x = app.get_metrics('bib9')
+        self.assertFalse(x['refereed'])
+        
+        app.update_metrics_db([{
+         "bibcode": "bib9",
+         "refereed": True 
+         }], [])
+        
+        x = app.get_metrics('bib9')
+        self.assertTrue(x['refereed'])
+        
+        # when updating without the values
+        
+        app.update_metrics_db([{
+         "bibcode": "bib9",
+         }], [])
+        
+        x = app.get_metrics('bib9')
+        self.assertFalse(x['refereed'])
+        
 if __name__ == '__main__':
     unittest.main()

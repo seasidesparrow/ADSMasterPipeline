@@ -4,7 +4,7 @@ from . import exceptions
 from .models import Records, ChangeLog, IdentifierMapping
 from adsmsg import OrcidClaims, DenormalizedRecord, FulltextUpdate, MetricsRecord, NonBibRecord, NonBibRecordList, MetricsRecordList
 from adsmsg.msg import Msg
-from adsputils import ADSCelery, create_engine, sessionmaker, scoped_session
+from adsputils import ADSCelery, create_engine, sessionmaker, scoped_session, contextmanager
 from sqlalchemy.orm import load_only as _load_only
 from sqlalchemy import Table, bindparam
 import adsputils
@@ -25,6 +25,10 @@ class ADSMasterPipelineCelery(ADSCelery):
         if self._config.get('METRICS_SQLALCHEMY_URL', None):
             self._metrics_engine = create_engine(self._config.get('METRICS_SQLALCHEMY_URL', 'sqlite:///'),
                                    echo=self._config.get('SQLALCHEMY_ECHO', False))
+            _msession_factory = sessionmaker()
+            self._metrics_session = scoped_session(_msession_factory)
+            self._metrics_session.configure(bind=self._metrics_engine)
+            
             MetricsBase.metadata.bind = self._metrics_engine
             self._metrics_table = Table('metrics', MetricsBase.metadata)
             self._metrics_conn = self._metrics_engine.connect()
@@ -39,7 +43,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                      'citation_num': bindparam('citation_num', required=False),
                      'downloads': bindparam('downloads', required=False),
                      'reads': bindparam('reads', required=False),
-                     'refereed': bindparam('refereed', required=False),
+                     'refereed': bindparam('refereed', required=False, value=False),
                      'refereed_citations': bindparam('refereed_citations', required=False),
                      'refereed_citation_num': bindparam('refereed_citation_num', required=False),
                      'reference_num': bindparam('reference_num', required=False),
@@ -58,7 +62,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                      'citation_num': bindparam('citation_num', required=False),
                      'downloads': bindparam('downloads', required=False),
                      'reads': bindparam('reads', required=False),
-                     'refereed': bindparam('refereed', required=False),
+                     'refereed': bindparam('refereed', required=False, value=False),
                      'refereed_citations': bindparam('refereed_citations', required=False),
                      'refereed_citation_num': bindparam('refereed_citation_num', required=False),
                      'reference_num': bindparam('reference_num', required=False),
@@ -292,6 +296,51 @@ class ADSMasterPipelineCelery(ADSCelery):
         with self.session_scope() as session:
             session.query(Records).filter(Records.bibcode.in_(bibcodes)).update(updt, synchronize_session=False)
             session.commit()
+
+    def get_metrics(self, bibcode):
+        """Helper method to retrieve data from the metrics db
+        
+        @param bibcode: string
+        @return: JSON structure if record was found, {} else
+        """
+        
+        if not self._metrics_session:
+            raise Exception('METRCIS_SQLALCHEMU_URL not set!')
+        
+        with self.metrics_session_scope() as session:
+            x = session.query(MetricsModel).filter(MetricsModel.bibcode == bibcode).first()
+            if x:
+                return x.toJSON()
+            else:
+                return {}
+
+
+    @contextmanager
+    def metrics_session_scope(self):
+        """Provides a transactional session - ie. the session for the
+        current thread/work of unit.
+
+        Use as:
+
+            with session_scope() as session:
+                o = ModelObject(...)
+                session.add(o)
+        """
+
+        if self._metrics_session is None:
+            raise Exception('DB not initialized properly, check: METRICS_SQLALCHEMY_URL')
+
+        # create local session (optional step)
+        s = self._metrics_session()
+
+        try:
+            yield s
+            s.commit()
+        except:
+            s.rollback()
+            raise
+        finally:
+            s.close()        
 
 
     def update_metrics_db(self, batch_insert, batch_update):

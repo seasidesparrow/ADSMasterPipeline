@@ -185,7 +185,8 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
         batch_update = filter(lambda x: x['bibcode'] not in failed_bibcodes, batch_update)
         
         recs_to_process = recs_to_process - failed_bibcodes
-        app.mark_processed(failed_bibcodes, type=None, status='solr-failed')
+        if len(failed_bibcodes):
+            app.mark_processed(failed_bibcodes, type=None, status='solr-failed')
     
     
     
@@ -193,7 +194,8 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
         metrics_done, exception = app.update_metrics_db(batch_insert, batch_update)
         
         metrics_failed = recs_to_process - set(metrics_done)
-        app.mark_processed(metrics_failed, type=None, status='metrics-failed')
+        if len(metrics_failed):
+            app.mark_processed(metrics_failed, type=None, status='metrics-failed')
     
         if exception:
             raise exception # will trigger retry

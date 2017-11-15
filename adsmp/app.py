@@ -13,7 +13,7 @@ from adsmp.models import MetricsModel, MetricsBase
 from adsmp import solr_updater
 from adsputils import serializer
 from sqlalchemy import exc
-
+from multiprocessing.util import register_after_fork
 
 class ADSMasterPipelineCelery(ADSCelery):
 
@@ -31,8 +31,8 @@ class ADSMasterPipelineCelery(ADSCelery):
             
             MetricsBase.metadata.bind = self._metrics_engine
             self._metrics_table = Table('metrics', MetricsBase.metadata)
-            self._metrics_conn = self._metrics_engine.connect()
-
+            register_after_fork(self._metrics_engine, self._metrics_engine.dispose)
+            
             self._metrics_table_insert = self._metrics_table.insert() \
                 .values({
                      'an_refereed_citations': bindparam('an_refereed_citations', required=False),
@@ -357,94 +357,95 @@ class ADSMasterPipelineCelery(ADSCelery):
         """
         out = []
         
-        if not self._metrics_conn:
+        if not self._metrics_session:
             raise Exception('You cant do this! Missing METRICS_SQLALACHEMY_URL?')
         
         self.logger.debug('Updating metrics db: len(batch_insert)=%s len(batch_upate)=%s', len(batch_insert), len(batch_update))
         
         # Note: PSQL v9.5 has UPSERT statements, the older versions don't have
         # efficient UPDATE ON DUPLICATE INSERT .... so we do it twice
-        if len(batch_insert):
-            trans = self._metrics_conn.begin()
-            try:
-                self._metrics_conn.execute(self._metrics_table_insert, batch_insert)
-                trans.commit()
-                bibx = map(lambda x: x['bibcode'], batch_insert)
-                out.extend(bibx)
-                
-            except exc.IntegrityError, e:
-                trans.rollback()
-                self.logger.error('Insert batch failed, will upsert one by one %s recs', len(batch_insert))
-                for x in batch_insert:
-                    try:
-                        self._metrics_upsert(x, insert_first=False)
-                        out.append(x['bibcode'])
-                    except Exception, e:
-                        self.logger.error('Failure while updating single metrics record: %s', e)
-            except Exception, e:
-                trans.rollback()
-                self.logger.error('DB failure: %s', e)
-                self.mark_processed(out, type='metrics')
-                return out, e
-
-        if len(batch_update):
-            trans = self._metrics_conn.begin()
-            try:
-                r = self._metrics_conn.execute(self._metrics_table_update, batch_update)
-                trans.commit()
-                if r.rowcount != len(batch_update):
-                    self.logger.warn('Tried to update=%s rows, but matched only=%s, running upsert...', 
-                                     len(batch_update), r.rowcount)
-                    for x in batch_update:
+        with self.metrics_session_scope() as session:
+            if len(batch_insert):
+                trans = session.begin_nested()
+                try:
+                    trans.session.execute(self._metrics_table_insert, batch_insert)
+                    trans.commit()
+                    bibx = map(lambda x: x['bibcode'], batch_insert)
+                    out.extend(bibx)
+                    
+                except exc.IntegrityError, e:
+                    trans.rollback()
+                    self.logger.error('Insert batch failed, will upsert one by one %s recs', len(batch_insert))
+                    for x in batch_insert:
                         try:
-                            self._metrics_upsert(x, insert_first=False) # do updates, db engine should not touch the same vals...
+                            self._metrics_upsert(x, session, insert_first=False)
                             out.append(x['bibcode'])
                         except Exception, e:
                             self.logger.error('Failure while updating single metrics record: %s', e)
-                else:
-                    bibx = map(lambda x: x['bibcode'], batch_update)
-                    out.extend(bibx)
-            except exc.IntegrityError, r:
-                trans.rollback()
-                self.logger.error('Update batch failed, will upsert one by one %s recs', len(batch_update))
-                for x in batch_update:
-                    self._metrics_upsert(x, insert_first=True)
-            except Exception, e:
-                trans.rollback()
-                self.logger.error('DB failure: %s', e)
-                self.mark_processed(out, type='metrics')
-                return out, e
+                except Exception, e:
+                    trans.rollback()
+                    self.logger.error('DB failure: %s', e)
+                    self.mark_processed(out, type='metrics')
+                    return out, e
+    
+            if len(batch_update):
+                trans = session.begin_nested()
+                try:
+                    r = session.execute(self._metrics_table_update, batch_update)
+                    trans.commit()
+                    if r.rowcount != len(batch_update):
+                        self.logger.warn('Tried to update=%s rows, but matched only=%s, running upsert...', 
+                                         len(batch_update), r.rowcount)
+                        for x in batch_update:
+                            try:
+                                self._metrics_upsert(x, session, insert_first=False) # do updates, db engine should not touch the same vals...
+                                out.append(x['bibcode'])
+                            except Exception, e:
+                                self.logger.error('Failure while updating single metrics record: %s', e)
+                    else:
+                        bibx = map(lambda x: x['bibcode'], batch_update)
+                        out.extend(bibx)
+                except exc.IntegrityError, r:
+                    trans.rollback()
+                    self.logger.error('Update batch failed, will upsert one by one %s recs', len(batch_update))
+                    for x in batch_update:
+                        self._metrics_upsert(x, session, insert_first=True)
+                except Exception, e:
+                    trans.rollback()
+                    self.logger.error('DB failure: %s', e)
+                    self.mark_processed(out, type='metrics')
+                    return out, e
             
         self.mark_processed(out, type='metrics')
         return out, None
 
 
-    def _metrics_upsert(self, record, insert_first=True):
+    def _metrics_upsert(self, record, session, insert_first=True):
         if insert_first:
-            trans = self._metrics_conn.begin()
+            trans = session.begin_nested()
             try:
-                self._metrics_conn.execute(self._metrics_table_insert, record)
+                trans.session.execute(self._metrics_table_insert, record)
                 trans.commit()
             except exc.IntegrityError, e:
                 trans.rollback()
-                trans = self._metrics_conn.begin()
-                self._metrics_conn.execute(self._metrics_table_update, record)
+                trans = session.begin_nested()
+                trans.session.execute(self._metrics_table_update, record)
                 trans.commit()
             except Exception, e:
                 trans.rollback()
                 self.logger.error('DB failure: %s', e)
                 raise e
         else:
-            trans = self._metrics_conn.begin()
+            trans = session.begin_nested()
             try:
-                r = self._metrics_conn.execute(self._metrics_table_update, record)
+                r = trans.session.execute(self._metrics_table_update, record)
                 if r.rowcount == 0:
-                    self._metrics_conn.execute(self._metrics_table_insert, record)
+                    trans.session.execute(self._metrics_table_insert, record)
                 trans.commit()
             except exc.IntegrityError, e:
                 trans.rollback()
-                trans = self._metrics_conn.begin()
-                self._metrics_conn.execute(self._metrics_table_insert, record)
+                trans = session.begin_nested()
+                trans.session.execute(self._metrics_table_insert, record)
                 trans.commit()
             except Exception, e:
                 trans.rollback()

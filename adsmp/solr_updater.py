@@ -68,9 +68,9 @@ def extract_data_pipeline(data, solrdoc):
 
 def extract_fulltext(data, solrdoc):
     out = {}
-    for x in ('body', 'acknowledgements', 'dataset'):
+    for x,f in (('body', 'body'), ('acknowledgements', 'ack')):
         if x in data:
-            out[x] = data[x]
+            out[f] = data[x]
     return out
         
 

@@ -170,7 +170,7 @@ class TestSolrUpdater(unittest.TestCase):
         
         rec = self.app.get_record('bibcode')
         self.assertDictContainsSubset({u'abstract': u'abstract text',
-             u'acknowledgements': u'aaa',
+             u'ack': u'aaa',
              u'aff': [u'-', u'-', u'-', u'-'],
              u'alternate_bibcode': [u'2003adass..12..283B'],
              u'author': [u'Blecksmith, E.', u'Paltani, S.', u'Rots, A.', u'Winkelman, S.'],
@@ -206,7 +206,7 @@ class TestSolrUpdater(unittest.TestCase):
              'citation_count': 6,
              'cite_read_boost': 0.1899999976158142,
              u'database': [u'astronomy'],
-             u'dataset': ['a', 'b', 'c'],
+             #u'dataset': ['a', 'b', 'c'],
              u'date': u'2003-01-01T00:00:00.000000Z',
              u'doctype': u'inproceedings',
              u'doctype_facet_hier': [u'0/Article', u'1/Article/Proceedings Article'],

@@ -70,8 +70,8 @@ class Records(Base):
                       'bib_data_updated', 'orcid_claims_updated', 'nonbib_data_updated',
                       'fulltext_updated', 'metrics_updated',
                       'solr_processed', 'metrics_processed']
-    _text_fields = ['id', 'bibcode', 'fulltext', 'status']
-    _json_fields = ['bib_data', 'orcid_claims', 'nonbib_data', 'metrics']
+    _text_fields = ['id', 'bibcode', 'status']
+    _json_fields = ['bib_data', 'orcid_claims', 'nonbib_data', 'metrics', 'fulltext']
 
     def toJSON(self, for_solr=False, load_only=None):
         if for_solr:

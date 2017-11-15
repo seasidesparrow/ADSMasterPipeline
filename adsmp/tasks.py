@@ -6,6 +6,7 @@ from adsmp import solr_updater
 from kombu import Queue
 import math
 from adsmsg import MetricsRecord, NonBibRecord
+from adsmsg.msg import Msg
 
 # ============================= INITIALIZATION ==================================== #
 
@@ -42,17 +43,15 @@ def task_update_record(msg):
         # passed msg may contain details on one bibcode or a list of bibcodes
         if type == 'nonbib_records':
             for m in msg.nonbib_records:
-                m = NonBibRecord.deserializer(m.SerializeToString())
-                t = app.get_msg_type(m)
+                m = Msg(m, None, None) # m is a raw protobuf, TODO: return proper instance from .nonbib_records
                 bibcodes.append(m.bibcode)
-                record = app.update_storage(m.bibcode, t, m.toJSON())
+                record = app.update_storage(m.bibcode, 'nonbib_data', m.toJSON())
                 logger.debug('Saved record from list: %s', record)
         elif type == 'metrics_records':
             for m in msg.metrics_records:
-                m = MetricsRecord.deserializer(m.SerializeToString())
-                t = app.get_msg_type(m)
+                m = Msg(m, None, None)
                 bibcodes.append(m.bibcode)
-                record = app.update_storage(m.bibcode, t, m.toJSON())
+                record = app.update_storage(m.bibcode, 'metrics', m.toJSON())
                 logger.debug('Saved record from list: %s', record)
         else:
             # here when record has a single bibcode

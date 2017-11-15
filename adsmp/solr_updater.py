@@ -66,6 +66,14 @@ def extract_data_pipeline(data, solrdoc):
                 ned_object_facet_hier=ned_object_facet_hier
                 )
 
+def extract_fulltext(data, solrdoc):
+    out = {}
+    for x in ('body', 'acknowledgements', 'dataset'):
+        if x in data:
+            out[x] = data[x]
+    return out
+        
+
 def generate_hier_facet(*levels):
     levels = list(levels)
     out = []
@@ -172,7 +180,7 @@ DB_COLUMN_DESTINATIONS = {
     'nonbib_data': extract_data_pipeline,
     'metrics': extract_metrics_pipeline,
     'id': 'id', 
-    'fulltext': 'body',
+    'fulltext': extract_fulltext,
     '#timestamps': get_timestamps, # use 'id' to be always called
     
     }

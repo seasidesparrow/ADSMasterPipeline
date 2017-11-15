@@ -170,12 +170,12 @@ class TestAdsOrcidCelery(unittest.TestCase):
                 self.assertTrue(last_time < j['updated'])
                 last_time = j['updated']
         
-        self.app.update_storage('abc', 'fulltext', 'foo bar')
+        self.app.update_storage('abc', 'fulltext', {'body': 'foo bar'})
         with self.app.session_scope() as session:
             r = session.query(models.Records).filter_by(bibcode='abc').first()
             self.assertTrue(r.id == 1)
             j = r.toJSON()
-            self.assertEquals(j['fulltext'], u'foo bar')
+            self.assertEquals(j['fulltext'], {'body': 'foo bar'})
             t = j['fulltext_updated']
             self.assertTrue(now < t)
         

@@ -97,7 +97,7 @@ class TestSolrUpdater(unittest.TestCase):
              u'title': [u'Chandra Data Archive Download and Usage Database'],
              u'volume': u'295',
              u'year': u'2003'})
-        self.app.update_storage('bibcode', 'fulltext', 'fulltext')
+        self.app.update_storage('bibcode', 'fulltext', {'body': 'texttext', 'acknowledgements': 'aaa', 'dataset': ['a', 'b', 'c']})
         self.app.update_storage('bibcode', 'metrics', {"downloads": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 1, 0, 0, 0, 1, 2], 
                                                        "bibcode": "2003ASPC..295..361M", 
                                                        "reads": [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 4, 2, 5, 1, 0, 0, 1, 0, 0, 2, 4, 5], 
@@ -170,6 +170,7 @@ class TestSolrUpdater(unittest.TestCase):
         
         rec = self.app.get_record('bibcode')
         self.assertDictContainsSubset({u'abstract': u'abstract text',
+             u'acknowledgements': u'aaa',
              u'aff': [u'-', u'-', u'-', u'-'],
              u'alternate_bibcode': [u'2003adass..12..283B'],
              u'author': [u'Blecksmith, E.', u'Paltani, S.', u'Rots, A.', u'Winkelman, S.'],
@@ -195,7 +196,7 @@ class TestSolrUpdater(unittest.TestCase):
              u'bibgroup_facet': [u'CXC', u'CfA'],
              u'bibstem': [u'ASPC', u'ASPC..295'],
              u'bibstem_facet': u'ASPC',
-             'body': u'fulltext',
+             'body': u'texttext',
              'citation': [u'2007ApPhL..91g1118P',
               u'2010ApPhA..99..805K',
               u'2011TSF...520..610L',
@@ -205,6 +206,7 @@ class TestSolrUpdater(unittest.TestCase):
              'citation_count': 6,
              'cite_read_boost': 0.1899999976158142,
              u'database': [u'astronomy'],
+             u'dataset': ['a', 'b', 'c'],
              u'date': u'2003-01-01T00:00:00.000000Z',
              u'doctype': u'inproceedings',
              u'doctype_facet_hier': [u'0/Article', u'1/Article/Proceedings Article'],
@@ -213,7 +215,7 @@ class TestSolrUpdater(unittest.TestCase):
              u'first_author_facet_hier': [u'0/Blecksmith, E',
               u'1/Blecksmith, E/Blecksmith, E.'],
              u'first_author_norm': u'Blecksmith, E',
-             'id': u'1401492',
+             u'id': u'1401492',
              u'identifier': [u'2003adass..12..283B'],
              u'links_data': u'',
              'orcid_other' : [u'-', u'-', u'0000-0003-2377-2356', u'-'],

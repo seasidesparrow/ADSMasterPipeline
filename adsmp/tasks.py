@@ -51,7 +51,7 @@ def task_update_record(msg):
             for m in msg.metrics_records:
                 m = Msg(m, None, None)
                 bibcodes.append(m.bibcode)
-                record = app.update_storage(m.bibcode, 'metrics', m.toJSON())
+                record = app.update_storage(m.bibcode, 'metrics', m.toJSON(including_default_value_fields=True))
                 logger.debug('Saved record from list: %s', record)
         else:
             # here when record has a single bibcode

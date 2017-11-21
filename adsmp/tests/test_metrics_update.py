@@ -63,7 +63,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
             {
             'SQLALCHEMY_URL': 'sqlite:///',
             'METRICS_SQLALCHEMY_URL': 'postgresql://postgres@127.0.0.1:15678/test',
-            'SQLALCHEMY_ECHO': False,
+            'SQLALCHEMY_ECHO': True,
             'PROJ_HOME' : proj_home,
             'TEST_DIR' : os.path.join(proj_home, 'adsmp/tests'),
             })
@@ -142,10 +142,16 @@ class TestAdsOrcidCelery(unittest.TestCase):
         
         app.update_metrics_db([{
          "bibcode": "bib9",
-         }], [])
+         }, {"bibcode": "bib10", "refereed": True}], [])
         
         x = app.get_metrics('bib9')
+        y = app.get_metrics('bib10')
+        
         self.assertFalse(x['refereed'])
+        self.assertTrue(y['refereed'])
+        
+        print x
+        print y
         
 if __name__ == '__main__':
     unittest.main()

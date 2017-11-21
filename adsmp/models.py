@@ -9,6 +9,7 @@ from sqlalchemy import types
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.types import Enum
 from sqlalchemy.dialects import postgresql
+from sqlalchemy import text
 import json
 
 Base = declarative_base()
@@ -141,18 +142,18 @@ class MetricsModel(MetricsBase):
     
     an_citations = Column(postgresql.REAL)
     an_refereed_citations = Column(postgresql.REAL)
-    author_num = Column(Integer)
-    citations = Column(postgresql.ARRAY(String))
-    citation_num = Column(Integer)
-    downloads = Column(postgresql.ARRAY(Integer))
-    reads = Column(postgresql.ARRAY(Integer))
-    refereed = Column(Boolean)
-    refereed_citations = Column(postgresql.ARRAY(String))
-    refereed_citation_num = Column(Integer)
-    reference_num = Column(Integer)
+    author_num = Column(Integer, default=1, server_default=text("1::integer"))
+    citations = Column(postgresql.ARRAY(String), default=[], server_default=text("(ARRAY[]::varchar[])"))
+    citation_num = Column(Integer, default=0)
+    downloads = Column(postgresql.ARRAY(Integer),default=[])
+    reads = Column(postgresql.ARRAY(Integer), default=[])
+    refereed = Column(Boolean, default=False)
+    refereed_citations = Column(postgresql.ARRAY(String), default=[])
+    refereed_citation_num = Column(Integer, default=0)
+    reference_num = Column(Integer, default=0)
     rn_citations = Column(postgresql.REAL)
     rn_citation_data = Column(postgresql.JSON)
-    modtime = Column(DateTime, default=get_date)
+    modtime = Column(DateTime)
     
     
     def toJSON(self):

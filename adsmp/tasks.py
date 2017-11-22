@@ -168,7 +168,7 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                              metrics_updated))
                 
         
-    failed_bibcodes = None
+    failed_bibcodes = []
     if len(batch):
         failed_bibcodes = app.reindex(batch, app.conf.get('SOLR_URLS'), commit=commit)
     
@@ -197,8 +197,13 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
         if len(metrics_failed):
             app.mark_processed(metrics_failed, type=None, status='metrics-failed')
     
+        # mark all successful documents as done
+        app.mark_processed(metrics_done, type=None, status='success')
+        
         if exception:
             raise exception # will trigger retry
+    else:
+        app.mark_processed(recs_to_process, type=None, status='success')
 
 
 

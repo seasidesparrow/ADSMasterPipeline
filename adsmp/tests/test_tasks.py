@@ -42,10 +42,12 @@ class TestWorkers(unittest.TestCase):
             self.assertTrue(next_task.call_args[0], ('2015ApJ...815..133S',))
             
         
-        with patch('adsmp.solr_updater.delete_by_bibcodes', return_value=[('2015ApJ...815..133S'), ()]) as solr_delete:
+        with patch('adsmp.solr_updater.delete_by_bibcodes', return_value=[('2015ApJ...815..133S'), ()]) as solr_delete, \
+            patch.object(self.app, 'metrics_delete_by_bibcode', return_value=True) as metrics_delete:
             tasks.task_update_record(DenormalizedRecord(bibcode='2015ApJ...815..133S', status='deleted'))
             self.assertTrue(next_task.call_args[0], ('2015ApJ...815..133S',))
             self.assertTrue(solr_delete.called)
+            self.assertTrue(metrics_delete.called)
 
 
     def test_task_update_record_fulltext(self):

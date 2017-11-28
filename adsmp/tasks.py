@@ -32,12 +32,25 @@ def task_update_record(msg):
     """
     logger.debug('Updating record: %s', msg)
     status = app.get_msg_status(msg)
+    type = app.get_msg_type(msg)
+    bibcodes = []
     
     if status == 'deleted':
-        task_delete_documents(msg.bibcode)
+        if type == 'metadata':
+            task_delete_documents(msg.bibcode)
+        elif type == 'nonbib_records':
+            for m in msg.nonbib_records: # TODO: this is very ugly, we are repeating ourselves...
+                bibcodes.append(m.bibcode)
+                logger.debug('Deleted %s, result: %s', type, app.update_storage(m.bibcode, 'nonbib_data', None))
+        elif type == 'metrics_records':
+            for m in msg.metrics_records:
+                bibcodes.append(m.bibcode)
+                logger.debug('Deleted %s, result: %s', type, app.update_storage(m.bibcode, 'metrics', None))
+        else:
+            bibcodes.append(msg.bibcode)
+            logger.debug('Deleted %s, result: %s', type, app.update_storage(msg.bibcode, type, None))
+        
     elif status == 'active':
-        type = app.get_msg_type(msg)
-        bibcodes = []
         
         # save into a database
         # passed msg may contain details on one bibcode or a list of bibcodes
@@ -59,11 +72,12 @@ def task_update_record(msg):
             record = app.update_storage(msg.bibcode, type, msg.toJSON())
             logger.debug('Saved record: %s', record)
     
-        # trigger futher processing
-        task_index_records.delay(bibcodes)
     else:
         logger.error('Received a message with unclear status: %s', msg)
 
+    if len(bibcodes):
+        # trigger futher processing
+        task_index_records.delay(bibcodes)
 
 @app.task(queue='index-records')
 def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=True, commit=False):
@@ -220,6 +234,10 @@ def task_delete_documents(bibcode):
     if len(deleted):
         logger.debug('Deleted SOLR docs: %s', deleted)
 
+    if app.metrics_delete_by_bibcode(bibcode):
+        logger.debug('Deleted metrics record: %s', bibcode)
+    else:
+        logger.debug('Failed to deleted metrics record: %s', bibcode)
 
 
 if __name__ == '__main__':

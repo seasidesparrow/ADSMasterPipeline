@@ -122,7 +122,8 @@ class ADSMasterPipelineCelery(ADSCelery):
                 session.add(ChangeLog(key='bibcode:%s' % bibcode, type='deleted', oldvalue=serializer.dumps(r.toJSON())))
                 session.delete(r)
                 session.commit()
-
+                return True
+    
 
     def rename_bibcode(self, old_bibcode, new_bibcode):
         assert old_bibcode and new_bibcode
@@ -451,3 +452,11 @@ class ADSMasterPipelineCelery(ADSCelery):
                 trans.rollback()
                 self.logger.error('DB failure: %s', e)
                 raise e
+
+    def metrics_delete_by_bibcode(self, bibcode):
+        with self.metrics_session_scope() as session:
+            r = session.query(MetricsRecord).filter_by(bibcode=bibcode).first()
+            if r is not None:
+                session.delete(r)
+                session.commit()
+                return True

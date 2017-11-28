@@ -8,6 +8,7 @@ from adsmp import app, tasks
 from adsmp.models import Base
 from adsputils import get_date
 from adsmsg import DenormalizedRecord, FulltextUpdate, NonBibRecord, NonBibRecordList, MetricsRecord, MetricsRecordList
+from adsmsg.orcid_claims import OrcidClaims
 
 class TestWorkers(unittest.TestCase):
 
@@ -48,6 +49,33 @@ class TestWorkers(unittest.TestCase):
             self.assertTrue(next_task.call_args[0], ('2015ApJ...815..133S',))
             self.assertTrue(solr_delete.called)
             self.assertTrue(metrics_delete.called)
+            
+    
+    def test_task_update_record_delete(self):
+
+        for x, cls in (('fulltext', FulltextUpdate), ('orcid_claims', OrcidClaims)):
+            self.app.update_storage('bibcode', x, {'foo': 'bar'})
+            self.assertEquals(self.app.get_record('bibcode')[x]['foo'], 'bar')
+            with patch('adsmp.tasks.task_index_records.delay') as next_task:
+                tasks.task_update_record(cls(bibcode='bibcode', status='deleted'))
+                self.assertEquals(self.app.get_record('bibcode')[x], None)
+                self.assertTrue(self.app.get_record('bibcode'))
+                self.assertTrue(next_task.called)
+                self.assertTrue(next_task.call_args[0], ('bibcode',))
+        
+        recs = NonBibRecordList()
+        recs.nonbib_records.extend([NonBibRecord(bibcode='bibcode', status='deleted').data])
+        with patch('adsmp.tasks.task_index_records.delay') as next_task:
+            tasks.task_update_record(recs)
+            self.assertEquals(self.app.get_record('bibcode')['metrics'], None)
+            self.assertTrue(self.app.get_record('bibcode'))
+            self.assertTrue(next_task.called)
+            self.assertTrue(next_task.call_args[0], ('bibcode',))
+            
+        with patch('adsmp.tasks.task_delete_documents') as next_task:
+            tasks.task_update_record(DenormalizedRecord(bibcode='bibcode', status='deleted'))
+            self.assertTrue(next_task.called)
+            self.assertTrue(next_task.call_args[0], ('bibcode',))
 
 
     def test_task_update_record_fulltext(self):
@@ -96,6 +124,7 @@ class TestWorkers(unittest.TestCase):
             tasks.task_update_record(recs)
             self.assertTrue(next_task.called)
             self.assertTrue(next_task.call_args[0], ('2015ApJ...815..133S', '3015ApJ...815..133Z'))
+            
 
 
     def test_task_update_solr(self):

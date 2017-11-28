@@ -48,7 +48,7 @@ def task_update_record(msg):
                 logger.debug('Deleted %s, result: %s', type, app.update_storage(m.bibcode, 'metrics', None))
         else:
             bibcodes.append(msg.bibcode)
-            logger.debug('Deleted %s, result: %s', type, app.update_storage(m.bibcode, type, None))
+            logger.debug('Deleted %s, result: %s', type, app.update_storage(msg.bibcode, type, None))
         
     elif status == 'active':
         

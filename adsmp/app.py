@@ -282,6 +282,10 @@ class ADSMasterPipelineCelery(ADSCelery):
         
         """
         
+        # avoid updating whole database (when the set is empty)
+        if len(bibcodes) < 1:
+            return
+        
         if type == 'solr':
             column = 'solr_processed'
         elif type == 'metrics':

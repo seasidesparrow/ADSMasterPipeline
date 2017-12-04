@@ -120,6 +120,7 @@ class TestSolrUpdater(unittest.TestCase):
               u'Doehler, G'],
              u'bibcode': u'2007JAP...101d4501Z',
              u'boost': 0.1899999976158142,
+             u'data': [u'MAST:3', u'SIMBAD:1'],
              u'downloads': [0,
               0,
               0,
@@ -205,6 +206,8 @@ class TestSolrUpdater(unittest.TestCase):
               u'2016ITED...63..197G'],
              'citation_count': 6,
              'cite_read_boost': 0.1899999976158142,
+             u'data': [u'MAST:3', u'SIMBAD:1'],
+             u'data_facet': [u'MAST', u'SIMBAD'],
              u'database': [u'astronomy'],
              #u'dataset': ['a', 'b', 'c'],
              u'date': u'2003-01-01T00:00:00.000000Z',
@@ -252,6 +255,7 @@ class TestSolrUpdater(unittest.TestCase):
              u'title': [u'Chandra Data Archive Download and Usage Database'],
              u'volume': u'295',
              u'year': u'2003'},
+
         solr_updater.transform_json_record(rec))
 
         for x in Records._date_fields:

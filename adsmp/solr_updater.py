@@ -53,6 +53,7 @@ def extract_data_pipeline(data, solrdoc):
                 classic_factor=data.get('norm_cites', 0.0),
                 reference=data.get('reference', []),
                 data=data.get('data', []),
+                data_facet=map(lambda x: x.split(':')[0], data.get('data', [])),
                 data_count=data.get('total_link_counts', 0),
                 esources = data.get('esource', []),
                 property = data.get('property', []),

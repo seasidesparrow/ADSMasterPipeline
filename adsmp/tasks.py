@@ -75,9 +75,7 @@ def task_update_record(msg):
     else:
         logger.error('Received a message with unclear status: %s', msg)
 
-    if len(bibcodes):
-        # trigger futher processing
-        task_index_records.delay(bibcodes)
+
 
 @app.task(queue='index-records')
 def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=True, commit=False):

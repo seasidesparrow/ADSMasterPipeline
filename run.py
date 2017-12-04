@@ -120,6 +120,12 @@ def reindex(since=None, batch_size=None, force=False, update_solr=True, update_m
                 .options(load_only(Records.bibcode, Records.updated, Records.processed)) \
                 .yield_per(100):
                 
+                processed = get_date(rec.processed)
+                updated = get_date(rec.updated)
+                
+                if processed > updated:
+                    continue # skip records that were already processed 
+                
                 sent += 1
                 if sent % 1000 == 0:
                     logger.debug('Sending %s records', sent)

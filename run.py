@@ -279,5 +279,5 @@ if __name__ == '__main__':
     elif args.reindex:
         update_solr = 's' in args.reindex.lower()
         update_metrics = 'm' in args.reindex.lower()
-        reindex(since=args.since, batch_size=args.batch_size, force=args.force_indexing, 
-                update_solr=update_solr, update_metrics=update_metrics)
+        reindex(since=args.since, batch_size=args.batch_size, force_indexing=args.force_indexing, 
+                update_solr=update_solr, update_metrics=update_metrics, force_processing=args.force_processing)

@@ -153,6 +153,7 @@ class MetricsModel(MetricsBase):
     reference_num = Column(Integer, default=0)
     rn_citations = Column(postgresql.REAL)
     rn_citation_data = Column(postgresql.JSON)
+    rn_citations_hist = Column(postgresql.JSON)
     modtime = Column(DateTime)
     
     
@@ -172,4 +173,5 @@ class MetricsModel(MetricsBase):
             reference_num = self.reference_num,
             rn_citations = self.rn_citations,
             rn_citation_data = self.rn_citation_data,
+            rn_citations_hist = self.rn_citations_hist,
             modtime = self.modtime and get_date(self.modtime).isoformat() or None)  

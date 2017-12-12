@@ -49,7 +49,6 @@ class ADSMasterPipelineCelery(ADSCelery):
                      'reference_num': bindparam('reference_num', required=False),
                      'rn_citations': bindparam('rn_citations', required=False),
                      'rn_citation_data': bindparam('rn_citation_data', required=False),
-                     'rn_citations_hist': bindparam('rn_citations_hist', required=False),
                     })
 
             self._metrics_table_update = self._metrics_table.update() \
@@ -69,7 +68,6 @@ class ADSMasterPipelineCelery(ADSCelery):
                      'reference_num': bindparam('reference_num', required=False),
                      'rn_citations': bindparam('rn_citations', required=False),
                      'rn_citation_data': bindparam('rn_citation_data', required=False),
-                     'rn_citations_hist': bindparam('rn_citations_hist', required=False),
                 })
 
 

@@ -246,12 +246,12 @@ if __name__ == '__main__':
     if args.kv:
         print_kvs()
 
-    if args.diagnostics:
-        diagnostics(args.bibcodes)
-        
     logger.info('Executing run.py: %s', args)
 
-    if args.validate:
+    if args.diagnostics:
+        diagnostics(args.bibcodes)
+
+    elif args.validate:
         fields = ('abstract', 'ack', 'aff', 'alternate_bibcode', 'alternate_title', 'arxiv_class', 'author',
                   'author_count', 'author_facet', 'author_facet_hier', 'author_norm', 'bibgroup', 'bibgroup_facet',
                   'bibstem', 'bibstem_facet', 'body', 'citation', 'citation_count', 'cite_read_boost', 'classic_factor',
@@ -279,5 +279,24 @@ if __name__ == '__main__':
     elif args.reindex:
         update_solr = 's' in args.reindex.lower()
         update_metrics = 'm' in args.reindex.lower()
-        reindex(since=args.since, batch_size=args.batch_size, force_indexing=args.force_indexing, 
-                update_solr=update_solr, update_metrics=update_metrics, force_processing=args.force_processing)
+        if args.filename:
+            print 'sending bibcodes from file to the queue for reindexing'
+            bibs = []
+            with open(args.filename) as f:
+                for line in f:
+                    bibcode = line.strip()
+                    if bibcode:
+                        bibs.append(bibcode)
+                    if len(bibs) >= 100:
+                        tasks.task_index_records.delay(bibs, force=True, 
+                                                       update_solr=update_solr, update_metrics=update_metrics)
+                        bibs = []
+                if len(bibs) > 0:
+                    tasks.task_index_records.delay(bibs, force=True, 
+                                                   update_solr=update_solr, update_metrics=update_metrics)
+                    bibs = []
+        else:
+            print 'sending bibcode since date to the queue for reindexing'
+            reindex(since=args.since, batch_size=args.batch_size, force_indexing=args.force_indexing, 
+                    update_solr=update_solr, update_metrics=update_metrics, force_processing=args.force_processing)
+

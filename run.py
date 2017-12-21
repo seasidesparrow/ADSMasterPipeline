@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import adsputils
 import argparse
 import warnings
 import json
@@ -111,6 +112,7 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
     logger.info('Sending records changed since: %s', since.isoformat())
     sent = 0
     last_bibcode = None
+    year_zero = adsputils.get_date('1972')
     
     try:
         # select everything that was updated since
@@ -120,13 +122,16 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
                 .filter(Records.updated >= since) \
                 .options(load_only(Records.bibcode, Records.updated, Records.processed)) \
                 .yield_per(100):
-                
-                processed = get_date(rec.processed)
+
+                if rec.processed is None:
+                    processed = year_zero
+                else:
+                    processed = get_date(rec.processed)
                 updated = get_date(rec.updated)
                 
                 if not force_processing and processed > updated:
                     continue # skip records that were already processed 
-                
+
                 sent += 1
                 if sent % 1000 == 0:
                     logger.debug('Sending %s records', sent)

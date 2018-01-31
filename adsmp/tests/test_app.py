@@ -140,14 +140,13 @@ class TestAdsOrcidCelery(unittest.TestCase):
         #   each record by itself twice: once as is and once without fulltext
         with mock.patch('adsmp.solr_updater.update_solr') as us, \
                 mock.patch.object(self.app, 'update_processed_timestamp') as upt:
-            us.side_effect = [[503, 503], Exception(), 200, Exception(), 200]
+            us.side_effect = [[503, 503], Exception('body failed'), 200, Exception('body failed'), 200]
             failed = self.app.reindex([{'bibcode': 'abc', 'body': 'bad body'}, 
                                        {'bibcode': 'foo', 'body': 'bad body'}], 
                                       ['http://solr1'])
             self.assertEqual(us.call_count, 5)
             self.assertTrue(len(failed) == 0)
             self.assertEqual(upt.call_count, 2)
-            #self.assertFalse(us.call_args_list)
             self.assertEqual(str(us.call_args_list[-2]), "call([{'body': 'bad body', 'bibcode': 'foo'}], ['http://solr1'], commit=False, ignore_errors=False)") 
             self.assertEqual(str(us.call_args_list[-1]), "call([{'bibcode': 'foo'}], ['http://solr1'], commit=False, ignore_errors=False)")
 
@@ -156,7 +155,9 @@ class TestAdsOrcidCelery(unittest.TestCase):
         #   each record by itself twice: once as is and once without fulltext
         with mock.patch('adsmp.solr_updater.update_solr') as us, \
                 mock.patch.object(self.app, 'update_processed_timestamp') as upt:
-            us.side_effect = [[503, 503], Exception(), Exception(), Exception(), Exception()]
+            us.side_effect = [[503, 503], 
+                              Exception('body failed'), Exception('body failed'), 
+                              Exception('body failed'), Exception('body failed')]
             failed = self.app.reindex([{'bibcode': 'abc', 'body': 'bad body'}, 
                                        {'bibcode': 'foo', 'body': 'bad body'}], 
                                       ['http://solr1'])
@@ -164,10 +165,22 @@ class TestAdsOrcidCelery(unittest.TestCase):
             self.assertTrue(len(failed) == 2)
             self.assertEqual(upt.call_count, 0)
 
-        # pretend failure and and then a mix of success and failure
+        # pretend failure and and then failure for a mix of reasons
         with mock.patch('adsmp.solr_updater.update_solr') as us, \
                 mock.patch.object(self.app, 'update_processed_timestamp') as upt:
-            us.side_effect = [[503, 503], Exception(), Exception(), 200]
+            us.side_effect = [[503, 503], Exception('body failed'), Exception('failed'), Exception('failed')]
+            failed = self.app.reindex([{'bibcode': 'abc', 'body': 'bad body'}, 
+                                       {'bibcode': 'foo', 'body': 'good body'}], 
+                                      ['http://solr1'])
+            self.assertEqual(us.call_count, 4)
+            self.assertTrue(len(failed) == 2)
+            self.assertEqual(upt.call_count, 0)
+            self.assertEqual(str(us.call_args_list[-1]), "call([{'body': 'good body', 'bibcode': 'foo'}], ['http://solr1'], commit=False, ignore_errors=False)") 
+
+        # pretend failure and and then a mix of failure and success
+        with mock.patch('adsmp.solr_updater.update_solr') as us, \
+                mock.patch.object(self.app, 'update_processed_timestamp') as upt:
+            us.side_effect = [[503, 503], Exception('body failed'), [200]]
             failed = self.app.reindex([{'bibcode': 'abc', 'body': 'bad body'}, 
                                        {'bibcode': 'foo', 'body': 'good body'}], 
                                       ['http://solr1'])

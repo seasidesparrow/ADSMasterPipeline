@@ -267,20 +267,27 @@ class ADSMasterPipelineCelery(ADSCelery):
                     solr_updater.update_solr([doc], solr_urls, ignore_errors=False, commit=commit)
                     self.update_processed_timestamp(doc['bibcode'], type='solr')
                     self.logger.debug('%s success', doc['bibcode'])
-                except:
-                    # if individual insert fails, we try once more without fulltext
+                except Exception as e:
+                    # if individual insert fails, 
+                    # and if 'body' is in excpetion we assume Solr failed on body field
+                    # then we try once more without fulltext
                     # this bibcode needs to investigated as to why fulltext/body is failing
-                    failed_bibcode = doc['bibcode']
-                    tmp_doc = dict(doc)
-                    tmp_doc.pop('body', None)
-                    try:
-                        solr_updater.update_solr([tmp_doc], solr_urls, ignore_errors=False, commit=commit)
-                        self.update_processed_timestamp(doc['bibcode'], type='solr')
-                        self.logger.debug('%s success without body', doc['bibcode'])
-                        self.logger.error('Failed posting fulltext to Solr for bibcode %s, non-fulltext ingested\nurls: %s, offending payload: %s', 
-                                          failed_bibcode, solr_urls, doc)
-                    except:
-                        self.logger.error('Failed posting bibcode %s to Solr even without fulltext\nurls: %s, offending payload %s', failed_bibcode, solr_urls, doc)
+                    if 'body' in str(e):
+                        failed_bibcode = doc['bibcode']
+                        tmp_doc = dict(doc)
+                        tmp_doc.pop('body', None)
+                        try:
+                            solr_updater.update_solr([tmp_doc], solr_urls, ignore_errors=False, commit=commit)
+                            self.update_processed_timestamp(doc['bibcode'], type='solr')
+                            self.logger.debug('%s success without body', doc['bibcode'])
+                            self.logger.error('Failed posting fulltext to Solr for bibcode %s, non-fulltext ingested\nurls: %s, offending payload: %s', 
+                                              failed_bibcode, solr_urls, doc)
+                        except Exception as e:
+                            self.logger.error('Failed posting bibcode %s to Solr even without fulltext\nurls: %s, offending payload %s', failed_bibcode, solr_urls, doc)
+                            failed_bibcodes.append(failed_bibcode)
+                    else:
+                        # here if body not in error message do not retry, just note as a fail
+                        self.logger.error('Failed posting individual bibcode %s to Solr\nurls: %s, offending payload %s', failed_bibcode, solr_urls, doc)
                         failed_bibcodes.append(failed_bibcode)
         return failed_bibcodes
 

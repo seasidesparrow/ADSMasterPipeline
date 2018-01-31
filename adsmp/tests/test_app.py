@@ -112,7 +112,9 @@ class TestAdsOrcidCelery(unittest.TestCase):
         self.app.update_storage('foo', 'bib_data', {'bibcode': 'foo', 'hey': 1})
         
         with mock.patch('adsmp.solr_updater.update_solr', return_value=[200]):
-            failed = self.app.reindex([{'bibcode': 'abc'}, {'bibcode': 'foo'}], ['http://solr1'])
+            failed = self.app.reindex([{'bibcode': 'abc'}, 
+                                       {'bibcode': 'foo'}], 
+                                      ['http://solr1'])
             self.assertTrue(len(failed) == 0)
             with self.app.session_scope() as session:
                 for x in ['abc', 'foo']:
@@ -121,14 +123,58 @@ class TestAdsOrcidCelery(unittest.TestCase):
                     self.assertFalse(r.metrics_processed)
                     self.assertTrue(r.solr_processed)
                     
-        # pretend failure
-        with mock.patch('adsmp.solr_updater.update_solr', return_value=[503]) as us, \
-             mock.patch.object(self.app, 'update_processed_timestamp') as upt:
-            failed = self.app.reindex([{'bibcode': 'abc'}, {'bibcode': 'foo'}], ['http://solr1'])
+        # pretend group failure and then success when records sent individually
+        with mock.patch('adsmp.solr_updater.update_solr') as us, \
+                mock.patch.object(self.app, 'update_processed_timestamp') as upt:
+            us.side_effect = [[503], [200], [200]]
+            failed = self.app.reindex([{'bibcode': 'abc'}, 
+                                       {'bibcode': 'foo'}], 
+                                      ['http://solr1'])
             self.assertTrue(len(failed) == 0)
             self.assertEqual(str(upt.call_args_list), "[call('abc', type=u'solr'), call('foo', type=u'solr')]")
             self.assertEqual(us.call_count, 3)
             self.assertEqual(str(us.call_args_list[-1]), "call([{'bibcode': 'foo'}], ['http://solr1'], commit=False, ignore_errors=False)") 
+
+        # pretend failure and success without body
+        # update_solr should try to send two records together and then
+        #   each record by itself twice: once as is and once without fulltext
+        with mock.patch('adsmp.solr_updater.update_solr') as us, \
+                mock.patch.object(self.app, 'update_processed_timestamp') as upt:
+            us.side_effect = [[503, 503], Exception(), 200, Exception(), 200]
+            failed = self.app.reindex([{'bibcode': 'abc', 'body': 'bad body'}, 
+                                       {'bibcode': 'foo', 'body': 'bad body'}], 
+                                      ['http://solr1'])
+            self.assertEqual(us.call_count, 5)
+            self.assertTrue(len(failed) == 0)
+            self.assertEqual(upt.call_count, 2)
+            #self.assertFalse(us.call_args_list)
+            self.assertEqual(str(us.call_args_list[-2]), "call([{'body': 'bad body', 'bibcode': 'foo'}], ['http://solr1'], commit=False, ignore_errors=False)") 
+            self.assertEqual(str(us.call_args_list[-1]), "call([{'bibcode': 'foo'}], ['http://solr1'], commit=False, ignore_errors=False)")
+
+        # pretend failure and then lots more failure
+        # update_solr should try to send two records together and then
+        #   each record by itself twice: once as is and once without fulltext
+        with mock.patch('adsmp.solr_updater.update_solr') as us, \
+                mock.patch.object(self.app, 'update_processed_timestamp') as upt:
+            us.side_effect = [[503, 503], Exception(), Exception(), Exception(), Exception()]
+            failed = self.app.reindex([{'bibcode': 'abc', 'body': 'bad body'}, 
+                                       {'bibcode': 'foo', 'body': 'bad body'}], 
+                                      ['http://solr1'])
+            self.assertEqual(us.call_count, 5)
+            self.assertTrue(len(failed) == 2)
+            self.assertEqual(upt.call_count, 0)
+
+        # pretend failure and and then a mix of success and failure
+        with mock.patch('adsmp.solr_updater.update_solr') as us, \
+                mock.patch.object(self.app, 'update_processed_timestamp') as upt:
+            us.side_effect = [[503, 503], Exception(), Exception(), 200]
+            failed = self.app.reindex([{'bibcode': 'abc', 'body': 'bad body'}, 
+                                       {'bibcode': 'foo', 'body': 'good body'}], 
+                                      ['http://solr1'])
+            self.assertEqual(us.call_count, 4)
+            self.assertTrue(len(failed) == 1)
+            self.assertEqual(upt.call_count, 1)
+            self.assertEqual(str(us.call_args_list[-1]), "call([{'body': 'good body', 'bibcode': 'foo'}], ['http://solr1'], commit=False, ignore_errors=False)") 
 
 
     def test_update_metrics(self):

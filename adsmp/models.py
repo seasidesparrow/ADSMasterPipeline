@@ -65,11 +65,12 @@ class Records(Base):
     
     solr_processed = Column(UTCDateTime, default=None)
     metrics_processed = Column(UTCDateTime, default=None)
+    datalinks_processed = Column(UTCDateTime, default=None)
     status = Column(Enum('solr-failed', 'metrics-failed', 'success', name='status'))
     
     _date_fields = ['created', 'updated', 'processed',  # dates
                       'bib_data_updated', 'orcid_claims_updated', 'nonbib_data_updated',
-                      'fulltext_updated', 'metrics_updated',
+                      'fulltext_updated', 'metrics_updated', 'datalinks_processed',
                       'solr_processed', 'metrics_processed']
     _text_fields = ['id', 'bibcode', 'status']
     _json_fields = ['bib_data', 'orcid_claims', 'nonbib_data', 'metrics', 'fulltext']

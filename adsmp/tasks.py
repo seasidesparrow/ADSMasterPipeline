@@ -5,6 +5,8 @@ from adsmp import app as app_module
 from adsmp import solr_updater
 from kombu import Queue
 import math
+import requests
+import json
 from adsmsg import MetricsRecord, NonBibRecord
 from adsmsg.msg import Msg
 
@@ -78,7 +80,7 @@ def task_update_record(msg):
 
 
 @app.task(queue='index-records')
-def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=True, commit=False):
+def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=True, update_links=True, commit=False):
     """
     This task is (normally) called by the cronjob task
     (that one, quite obviously, is in turn started by cron)
@@ -107,7 +109,7 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
 
     """
     
-    if not (update_solr or update_metrics):
+    if not (update_solr or update_metrics or update_links):
         raise Exception('Hmmm, I dont think I let you do NOTHING, sorry!')
 
     logger.debug('Running index-records for: %s', bibcodes)
@@ -115,6 +117,9 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
     batch_insert = []
     batch_update = []
     recs_to_process = set()
+    links_data = []
+    links_bibcodes = []
+    links_url = app.conf.get('LINKS_RESOLVER_UPDATE_URL')
     
     #check if we have complete record
     for bibcode in bibcodes:
@@ -170,6 +175,15 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                         batch_update.append(m)
                     else:
                         batch_insert.append(m)
+
+            if update_links and 'nonbib' in r and links_url:
+                nb = json.loads(r['nonbib'])
+                if 'data_links_rows' in nb:
+                    # send json version of DataLinksRow to update endpoint on links resolver
+                    # need to optimize and not send one record at a time
+                    tmp = {'bibcode': bibcode, 'data_links_rows': nb['data_links_rows']}
+                    links_data.append(tmp)
+                    links_bibcodes.append(bibcode)
         else:
             # if forced and we have at least the bib data, index it
             if force is True:
@@ -216,7 +230,14 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
             raise exception # will trigger retry
     else:
         app.mark_processed(recs_to_process, type=None, status='success')
-
+    
+    if len(links_data):
+        r = requests.put(links_url, data = links_data)
+        if r.status_code == 200:
+            logger.info('send %s datalinks to %s including %s', len(links_data), links_url, links_data[0])
+            app.mark_processed(links_bibcodes, type='links', status='success')
+        else:
+            logger.error('error sending links to %s, error = %s, sent data = %s ', links_url, r.text, tmp)
 
 
 @app.task(queue='delete-records')

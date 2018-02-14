@@ -32,7 +32,7 @@ class ADSMasterPipelineCelery(ADSCelery):
             MetricsBase.metadata.bind = self._metrics_engine
             self._metrics_table = Table('metrics', MetricsBase.metadata)
             register_after_fork(self._metrics_engine, self._metrics_engine.dispose)
-            
+
             self._metrics_table_insert = self._metrics_table.insert() \
                 .values({
                      'an_refereed_citations': bindparam('an_refereed_citations', required=False),
@@ -307,6 +307,8 @@ class ADSMasterPipelineCelery(ADSCelery):
             column = 'solr_processed'
         elif type == 'metrics':
             column = 'metrics_processed'
+        elif type == 'links':
+            column = 'datalinks_processed'
         else:
             column = 'processed'
         

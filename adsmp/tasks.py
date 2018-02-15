@@ -238,7 +238,7 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
             app.mark_processed(links_bibcodes, type='links', status='success')
         else:
             logger.error('error sending links to %s, error = %s, sent data = %s ', links_url, r.text, tmp)
-
+            app.mark_processed(links_bibcodes, type=None, status='links-failed')
 
 @app.task(queue='delete-records')
 def task_delete_documents(bibcode):

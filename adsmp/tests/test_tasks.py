@@ -2,7 +2,7 @@ import sys
 import os
 import json
 
-from mock import patch
+from mock import patch, Mock
 import unittest
 from adsmp import app, tasks
 from adsmp.models import Base
@@ -21,7 +21,8 @@ class TestWorkers(unittest.TestCase):
             'SQLALCHEMY_URL': 'sqlite:///',
             'SQLALCHEMY_ECHO': False,
             'SOLR_URLS': ['http://foo.bar.com/solr/v1'],
-            'METRICS_SQLALCHEMY_URL': None
+            'METRICS_SQLALCHEMY_URL': None,
+            'LINKS_RESOLVER_UPDATE_URL': 'http://localhost:8080/update'
             })
         tasks.app = self.app # monkey-patch the app object
         Base.metadata.bind = self.app._session.get_bind()
@@ -212,13 +213,27 @@ class TestWorkers(unittest.TestCase):
             
 
     def test_task_index_records(self):
-        self.assertRaises(Exception, lambda : tasks.task_index_records(['foo', 'bar'], update_solr=False, update_metrics=False))
+        self.assertRaises(Exception, lambda : tasks.task_index_records(['foo', 'bar'], update_solr=False, update_metrics=False, update_links=False))
             
         with patch.object(tasks.logger, 'error', return_value=None) as logger:
             tasks.task_index_records(['non-existent'])
             logger.assert_called_with(u"The bibcode %s doesn't exist!", 'non-existent')
 
-        
+
+    def test_task_index_links(self):
+        """verify data is sent to links microservice update endpoint"""
+        r = Mock()
+        r.status_code = 200
+        with patch.object(self.app, 'get_record', return_value={'bibcode': 'linkstest',
+
+                                                                'nonbib': '{"data_links_rows": "baz"}',
+                                                                'bib_data_updated': get_date(),
+                                                                'nonbib_data_updated': get_date(),
+                                                                'processed': get_date('2025')}), \
+             patch('requests.put', return_value = r) as p:
+            tasks.task_index_records(['linkstest'], update_solr=False, update_metrics=False, update_links=True, force=True)
+            p.assert_called_with('http://localhost:8080/update', data=[{'bibcode': 'linkstest', 'data_links_rows': 'baz'}])
+
 
 if __name__ == '__main__':
     unittest.main()

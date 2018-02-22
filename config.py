@@ -20,3 +20,7 @@ METRICS_SQLALCHEMY_URL = None #'postgres://postgres@localhost:5432/metrics'
 SOLR_URLS = ['http://localhost:9983/solr/collection1/update']
 SOLR_URL_NEW = 'http://localhost:9983/solr/collection1/query'
 SOLR_URL_OLD = 'http://localhost:9984/solr/collection1/query'
+
+# url for the update endpoint of the links resolver microservice
+# new links data is sent to this url, the mircoservice updates its datastore
+LINKS_RESOLVER_UDPATE_URL = 'http://localhost:8080/update'

@@ -59,7 +59,7 @@ def diagnostics(bibcodes):
                 print '# of %s' % x, session.query(Records).filter(getattr(Records, x) != None).count()
 
     print 'sending test bibcodes to the queue for reindexing'
-    tasks.task_index_records.delay(bibcodes, force=True, update_solr=True, update_metrics=True)
+    tasks.task_index_records.delay(bibcodes, force=True, update_solr=True, update_metrics=True, update_links=True)
 
 
 
@@ -73,7 +73,7 @@ def print_kvs():
 
 
 def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True, update_metrics=True,
-            force_processing=False):
+            update_links=True, force_processing=False):
     """
     Initiates routing of the records (everything that was updated)
     since point in time T.
@@ -142,7 +142,7 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
                     batch.append(rec.bibcode)
                 else:
                     batch.append(rec.bibcode)
-                    tasks.task_index_records.delay(batch, force=force_indexing, update_solr=update_solr, update_metrics=update_metrics)
+                    tasks.task_index_records.delay(batch, force=force_indexing, update_solr=update_solr, update_metrics=update_metrics, update_links=update_links)
                     batch = []
                     last_bibcode = rec.bibcode
                 
@@ -216,11 +216,11 @@ if __name__ == '__main__':
                         nargs='?',
                         dest='reindex',
                         action='store',
-                        const = 'sm',
-                        default='sm',
+                        const = 'sml',
+                        default='sml',
                         help='Sent all updated documents to SOLR/Postgres (you can combine with --since).' + 
                         'Default is to update both solr and metrics. You can choose what to update.' + 
-                        '(s = update solr, m = update metrics)')
+                        '(s = update solr, m = update metrics, l = update link resolver)')
 
     parser.add_argument('-e', 
                         '--batch_size', 
@@ -284,6 +284,7 @@ if __name__ == '__main__':
     elif args.reindex:
         update_solr = 's' in args.reindex.lower()
         update_metrics = 'm' in args.reindex.lower()
+        update_links = 'l' in args.reindex.lower()
         if args.filename:
             print 'sending bibcodes from file to the queue for reindexing'
             bibs = []
@@ -294,14 +295,17 @@ if __name__ == '__main__':
                         bibs.append(bibcode)
                     if len(bibs) >= 100:
                         tasks.task_index_records.delay(bibs, force=True, 
-                                                       update_solr=update_solr, update_metrics=update_metrics)
+                                                       update_solr=update_solr, update_metrics=update_metrics,
+                                                       update_links = update_links)
                         bibs = []
                 if len(bibs) > 0:
                     tasks.task_index_records.delay(bibs, force=True, 
-                                                   update_solr=update_solr, update_metrics=update_metrics)
+                                                   update_solr=update_solr, update_metrics=update_metrics,
+                                                   update_links = update_links)
                     bibs = []
         else:
             print 'sending bibcode since date to the queue for reindexing'
             reindex(since=args.since, batch_size=args.batch_size, force_indexing=args.force_indexing, 
-                    update_solr=update_solr, update_metrics=update_metrics, force_processing=args.force_processing)
+                    update_solr=update_solr, update_metrics=update_metrics, 
+                    update_links = update_links, force_processing=args.force_processing)
 

@@ -272,7 +272,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                     # and if 'body' is in excpetion we assume Solr failed on body field
                     # then we try once more without fulltext
                     # this bibcode needs to investigated as to why fulltext/body is failing
-                    failed_bibcode = doc['bibcode']
+                    failed_bibcode = doc['bibcode']                    
                     if 'body' in str(e):
                         tmp_doc = dict(doc)
                         tmp_doc.pop('body', None)

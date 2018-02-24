@@ -237,8 +237,8 @@ def update_solr(json_records, solr_urls, ignore_errors=False, commit=False):
             else:
                 raise Exception('Error posting data to SOLR: %s (err code: %s, err message:)' % (url, r.status_code, r.text))
     return out
-            
-    
+
+
 
 def transform_json_record(db_record):
     out = {'bibcode': db_record['bibcode']}

@@ -116,10 +116,8 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
     batch = []
     batch_insert = []
     batch_update = []
-    recs_to_process = set()
     links_data = []
-    links_bibcodes = []
-    links_url = app.conf.get('LINKS_RESOLVER_UPDATE_URL')
+
     
     #check if we have complete record
     for bibcode in bibcodes:
@@ -161,29 +159,31 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
             if update_solr:
                 d = solr_updater.transform_json_record(r)
                 logger.debug('Built SOLR: %s', d)
-                batch.append(d)
-                recs_to_process.add(bibcode)
-                
+                if r.get('solr_checksum', None) != app.checksum(d):
+                    batch.append(d)
+                else:
+                    logger.debug('Checksum identical, skipping solr update for: %s', bibcode)
+
             # get data for metrics
             if update_metrics:
                 m = r.get('metrics', None)
-                if m:
+                if m and r.get('metrics_checksum', None) != app.checksum(m):
                     m['bibcode'] = bibcode
                     logger.debug('Got metrics: %s', m) 
-                    recs_to_process.add(bibcode)
                     if r.get('processed'):
                         batch_update.append(m)
                     else:
                         batch_insert.append(m)
+                else:
+                    logger.debug('Checksum identical, skipping metrics update for: %s', bibcode)
 
-            if update_links and 'nonbib' in r and links_url:
+            if update_links and 'nonbib' in r:
                 nb = json.loads(r['nonbib'])
-                if 'data_links_rows' in nb:
+                if 'data_links_rows' in nb and r.get('links_checksum', None) != app.checksum(nb['data_links_rows']):
                     # send json version of DataLinksRow to update endpoint on links resolver
                     # need to optimize and not send one record at a time
                     tmp = {'bibcode': bibcode, 'data_links_rows': nb['data_links_rows']}
                     links_data.append(tmp)
-                    links_bibcodes.append(bibcode)
         else:
             # if forced and we have at least the bib data, index it
             if force is True:
@@ -192,53 +192,10 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                 logger.debug('%s not ready for indexing yet (metadata=%s, orcid=%s, nonbib=%s, fulltext=%s, metrics=%s)' % \
                             (bibcode, bib_data_updated, orcid_claims_updated, nonbib_data_updated, fulltext_updated, \
                              metrics_updated))
-                
-        
-    failed_bibcodes = []
-    if len(batch):
-        failed_bibcodes = app.reindex(batch, app.conf.get('SOLR_URLS'), commit=commit)
     
-    if failed_bibcodes and len(failed_bibcodes):
-        logger.warn('Some bibcodes failed: %s', failed_bibcodes)
-        failed_bibcodes = set(failed_bibcodes)
-        
-        # when solr_urls > 1, some of the servers may have successfully indexed
-        # but here we are refusing to pass data to metrics db; this seems the 
-        # right choice because there is only one metrics db (but if we had many,
-        # then we could differentiate) 
-                
-        batch_insert = filter(lambda x: x['bibcode'] not in failed_bibcodes, batch_insert)
-        batch_update = filter(lambda x: x['bibcode'] not in failed_bibcodes, batch_update)
-        
-        recs_to_process = recs_to_process - failed_bibcodes
-        if len(failed_bibcodes):
-            app.mark_processed(failed_bibcodes, type=None, status='solr-failed')
+    app.update_remote_targets(solr=batch, metrics=(batch_insert, batch_update), links=links_data, commit_solr=commit)
     
-    
-    
-    if len(batch_insert) or len(batch_update):
-        metrics_done, exception = app.update_metrics_db(batch_insert, batch_update)
-        
-        metrics_failed = recs_to_process - set(metrics_done)
-        if len(metrics_failed):
-            app.mark_processed(metrics_failed, type=None, status='metrics-failed')
-    
-        # mark all successful documents as done
-        app.mark_processed(metrics_done, type=None, status='success')
-        
-        if exception:
-            raise exception # will trigger retry
-    else:
-        app.mark_processed(recs_to_process, type=None, status='success')
-    
-    if len(links_data):
-        r = requests.put(links_url, data = links_data)
-        if r.status_code == 200:
-            logger.info('send %s datalinks to %s including %s', len(links_data), links_url, links_data[0])
-            app.mark_processed(links_bibcodes, type='links', status='success')
-        else:
-            logger.error('error sending links to %s, error = %s, sent data = %s ', links_url, r.text, tmp)
-            app.mark_processed(links_bibcodes, type=None, status='links-failed')
+
 
 @app.task(queue='delete-records')
 def task_delete_documents(bibcode):

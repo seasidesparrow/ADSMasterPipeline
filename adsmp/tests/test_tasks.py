@@ -2,13 +2,20 @@ import sys
 import os
 import json
 
-from mock import patch, Mock
+from mock import patch, Mock, MagicMock
 import unittest
 from adsmp import app, tasks
-from adsmp.models import Base
+from adsmp.models import Base, Records
 from adsputils import get_date
 from adsmsg import DenormalizedRecord, FulltextUpdate, NonBibRecord, NonBibRecordList, MetricsRecord, MetricsRecordList
 from adsmsg.orcid_claims import OrcidClaims
+
+import mock
+import copy
+
+class CopyingMock(mock.MagicMock):
+    def _mock_call(_mock_self, *args, **kwargs):
+        return super(CopyingMock, _mock_self)._mock_call(*copy.deepcopy(args), **copy.deepcopy(kwargs))
 
 class TestWorkers(unittest.TestCase):
 
@@ -115,8 +122,37 @@ class TestWorkers(unittest.TestCase):
             self.assertFalse(next_task.called)
             
 
+    def _reset_checksum(self, bibcode):
+        with self.app.session_scope() as session:
+            r = session.query(Records).filter_by(bibcode=bibcode).first()
+            if r is None:
+                r = Records(bibcode=bibcode)
+                session.add(r)
+            r.solr_checksum = None
+            r.metrics_checksum = None
+            r.datalinks_checksum = None
+            session.commit()
+    
+    def _check_checksum(self, bibcode, solr=None, metrics=None, datalinks=None):
+        with self.app.session_scope() as session:
+            r = session.query(Records).filter_by(bibcode=bibcode).first()
+            if solr is True:
+                self.assertTrue(r.solr_checksum)
+            else:
+                self.assertEqual(r.solr_checksum, solr)
+            if metrics is True:
+                self.assertTrue(r.metrics_checksum)
+            else:
+                self.assertEqual(r.metrics_checksum, metrics)
+            if datalinks is True:
+                self.assertTrue(r.datalinks_checksum)
+            else:
+                self.assertEqual(r.datalinks_checksum, datalinks)
 
     def test_task_update_solr(self):
+        # just make sure we have the entry in a database
+        self._reset_checksum('foobar')
+        
         with patch.object(self.app, 'mark_processed', return_value=None) as update_timestamp,\
             patch('adsmp.solr_updater.update_solr', return_value=[200]) as update_solr, \
             patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
@@ -130,7 +166,9 @@ class TestWorkers(unittest.TestCase):
             tasks.task_index_records('2015ApJ...815..133S')
             self.assertTrue(update_solr.called)
             self.assertTrue(update_timestamp.called)
-
+        
+        self._check_checksum('foobar', solr=True)
+        self._reset_checksum('foobar')
 
         with patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
             patch('adsmp.solr_updater.update_solr', return_value=[200]) as update_solr, \
@@ -145,6 +183,9 @@ class TestWorkers(unittest.TestCase):
             tasks.task_index_records('2015ApJ...815..133S')
             self.assertFalse(update_solr.called)
             self.assertFalse(update_timestamp.called)
+            
+        self._check_checksum('foobar', solr=None)
+        self._reset_checksum('foobar')
 
 
 
@@ -161,6 +202,10 @@ class TestWorkers(unittest.TestCase):
             tasks.task_index_records('2015ApJ...815..133S', force=True)
             self.assertTrue(update_solr.called)
             self.assertTrue(update_timestamp.called)
+            
+        self._check_checksum('foobar', solr=True)
+        self._reset_checksum('foobar')
+
 
 
         with patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
@@ -176,8 +221,9 @@ class TestWorkers(unittest.TestCase):
             tasks.task_index_records('2015ApJ...815..133S')
             self.assertFalse(update_solr.called)
             self.assertFalse(update_timestamp.called)
-            #self.assertTrue(task_index_records.called)
-
+        
+        self._check_checksum('foobar', solr=None)
+        self._reset_checksum('foobar')
 
 
         with patch.object(self.app, 'mark_processed', return_value=None) as update_timestamp,\
@@ -194,6 +240,7 @@ class TestWorkers(unittest.TestCase):
             self.assertTrue(update_solr.called)
             self.assertTrue(update_timestamp.called)
             self.assertFalse(task_index_records.called)
+            
 
 
         with patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
@@ -213,6 +260,7 @@ class TestWorkers(unittest.TestCase):
             
 
     def test_task_index_records(self):
+        
         self.assertRaises(Exception, lambda : tasks.task_index_records(['foo', 'bar'], update_solr=False, update_metrics=False, update_links=False))
             
         with patch.object(tasks.logger, 'error', return_value=None) as logger:
@@ -224,15 +272,25 @@ class TestWorkers(unittest.TestCase):
         """verify data is sent to links microservice update endpoint"""
         r = Mock()
         r.status_code = 200
+            
+        # just make sure we have the entry in a database
+        tasks.task_update_record(DenormalizedRecord(bibcode='linkstest'))
+        
         with patch.object(self.app, 'get_record', return_value={'bibcode': 'linkstest',
 
                                                                 'nonbib': '{"data_links_rows": "baz"}',
                                                                 'bib_data_updated': get_date(),
                                                                 'nonbib_data_updated': get_date(),
                                                                 'processed': get_date('2025')}), \
-             patch('requests.put', return_value = r) as p:
+             patch('requests.put', return_value = r, new_callable=CopyingMock) as p:
             tasks.task_index_records(['linkstest'], update_solr=False, update_metrics=False, update_links=True, force=True)
             p.assert_called_with('http://localhost:8080/update', data=[{'bibcode': 'linkstest', 'data_links_rows': 'baz'}])
+            
+        
+        rec = self.app.get_record(bibcode='linkstest')
+        self.assertEquals(rec['datalinks_checksum'], '0x8fd1bc35')
+        self.assertEquals(rec['solr_checksum'], None)
+        self.assertEquals(rec['metrics_checksum'], None)
 
 
 if __name__ == '__main__':

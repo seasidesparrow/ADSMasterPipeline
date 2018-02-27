@@ -504,6 +504,9 @@ class ADSMasterPipelineCelery(ADSCelery):
                 resolver links service
             @return: 
                 (set of processed bibcodes, set of bibcodes that failed)
+                
+            @warning: this call has a side-effect, we are emptying the passed
+                in lists of data (to free up memory)
         """
         
         
@@ -524,7 +527,7 @@ class ADSMasterPipelineCelery(ADSCelery):
         # NOTE: we are assuming that set(solr) == set(metrics)_== set(links)
         for x in (batch, batch_insert, batch_update, links_data):
             if x:
-                for y in batch:
+                for y in x:
                     if 'bibcode' in y:
                         recs_to_process.add(y['bibcode'])
 
@@ -573,7 +576,7 @@ class ADSMasterPipelineCelery(ADSCelery):
             r = requests.put(links_url, data = links_data)
             if r.status_code == 200:
                 self.logger.info('sent %s datalinks to %s including %s', len(links_data), links_url, links_data[0])
-                update_crc('links', links_data, set())
+                update_crc('datalinks', links_data, set())
             else:
                 self.logger.error('error sending links to %s, error = %s', links_url, r.text)
                 self.mark_processed([x['bibcode'] for x in links_data], type=None, status='links-failed')
@@ -597,8 +600,7 @@ class ADSMasterPipelineCelery(ADSCelery):
             for bibcode, vals in crcs.items():
                 r = session.query(Records).filter_by(bibcode=bibcode).first()
                 if r is None:
-                    self.logger.warn('whaay?! Cannot update crc, bibcode does not exist for: %s', bibcode)
-                    continue
+                    raise Exception('whaay?! Cannot update crc, bibcode does not exist for: %s', bibcode)
                 for k,crc in vals.items():
                     setattr(r, k, crc)
             session.commit()

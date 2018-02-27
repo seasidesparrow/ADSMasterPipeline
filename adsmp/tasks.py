@@ -109,6 +109,9 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
 
     """
     
+    if isinstance(bibcodes, basestring):
+        bibcodes = [bibcodes]
+    
     if not (update_solr or update_metrics or update_links):
         raise Exception('Hmmm, I dont think I let you do NOTHING, sorry!')
 
@@ -192,8 +195,8 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                 logger.debug('%s not ready for indexing yet (metadata=%s, orcid=%s, nonbib=%s, fulltext=%s, metrics=%s)' % \
                             (bibcode, bib_data_updated, orcid_claims_updated, nonbib_data_updated, fulltext_updated, \
                              metrics_updated))
-    
-    app.update_remote_targets(solr=batch, metrics=(batch_insert, batch_update), links=links_data, commit_solr=commit)
+    if batch or batch_insert or batch_update or links_data:
+        app.update_remote_targets(solr=batch, metrics=(batch_insert, batch_update), links=links_data, commit_solr=commit)
     
 
 

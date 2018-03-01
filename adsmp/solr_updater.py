@@ -46,7 +46,7 @@ def extract_data_pipeline(data, solrdoc):
         nedid.append(nid)
         nedtype.append(map_ned_type(ntype))
         ned_object_facet_hier.extend(generate_hier_facet(map_ned_type(ntype), nid))
-    
+
     return dict(reader=reader, 
                 read_count=read_count,
                 cite_read_boost=data.get('boost', 0.0),
@@ -64,7 +64,8 @@ def extract_data_pipeline(data, solrdoc):
                 simbad_object_facet_hier=simbad_object_facet_hier,
                 nedid=nedid,
                 nedtype=nedtype,
-                ned_object_facet_hier=ned_object_facet_hier
+                ned_object_facet_hier=ned_object_facet_hier,
+                citation_count_norm=data.get('citation_count_norm', 1)
                 )
 
 def extract_fulltext(data, solrdoc):

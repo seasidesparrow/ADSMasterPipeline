@@ -291,7 +291,30 @@ class TestWorkers(unittest.TestCase):
         self.assertEquals(rec['datalinks_checksum'], '0x8fd1bc35')
         self.assertEquals(rec['solr_checksum'], None)
         self.assertEquals(rec['metrics_checksum'], None)
-
-
+        
+    def test_avoid_duplicates(self):
+        
+        # just make sure we have the entry in a database
+        self._reset_checksum('foo')
+        self._reset_checksum('bar')
+        
+        
+        with patch.object(self.app, 'get_record') as getter, \
+            patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
+            patch('adsmp.solr_updater.update_solr', return_value=[200]) as update_solr:
+            
+            getter.return_value = {'bibcode': 'foo', 'bib_data_updated': get_date('1972-04-01')}
+            tasks.task_index_records(['foo'], force=True)
+            
+            self.assertEquals(update_solr.call_count, 1)
+            self._check_checksum('foo', solr='0xe3ccae25')
+            
+            # now change metrics (solr shouldn't be called)
+            getter.return_value = {'bibcode': 'foo', 'metrics_updated': get_date('1972-04-02'),
+                                   'bib_data_updated': get_date('1972-04-01'),
+                                   'solr_checksum': '0xe3ccae25'}
+            tasks.task_index_records(['foo'], force=True)
+            self.assertEquals(update_solr.call_count, 1)
+            
 if __name__ == '__main__':
     unittest.main()

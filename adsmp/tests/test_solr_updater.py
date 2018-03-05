@@ -167,6 +167,7 @@ class TestSolrUpdater(unittest.TestCase):
              u'simbad_objects': [u'2419335 sim', u'3111723 sim*'],
              u'ned_objects': [u'2419335 HII', u'3111723 ned*'],
              u'grants': [u'2419335 g', u'3111723 g*'],
+             u'citation_count_norm': .2,
              })
         
         rec = self.app.get_record('bibcode')
@@ -205,6 +206,7 @@ class TestSolrUpdater(unittest.TestCase):
               u'2014IPTL...26..305A',
               u'2016ITED...63..197G'],
              'citation_count': 6,
+             'citation_count_norm': .2,
              'cite_read_boost': 0.1899999976158142,
              u'data': [u'MAST:3', u'SIMBAD:1'],
              u'data_facet': [u'MAST', u'SIMBAD'],

@@ -16,6 +16,7 @@ from sqlalchemy import exc
 from multiprocessing.util import register_after_fork
 import zlib
 import requests
+from copy import deepcopy
 
 class ADSMasterPipelineCelery(ADSCelery):
 
@@ -490,7 +491,13 @@ class ADSMasterPipelineCelery(ADSCelery):
         if isinstance(data, basestring):
             return hex(zlib.crc32(unicode(data)) & 0xffffffff)
         else:
-            return hex(zlib.crc32(json.dumps(data)) & 0xffffffff)
+            data = deepcopy(data)
+            # remove all the modification timestamps
+            for k,v in data.items():
+                if 'mtime' in k or 'ctime' in k or 'update_timestamp' in k:
+                    del data[k]
+            print hex(zlib.crc32(json.dumps(data, sort_keys=True)) & 0xffffffff), data
+            return hex(zlib.crc32(json.dumps(data, sort_keys=True)) & 0xffffffff)
     
     
     def update_remote_targets(self, solr=None, metrics=None, links=None,

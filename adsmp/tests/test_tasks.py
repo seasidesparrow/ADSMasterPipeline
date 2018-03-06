@@ -307,12 +307,12 @@ class TestWorkers(unittest.TestCase):
             tasks.task_index_records(['foo'], force=True)
             
             self.assertEquals(update_solr.call_count, 1)
-            self._check_checksum('foo', solr='0xe3ccae25')
+            self._check_checksum('foo', solr='0xf2708ee8')
             
             # now change metrics (solr shouldn't be called)
             getter.return_value = {'bibcode': 'foo', 'metrics_updated': get_date('1972-04-02'),
                                    'bib_data_updated': get_date('1972-04-01'),
-                                   'solr_checksum': '0xe3ccae25'}
+                                   'solr_checksum': '0xf2708ee8'}
             tasks.task_index_records(['foo'], force=True)
             self.assertEquals(update_solr.call_count, 1)
             

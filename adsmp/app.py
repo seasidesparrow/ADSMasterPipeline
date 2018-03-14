@@ -487,16 +487,30 @@ class ADSMasterPipelineCelery(ADSCelery):
                 session.commit()
                 return True
             
-    def checksum(self, data):
+    def checksum(self, data, ignore_keys=('mtime', 'ctime', 'update_timestamp')):
+        """
+        Compute checksum of the passed in data. Preferred situation is when you
+        give us a dictionary. We can clean it up, remove the 'ignore_keys' and
+        sort the keys. Then compute CRC on the string version. You can also pass
+        a string, in which case we simple return the checksum.
+        
+        @param data: string or dict
+        @param ignore_keys: list of patterns, if they are found (anywhere) in 
+            the key name, we'll ignore this key-value pair
+        @return: checksum
+        """
+        assert isinstance(ignore_keys, tuple)
+        
         if isinstance(data, basestring):
             return hex(zlib.crc32(unicode(data)) & 0xffffffff)
         else:
             data = deepcopy(data)
             # remove all the modification timestamps
             for k,v in data.items():
-                if 'mtime' in k or 'ctime' in k or 'update_timestamp' in k:
-                    del data[k]
-            print hex(zlib.crc32(json.dumps(data, sort_keys=True)) & 0xffffffff), data
+                for x in ignore_keys:
+                    if x in k:
+                        del data[k]
+                        break
             return hex(zlib.crc32(json.dumps(data, sort_keys=True)) & 0xffffffff)
     
     
@@ -517,7 +531,7 @@ class ADSMasterPipelineCelery(ADSCelery):
         """
         
         
-        if metrics and not isinstance(metrics, tuple):
+        if metrics and not (isinstance(metrics, tuple) and len(metrics) == 2):
             raise Exception('Wrong data type passed in for metrics')
         
         batch = solr or []
@@ -537,6 +551,8 @@ class ADSMasterPipelineCelery(ADSCelery):
                 for y in x:
                     if 'bibcode' in y:
                         recs_to_process.add(y['bibcode'])
+                    else:
+                        raise Exception('Every record must contain bibcode! Offender: %s' % y)
 
         def update_crc(type, data, faileds):
             while len(data): # we are freeing memory as well

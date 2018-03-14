@@ -66,13 +66,18 @@ class Records(Base):
     solr_processed = Column(UTCDateTime, default=None)
     metrics_processed = Column(UTCDateTime, default=None)
     datalinks_processed = Column(UTCDateTime, default=None)
+    
+    solr_checksum = Column(String(10), default=None)
+    metrics_checksum = Column(String(10), default=None)
+    datalinks_checksum = Column(String(10), default=None)
+    
     status = Column(Enum('solr-failed', 'metrics-failed', 'links-failed', 'success', name='status'))
     
     _date_fields = ['created', 'updated', 'processed',  # dates
                       'bib_data_updated', 'orcid_claims_updated', 'nonbib_data_updated',
                       'fulltext_updated', 'metrics_updated', 'datalinks_processed',
                       'solr_processed', 'metrics_processed']
-    _text_fields = ['id', 'bibcode', 'status']
+    _text_fields = ['id', 'bibcode', 'status', 'solr_checksum', 'metrics_checksum', 'datalinks_checksum']
     _json_fields = ['bib_data', 'orcid_claims', 'nonbib_data', 'metrics', 'fulltext']
 
     def toJSON(self, for_solr=False, load_only=None):

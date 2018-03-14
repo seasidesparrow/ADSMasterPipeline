@@ -14,6 +14,9 @@ from adsmp import solr_updater
 from adsputils import serializer
 from sqlalchemy import exc
 from multiprocessing.util import register_after_fork
+import zlib
+import requests
+from copy import deepcopy
 
 class ADSMasterPipelineCelery(ADSCelery):
 
@@ -483,3 +486,144 @@ class ADSMasterPipelineCelery(ADSCelery):
                 session.delete(r)
                 session.commit()
                 return True
+            
+    def checksum(self, data, ignore_keys=('mtime', 'ctime', 'update_timestamp')):
+        """
+        Compute checksum of the passed in data. Preferred situation is when you
+        give us a dictionary. We can clean it up, remove the 'ignore_keys' and
+        sort the keys. Then compute CRC on the string version. You can also pass
+        a string, in which case we simple return the checksum.
+        
+        @param data: string or dict
+        @param ignore_keys: list of patterns, if they are found (anywhere) in 
+            the key name, we'll ignore this key-value pair
+        @return: checksum
+        """
+        assert isinstance(ignore_keys, tuple)
+        
+        if isinstance(data, basestring):
+            return hex(zlib.crc32(unicode(data)) & 0xffffffff)
+        else:
+            data = deepcopy(data)
+            # remove all the modification timestamps
+            for k,v in data.items():
+                for x in ignore_keys:
+                    if x in k:
+                        del data[k]
+                        break
+            return hex(zlib.crc32(json.dumps(data, sort_keys=True)) & 0xffffffff)
+    
+    
+    def update_remote_targets(self, solr=None, metrics=None, links=None,
+                              commit_solr=False):
+        """Updates remote databases/solr
+            @param batch: list solr documents (already formatted)
+            @param metrics: tuple with two lists, the first is a list
+                of metric dicts to be inserted; the second is a list
+                of metric dicts to be updated
+            @param links_data: list of dicts to send to the remote
+                resolver links service
+            @return: 
+                (set of processed bibcodes, set of bibcodes that failed)
+                
+            @warning: this call has a side-effect, we are emptying the passed
+                in lists of data (to free up memory)
+        """
+        
+        
+        if metrics and not (isinstance(metrics, tuple) and len(metrics) == 2):
+            raise Exception('Wrong data type passed in for metrics')
+        
+        batch = solr or []
+        batch_insert, batch_update = metrics[0], metrics[1]
+        links_data = links or []
+        
+
+        links_url = self.conf.get('LINKS_RESOLVER_UPDATE_URL')
+        recs_to_process = set()
+        failed_bibcodes = []
+        crcs = {}
+        
+        # take note of all the recs that should be updated
+        # NOTE: we are assuming that set(solr) == set(metrics)_== set(links)
+        for x in (batch, batch_insert, batch_update, links_data):
+            if x:
+                for y in x:
+                    if 'bibcode' in y:
+                        recs_to_process.add(y['bibcode'])
+                    else:
+                        raise Exception('Every record must contain bibcode! Offender: %s' % y)
+
+        def update_crc(type, data, faileds):
+            while len(data): # we are freeing memory as well
+                x = data.pop()
+                b = x['bibcode']
+                if b in faileds:
+                    continue
+                crcs.setdefault(b, {})
+                crcs[b][type + '_checksum'] = self.checksum(x)
+                
+        if len(batch):
+            failed_bibcodes = self.reindex(batch, self.conf.get('SOLR_URLS'), commit=commit_solr)
+            failed_bibcodes = set(failed_bibcodes)
+            update_crc('solr', batch, failed_bibcodes)
+        
+        if failed_bibcodes and len(failed_bibcodes):
+            self.logger.warn('SOLR failed to update some bibcodes: %s', failed_bibcodes)
+            
+            # when solr_urls > 1, some of the servers may have successfully indexed
+            # but here we are refusing to pass data to metrics db; this seems the 
+            # right choice because there is only one metrics db (but if we had many,
+            # then we could differentiate) 
+                    
+            batch_insert = filter(lambda x: x['bibcode'] not in failed_bibcodes, batch_insert)
+            batch_update = filter(lambda x: x['bibcode'] not in failed_bibcodes, batch_update)
+            links_data = filter(lambda x: x['bibcode'] not in failed_bibcodes, links_data)
+            
+            recs_to_process = recs_to_process - failed_bibcodes
+            if len(failed_bibcodes):
+                self.mark_processed(failed_bibcodes, type=None, status='solr-failed')
+        
+        metrics_exception = None
+        if len(batch_insert) or len(batch_update):
+            metrics_done, metrics_exception = self.update_metrics_db(batch_insert, batch_update)
+            
+            metrics_failed = recs_to_process - set(metrics_done)
+            if len(metrics_failed):
+                self.mark_processed(metrics_failed, type=None, status='metrics-failed')
+            update_crc('metrics', batch_insert, metrics_failed)
+            update_crc('metrics', batch_update, metrics_failed)
+            
+        
+        if len(links_data):
+            r = requests.put(links_url, data = links_data)
+            if r.status_code == 200:
+                self.logger.info('sent %s datalinks to %s including %s', len(links_data), links_url, links_data[0])
+                update_crc('datalinks', links_data, set())
+            else:
+                self.logger.error('error sending links to %s, error = %s', links_url, r.text)
+                self.mark_processed([x['bibcode'] for x in links_data], type=None, status='links-failed')
+                recs_to_process = recs_to_process - set([x['bibcode'] for x in links_data])
+            
+        self.mark_processed(recs_to_process, type=None, status='success')
+        if len(crcs):
+            self._update_checksums(crcs)
+    
+        if metrics_exception:
+            raise metrics_exception # will trigger retry
+        if len(recs_to_process) == 0:
+            raise Exception("Miserable, me, complete failure")    
+
+    def _update_checksums(self, crcs):
+        """Somewhat brain-damaged way of updating checksums
+        one-by-one for each bibcode we have; but at least
+        it touches all checksums for a rec in one go.
+        """
+        with self.session_scope() as session:
+            for bibcode, vals in crcs.items():
+                r = session.query(Records).filter_by(bibcode=bibcode).first()
+                if r is None:
+                    raise Exception('whaay?! Cannot update crc, bibcode does not exist for: %s', bibcode)
+                for k,crc in vals.items():
+                    setattr(r, k, crc)
+            session.commit()

@@ -120,6 +120,7 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
     batch_insert = []
     batch_update = []
     links_data = []
+    links_url = app.conf.get('LINKS_RESOLVER_UPDATE_URL')
 
     
     #check if we have complete record
@@ -180,8 +181,8 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                 else:
                     logger.debug('Checksum identical, skipping metrics update for: %s', bibcode)
 
-            if update_links and 'nonbib' in r:
-                nb = json.loads(r['nonbib'])
+            if update_links and 'nonbib_data' in r and links_url:
+                nb = json.loads(r.get('nonbib_data'))
                 if 'data_links_rows' in nb and r.get('links_checksum', None) != app.checksum(nb['data_links_rows']):
                     # send json version of DataLinksRow to update endpoint on links resolver
                     # need to optimize and not send one record at a time

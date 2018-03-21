@@ -26,7 +26,7 @@ def upgrade():
         
         op.add_column('records', sa.Column('solr_checksum', sa.String(10)))
         op.add_column('records', sa.Column('metrics_checksum', sa.String(10)))
-        batch_op.add_column(sa.Column('datalinks_checksum', sa.String(10)))
+        op.add_column('records', sa.Column('datalinks_checksum', sa.String(10)))
 
 
 def downgrade():

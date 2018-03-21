@@ -278,7 +278,7 @@ class TestWorkers(unittest.TestCase):
         
         with patch.object(self.app, 'get_record', return_value={'bibcode': 'linkstest',
 
-                                                                'nonbib': '{"data_links_rows": "baz"}',
+                                                                'nonbib_data': '{"data_links_rows": "baz"}',
                                                                 'bib_data_updated': get_date(),
                                                                 'nonbib_data_updated': get_date(),
                                                                 'processed': get_date('2025')}), \

@@ -166,7 +166,7 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                 if r.get('solr_checksum', None) != app.checksum(d):
                     batch.append(d)
                 else:
-                    logger.debug('Checksum identical, skipping solr update for: %s', bibcode)
+                    logger.info('Checksum identical, skipping solr update for: %s', bibcode)
 
             # get data for metrics
             if update_metrics:
@@ -179,7 +179,7 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                     else:
                         batch_insert.append(m)
                 else:
-                    logger.debug('Checksum identical, skipping metrics update for: %s', bibcode)
+                    logger.info('Checksum identical, skipping metrics update for: %s', bibcode)
 
             if update_links and 'nonbib_data' in r and links_url:
                 nb = json.loads(r.get('nonbib_data'))

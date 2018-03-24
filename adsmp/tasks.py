@@ -188,7 +188,7 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                     if isinstance(first_data_links, list):
                         first_data_links = first_data_links[0]
                     # checksum currently only works on a dict
-                    if r.get('links_checksum', None) != app.checksum(first_data_link):
+                    if r.get('links_checksum', None) != app.checksum(first_data_links):
                         # send DataLinksRow to update endpoint on links resolver
                         tmp = {'bibcode': bibcode, 'data_links_rows': nb['data_links_rows']}
                         links_data.append(tmp)

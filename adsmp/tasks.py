@@ -182,12 +182,16 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                     logger.info('Checksum identical, skipping metrics update for: %s', bibcode)
 
             if update_links and 'nonbib_data' in r and links_url:
-                nb = json.loads(r.get('nonbib_data'))
-                if 'data_links_rows' in nb and r.get('links_checksum', None) != app.checksum(nb['data_links_rows']):
-                    # send json version of DataLinksRow to update endpoint on links resolver
-                    # need to optimize and not send one record at a time
-                    tmp = {'bibcode': bibcode, 'data_links_rows': nb['data_links_rows']}
-                    links_data.append(tmp)
+                nb = r.get('nonbib_data')
+                if 'data_links_rows' in nb:
+                    first_data_links = nb['data_links_rows']
+                    if isinstance(first_data_links, list):
+                        first_data_links = first_data_links[0]
+                    # checksum currently only works on a dict
+                    if r.get('links_checksum', None) != app.checksum(first_data_link):
+                        # send DataLinksRow to update endpoint on links resolver
+                        tmp = {'bibcode': bibcode, 'data_links_rows': nb['data_links_rows']}
+                        links_data.append(tmp)
         else:
             # if forced and we have at least the bib data, index it
             if force is True:

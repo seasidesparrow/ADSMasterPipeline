@@ -315,6 +315,63 @@ class TestWorkers(unittest.TestCase):
                                    'solr_checksum': '0xf2708ee8'}
             tasks.task_index_records(['foo'], force=True)
             self.assertEquals(update_solr.call_count, 1)
+
+
+    def test_ignore_checksums_solr(self):
+        """verify ingore_checksums works with solr updates"""
+        self._reset_checksum('foo') # put bibcode in database
+        with patch.object(self.app, 'get_record') as getter, \
+            patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
+            patch('adsmp.solr_updater.update_solr', return_value=[200]) as update_solr:
+            getter.return_value = {'bibcode': 'foo', 'metrics_updated': get_date('1972-04-02'),
+                                   'bib_data_updated': get_date('1972-04-01'),
+                                   'solr_checksum': '0xf2708ee8'}
+
+            # update with matching checksum and then update and ignore checksums
+            tasks.task_index_records(['foo'], force=True, update_metrics=False, update_links=False, ignore_checksums=False)
+            self.assertEquals(update_solr.call_count, 0)
+            tasks.task_index_records(['foo'], force=True, update_metrics=False, update_links=False, ignore_checksums=True)
+            self.assertEquals(update_solr.call_count, 1)
+
+    def test_ignore_checksums_datalinks(self):
+        """verify ingore_checksums works with datalinks updates"""        
+        self._reset_checksum('linkstest')  # put bibcode in database
+        r = Mock()
+        r.status_code = 200
+        with patch.object(self.app, 'get_record', return_value={'bibcode': 'linkstest',
+                                                                'nonbib_data': {'data_links_rows': [{'baz': 0}]},
+                                                                'bib_data_updated': get_date(),
+                                                                'nonbib_data_updated': get_date(),
+                                                                'processed': get_date('2025'),
+                                                                'links_checksum': '0xb9ba6b3f'}), \
+                                                        patch('requests.put', return_value = r, new_callable=CopyingMock) as p:
+            # update with matching checksum and then update and ignore checksums
+            tasks.task_index_records(['linkstest'], update_solr=False, update_metrics=False, update_links=True, force=True,
+                                     ignore_checksums=False)
+            self.assertEquals(p.call_count, 0)
+            tasks.task_index_records(['linkstest'], update_solr=False, update_metrics=False, update_links=True, force=True,
+                                     ignore_checksums=True)
+            self.assertEquals(p.call_count, 1)
+
+    def test_ignore_checksums_metrics(self):
+        """verify ingore_checksums works with datalinks updates"""        
+        self._reset_checksum('metricstest')  # put bibcode in database
+        r = Mock()
+        r.return_value = (['metricstest'], None)
+        with patch.object(self.app, 'get_record', return_value={'bibcode': 'metricstest',
+                                                                'bib_data_updated': get_date(),
+                                                                'metrics': {'refereed': False, 'author_num': 2},
+                                                                'processed': get_date('2025'),
+                                                                'metrics_checksum': '0x424cb03e'}), \
+                patch.object(self.app, 'update_metrics_db', return_value = (['metricstest'], None)) as u:
+            # update with matching checksum and then update and ignore checksums
+            tasks.task_index_records(['metricstest'], update_solr=False, update_metrics=True, update_links=False, force=True,
+                                     ignore_checksums=False)
+            self.assertEquals(u.call_count, 0)
+            tasks.task_index_records(['metricstest'], update_solr=False, update_metrics=True, update_links=False, force=True,
+                                     ignore_checksums=True)
+            self.assertEquals(u.call_count, 1)
+        
             
 if __name__ == '__main__':
     unittest.main()

@@ -59,7 +59,8 @@ def diagnostics(bibcodes):
                 print '# of %s' % x, session.query(Records).filter(getattr(Records, x) != None).count()
 
     print 'sending test bibcodes to the queue for reindexing'
-    tasks.task_index_records.delay(bibcodes, force=True, update_solr=True, update_metrics=True, update_links=True)
+    tasks.task_index_records.delay(bibcodes, force=True, update_solr=True, update_metrics=True, update_links=True,
+                                   ignore_checksums=True)
 
 
 
@@ -73,7 +74,7 @@ def print_kvs():
 
 
 def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True, update_metrics=True,
-            update_links=True, force_processing=False):
+            update_links=True, force_processing=False, ignore_checksums=False):
     """
     Initiates routing of the records (everything that was updated)
     since point in time T.
@@ -142,17 +143,19 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
                     batch.append(rec.bibcode)
                 else:
                     batch.append(rec.bibcode)
-                    tasks.task_index_records.delay(batch, force=force_indexing, update_solr=update_solr, update_metrics=update_metrics, update_links=update_links)
+                    tasks.task_index_records.delay(batch, force=force_indexing, update_solr=update_solr,
+                                                   update_metrics=update_metrics, update_links=update_links,
+                                                   ignore_checksums=ignore_checksums)
                     batch = []
                     last_bibcode = rec.bibcode
                 
         if len(batch) > 0:
             tasks.task_index_records.delay(batch, force=force_indexing, update_solr=update_solr, update_metrics=update_metrics, 
-                                           commit=force_indexing)
+                                           commit=force_indexing, ignore_checksums=ignore_checksums)
         elif force_indexing and last_bibcode:
             # issue one extra call with the commit
             tasks.task_index_records.delay([last_bibcode], force=force_indexing, update_solr=update_solr, update_metrics=update_metrics, 
-                                           commit=force_indexing)
+                                           commit=force_indexing, ignore_checksums=ignore_checksums)
         
         logger.info('Done processing %s records', sent)
     except Exception, e:
@@ -241,6 +244,12 @@ if __name__ == '__main__':
                         dest='filename',
                         action='store',
                         help='File containing a list of bibcodes, one per line')
+
+    parser.add_argument('--ignore_checksums',
+                        dest='ignore_checksums',
+                        action='store_true',
+                        default=False,
+                        help='Update persistent store even when checksum match says it is redundant')
     
     args = parser.parse_args()
     
@@ -285,6 +294,7 @@ if __name__ == '__main__':
         update_solr = 's' in args.reindex.lower()
         update_metrics = 'm' in args.reindex.lower()
         update_links = 'l' in args.reindex.lower()
+        
         if args.filename:
             print 'sending bibcodes from file to the queue for reindexing'
             bibs = []
@@ -296,16 +306,16 @@ if __name__ == '__main__':
                     if len(bibs) >= 100:
                         tasks.task_index_records.delay(bibs, force=True, 
                                                        update_solr=update_solr, update_metrics=update_metrics,
-                                                       update_links = update_links)
+                                                       update_links = update_links, ignore_checksums=args.ignore_checksums)
                         bibs = []
                 if len(bibs) > 0:
                     tasks.task_index_records.delay(bibs, force=True, 
                                                    update_solr=update_solr, update_metrics=update_metrics,
-                                                   update_links = update_links)
+                                                   update_links = update_links, ignore_checksums=args.ignore_checksums)
                     bibs = []
         else:
             print 'sending bibcode since date to the queue for reindexing'
             reindex(since=args.since, batch_size=args.batch_size, force_indexing=args.force_indexing, 
                     update_solr=update_solr, update_metrics=update_metrics, 
-                    update_links = update_links, force_processing=args.force_processing)
+                    update_links = update_links, force_processing=args.force_processing, ignore_checksums=args.ignore_checksums)
 

@@ -80,7 +80,8 @@ def task_update_record(msg):
 
 
 @app.task(queue='index-records')
-def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=True, update_links=True, commit=False):
+def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=True, update_links=True, commit=False,
+                       ignore_checksums=False):
     """
     This task is (normally) called by the cronjob task
     (that one, quite obviously, is in turn started by cron)
@@ -163,7 +164,7 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
             if update_solr:
                 d = solr_updater.transform_json_record(r)
                 logger.debug('Built SOLR: %s', d)
-                if r.get('solr_checksum', None) != app.checksum(d):
+                if r.get('solr_checksum', None) != app.checksum(d) or ignore_checksums:
                     batch.append(d)
                 else:
                     logger.info('Checksum identical, skipping solr update for: %s', bibcode)
@@ -171,7 +172,7 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
             # get data for metrics
             if update_metrics:
                 m = r.get('metrics', None)
-                if m and r.get('metrics_checksum', None) != app.checksum(m):
+                if (m and r.get('metrics_checksum', None) != app.checksum(m)) or ignore_checksums:
                     m['bibcode'] = bibcode
                     logger.debug('Got metrics: %s', m) 
                     if r.get('processed'):
@@ -188,8 +189,7 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                     if isinstance(first_data_links, list):
                         first_data_links = first_data_links[0]
                     # checksum currently only works on a dict
-                    if r.get('links_checksum', None) != app.checksum(first_data_links):
-                        # send DataLinksRow to update endpoint on links resolver
+                    if r.get('links_checksum', None) != app.checksum(first_data_links) or ignore_checksums:
                         tmp = {'bibcode': bibcode, 'data_links_rows': nb['data_links_rows']}
                         links_data.append(tmp)
         else:

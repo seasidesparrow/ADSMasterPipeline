@@ -277,18 +277,18 @@ class TestWorkers(unittest.TestCase):
         tasks.task_update_record(DenormalizedRecord(bibcode='linkstest'))
         
         with patch.object(self.app, 'get_record', return_value={'bibcode': 'linkstest',
-
-                                                                'nonbib_data': '{"data_links_rows": "baz"}',
+                                                                'nonbib_data': {'data_links_rows': [{'baz': 0}]},
                                                                 'bib_data_updated': get_date(),
                                                                 'nonbib_data_updated': get_date(),
                                                                 'processed': get_date('2025')}), \
              patch('requests.put', return_value = r, new_callable=CopyingMock) as p:
             tasks.task_index_records(['linkstest'], update_solr=False, update_metrics=False, update_links=True, force=True)
-            p.assert_called_with('http://localhost:8080/update', data=[{'bibcode': 'linkstest', 'data_links_rows': '[{baz': 0}]}])
+            p.assert_called_with('http://localhost:8080/update',
+                                 data=[{'bibcode': 'linkstest', 'data_links_rows': [{'baz': 0}]}])
             
         
         rec = self.app.get_record(bibcode='linkstest')
-        self.assertEquals(rec['datalinks_checksum'], '0x8fd1bc35')
+        self.assertEquals(rec['datalinks_checksum'], '0x80e85169')
         self.assertEquals(rec['solr_checksum'], None)
         self.assertEquals(rec['metrics_checksum'], None)
         

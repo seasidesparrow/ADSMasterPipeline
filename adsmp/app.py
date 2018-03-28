@@ -540,6 +540,7 @@ class ADSMasterPipelineCelery(ADSCelery):
         
 
         links_url = self.conf.get('LINKS_RESOLVER_UPDATE_URL')
+        api_token = self.conf.get('ADS_API_TOKEN', '')
         recs_to_process = set()
         failed_bibcodes = []
         crcs = {}
@@ -596,7 +597,7 @@ class ADSMasterPipelineCelery(ADSCelery):
             
         
         if len(links_data):
-            r = requests.put(links_url, data = links_data)
+            r = requests.put(links_url, data=links_data, headers={'Authorization': 'Bearer {}'.format(api_token)})
             if r.status_code == 200:
                 self.logger.info('sent %s datalinks to %s including %s', len(links_data), links_url, links_data[0])
                 update_crc('datalinks', links_data, set())

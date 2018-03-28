@@ -29,7 +29,8 @@ class TestWorkers(unittest.TestCase):
             'SQLALCHEMY_ECHO': False,
             'SOLR_URLS': ['http://foo.bar.com/solr/v1'],
             'METRICS_SQLALCHEMY_URL': None,
-            'LINKS_RESOLVER_UPDATE_URL': 'http://localhost:8080/update'
+            'LINKS_RESOLVER_UPDATE_URL': 'http://localhost:8080/update',
+            'ADS_API_TOKEN': 'api_token'
             })
         tasks.app = self.app # monkey-patch the app object
         Base.metadata.bind = self.app._session.get_bind()
@@ -284,7 +285,8 @@ class TestWorkers(unittest.TestCase):
              patch('requests.put', return_value = r, new_callable=CopyingMock) as p:
             tasks.task_index_records(['linkstest'], update_solr=False, update_metrics=False, update_links=True, force=True)
             p.assert_called_with('http://localhost:8080/update',
-                                 data=[{'bibcode': 'linkstest', 'data_links_rows': [{'baz': 0}]}])
+                                 data=[{'bibcode': 'linkstest', 'data_links_rows': [{'baz': 0}]}],
+                                 headers={'Authorization': 'Bearer api_token'})
             
         
         rec = self.app.get_record(bibcode='linkstest')

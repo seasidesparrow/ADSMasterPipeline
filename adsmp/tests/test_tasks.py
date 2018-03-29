@@ -285,7 +285,7 @@ class TestWorkers(unittest.TestCase):
              patch('requests.put', return_value = r, new_callable=CopyingMock) as p:
             tasks.task_index_records(['linkstest'], update_solr=False, update_metrics=False, update_links=True, force=True)
             p.assert_called_with('http://localhost:8080/update',
-                                 data=[{'bibcode': 'linkstest', 'data_links_rows': [{'baz': 0}]}],
+                                 data=json.dumps([{'bibcode': 'linkstest', 'data_links_rows': [{'baz': 0}]}]),
                                  headers={'Authorization': 'Bearer api_token'})
             
         

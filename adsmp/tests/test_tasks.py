@@ -293,7 +293,21 @@ class TestWorkers(unittest.TestCase):
         self.assertEquals(rec['datalinks_checksum'], '0x80e85169')
         self.assertEquals(rec['solr_checksum'], None)
         self.assertEquals(rec['metrics_checksum'], None)
-        
+
+
+    def test_task_index_links_no_data(self):
+        """verify data links works when no data_links_rows is present"""
+        with patch.object(self.app, 'get_record', return_value={'bibcode': 'linkstest',
+                                                                'nonbib_data': {'boost': 1.2},
+                                                                'bib_data_updated': get_date(),
+                                                                'nonbib_data_updated': get_date(),
+                                                                'processed': get_date('2025')}), \
+                         patch('requests.put', new_callable=CopyingMock) as p:
+            tasks.task_index_records(['linkstest'], update_solr=False, update_metrics=False, update_links=True, force=True)
+            p.assert_not_called()
+
+
+            
     def test_avoid_duplicates(self):
         
         # just make sure we have the entry in a database

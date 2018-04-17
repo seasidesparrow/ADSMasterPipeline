@@ -68,6 +68,12 @@ def task_update_record(msg):
                 bibcodes.append(m.bibcode)
                 record = app.update_storage(m.bibcode, 'metrics', m.toJSON(including_default_value_fields=True))
                 logger.debug('Saved record from list: %s', record)
+        elif type == 'augment_records':
+            for m in msg.affiliation_responses:
+                m = Msg(m, None, None)
+                bibcodes.append(m.bibcode)
+                record = app.update_storage(m.bibcode, 'augment', m.toJSON(including_default_value_fields=True))
+                logger.debug('Saved record from list: %s', record)
         else:
             # here when record has a single bibcode
             bibcodes.append(msg.bibcode)

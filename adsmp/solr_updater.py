@@ -2,7 +2,7 @@ import requests
 import json
 from adsputils import setup_logging, date2solrstamp
 import time
-
+from collections import OrderedDict
 
 logger = setup_logging('solr_updater')
 
@@ -67,6 +67,23 @@ def extract_data_pipeline(data, solrdoc):
                 ned_object_facet_hier=ned_object_facet_hier,
                 citation_count_norm=data.get('citation_count_norm', 1)
                 )
+
+def extract_augments_pipeline(aug_aff, solrdoc):
+    """merge any agumented values into aff field and return"""
+    solr_aff = list(solrdoc.get('aff'))
+    if aug_aff is None or len(aug_aff) is 0:
+        aug_aff = '[]'
+    if isinstance(aug_aff, basestring):
+        aug_aff = json.loads(aug_aff)
+    # loop over augmented affils and overwrite current values
+    for index,a in enumerate(aug_aff):
+        if len(a) > 1:
+            # here if have something larger than default '-' and need to overwrite
+            if len(solr_aff) < index + 1:
+                # extend array to make room for this entry
+                solr_aff = solr_aff + [u'-'] * (index - len(solr_aff) + 1)
+            solr_aff[index] = a  # overwrite
+    return {'aff': solr_aff}
 
 def extract_fulltext(data, solrdoc):
     out = {}
@@ -176,16 +193,16 @@ def get_timestamps(db_record, out):
         out['update_timestamp'] = date2solrstamp(last_update)
     return out
      
-DB_COLUMN_DESTINATIONS = {
-    'bib_data': '', 
-    'orcid_claims': get_orcid_claims, 
-    'nonbib_data': extract_data_pipeline,
-    'metrics': extract_metrics_pipeline,
-    'id': 'id', 
-    'fulltext': extract_fulltext,
-    '#timestamps': get_timestamps, # use 'id' to be always called
-    
-    }
+DB_COLUMN_DESTINATIONS = OrderedDict([
+    ('bib_data', ''),
+    ('orcid_claims', get_orcid_claims),
+    ('nonbib_data', extract_data_pipeline),
+    ('metrics', extract_metrics_pipeline),
+    ('id', 'id'),
+    ('fulltext', extract_fulltext),
+    ('#timestamps', get_timestamps), # use 'id' to be always called
+    ('augments', extract_augments_pipeline)  # over-writes existing field values
+    ])
 
 
 def delete_by_bibcodes(bibcodes, urls):
@@ -272,7 +289,7 @@ def transform_json_record(db_record):
             if callable(target):
                 x = target(db_record, out) # in the interest of speed, don't create copy of out
                 if x:
-                    out.update(x) 
+                    out.update(x)
     
     return out
 

@@ -90,7 +90,7 @@ class TestSolrUpdater(unittest.TestCase):
              u'links_data': u'',   ### TODO(rca): superconfusing string, but fortunately we are getting ridd of it
              u'orcid_pub': [u'-', u'-', u'-', u'-'],
              u'page': [u'283'],
-             u'property': [u'OPENACCESS', u'ADS_OPENACCESS', u'ARTICLE', u'NOT REFEREED'],
+             #u'property': [u'OPENACCESS', u'ADS_OPENACCESS', u'ARTICLE', u'NOT REFEREED'],
              u'pub': u'Astronomical Data Analysis Software and Systems XII',
              u'pub_raw': u'Astronomical Data Analysis Software and Systems XII ASP Conference Series, Vol. 295, 2003 H. E. Payne, R. I. Jedrzejewski, and R. N. Hook, eds., p.283',
              u'pubdate': u'2003-00-00',
@@ -121,6 +121,7 @@ class TestSolrUpdater(unittest.TestCase):
              u'bibcode': u'2007JAP...101d4501Z',
              u'boost': 0.1899999976158142,
              u'data': [u'MAST:3', u'SIMBAD:1'],
+             u'property': [u'OPENACCESS', u'ADS_OPENACCESS', u'ARTICLE', u'NOT REFEREED'],
              u'downloads': [0,
               0,
               0,
@@ -169,11 +170,13 @@ class TestSolrUpdater(unittest.TestCase):
              u'grants': [u'2419335 g', u'3111723 g*'],
              u'citation_count_norm': .2,
              })
+        self.app.update_storage('bibcode', 'augment',
+                                {'sequence': '2/4', 'affiliation': 'CfA'})
         
         rec = self.app.get_record('bibcode')
         self.assertDictContainsSubset({u'abstract': u'abstract text',
              u'ack': u'aaa',
-             u'aff': [u'-', u'-', u'-', u'-'],
+             u'aff': [u'-', u'CfA', u'-', u'-'],
              u'alternate_bibcode': [u'2003adass..12..283B'],
              u'author': [u'Blecksmith, E.', u'Paltani, S.', u'Rots, A.', u'Winkelman, S.'],
              u'author_count': 4,

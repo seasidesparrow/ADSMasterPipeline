@@ -261,6 +261,52 @@ class TestAdsOrcidCelery(unittest.TestCase):
         with self.app.session_scope() as session:
             r = session.query(models.ChangeLog).filter_by(key='bibcode:abc').first()
             self.assertTrue(r.key, 'abc')
+
+        # verify affilation augments can arrive in any order
+        self.app.update_storage('bib_augment_test', 'augment',
+                                {'affiliation': 'CfA', 'sequence': '1/2'})
+        with self.app.session_scope() as session:
+            r = session.query(models.Records).filter_by(bibcode='bib_augment_test').first()
+            j = r.toJSON()
+            self.assertEquals(j['augments'], ['CfA'])
+            t = j['augments_updated']
+            self.assertTrue(now < t)
+
+        self.app.update_storage('bib_augment_test', 'augment',
+                                {'affiliation': 'Tufts', 'sequence': '2/2'})
+        with self.app.session_scope() as session:
+            r = session.query(models.Records).filter_by(bibcode='bib_augment_test').first()
+            j = r.toJSON()
+            self.assertEquals(j['augments'], ['CfA', 'Tufts'])
+            t = j['augments_updated']
+            self.assertTrue(now < t)
+
+        self.app.update_storage('bib_augment_test2', 'augment',
+                                {'affiliation': 'Tufts', 'sequence': '2/2'})
+        with self.app.session_scope() as session:
+            r = session.query(models.Records).filter_by(bibcode='bib_augment_test2').first()
+            j = r.toJSON()
+            self.assertEquals(j['augments'], ['-', 'Tufts'])
+            t = j['augments_updated']
+            self.assertTrue(now < t)
+
+        self.app.update_storage('bib_augment_test2', 'augment',
+                                {'affiliation': 'CfA', 'sequence': '1/2'})
+        with self.app.session_scope() as session:
+            r = session.query(models.Records).filter_by(bibcode='bib_augment_test2').first()
+            j = r.toJSON()
+            self.assertEquals(j['augments'], ['CfA', 'Tufts'])
+            t = j['augments_updated']
+            self.assertTrue(now < t)
+
+        self.app.update_storage('bib_augment_test3', 'augment',
+                                {'affiliation': 'CfA', 'sequence': '4/4'})
+        with self.app.session_scope() as session:
+            r = session.query(models.Records).filter_by(bibcode='bib_augment_test3').first()
+            j = r.toJSON()
+            self.assertEquals(j['augments'], ['-', '-', '-', 'CfA'])
+            t = j['augments_updated']
+            self.assertTrue(now < t)
             
         
     def test_rename_bibcode(self):

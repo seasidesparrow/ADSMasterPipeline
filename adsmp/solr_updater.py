@@ -84,6 +84,8 @@ def extract_augments_pipeline(db_augments, solrdoc):
             if len(solr_aff) < index + 1:
                 # extend array to make room for this entry
                 solr_aff = solr_aff + [u'-'] * (index - len(solr_aff) + 1)
+            logger.info('augmenting affiliation for %s, %s changed index %s to %s'
+                        % (solrdoc.get('bibcode'), solr_aff, index, a))
             solr_aff[index] = a  # overwrite
     return {'aff': solr_aff}
 

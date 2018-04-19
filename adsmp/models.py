@@ -52,7 +52,10 @@ class Records(Base):
     nonbib_data = Column(Text)
     fulltext = Column(Text)
     metrics = Column(Text)
-    augments = Column(Text)
+    # holds a dict of augments to be merged
+    # currently only supported key is 'affiliations'
+    #  with the value an array holding affiliation strings and '-' placeholders
+    augments = Column(Text) 
 
     # when data is received we set the updated timestamp
     bib_data_updated = Column(UTCDateTime, default=None)

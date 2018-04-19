@@ -268,7 +268,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
         with self.app.session_scope() as session:
             r = session.query(models.Records).filter_by(bibcode='bib_augment_test').first()
             j = r.toJSON()
-            self.assertEquals(j['augments'], ['CfA'])
+            self.assertEquals(j['augments'], {'affiliations' : ['CfA']})
             t = j['augments_updated']
             self.assertTrue(now < t)
 
@@ -277,7 +277,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
         with self.app.session_scope() as session:
             r = session.query(models.Records).filter_by(bibcode='bib_augment_test').first()
             j = r.toJSON()
-            self.assertEquals(j['augments'], ['CfA', 'Tufts'])
+            self.assertEquals(j['augments'], {'affiliations': ['CfA', 'Tufts']})
             t = j['augments_updated']
             self.assertTrue(now < t)
 
@@ -286,7 +286,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
         with self.app.session_scope() as session:
             r = session.query(models.Records).filter_by(bibcode='bib_augment_test2').first()
             j = r.toJSON()
-            self.assertEquals(j['augments'], ['-', 'Tufts'])
+            self.assertEquals(j['augments'], {'affiliations': ['-', 'Tufts']})
             t = j['augments_updated']
             self.assertTrue(now < t)
 
@@ -295,7 +295,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
         with self.app.session_scope() as session:
             r = session.query(models.Records).filter_by(bibcode='bib_augment_test2').first()
             j = r.toJSON()
-            self.assertEquals(j['augments'], ['CfA', 'Tufts'])
+            self.assertEquals(j['augments'], {'affiliations': ['CfA', 'Tufts']})
             t = j['augments_updated']
             self.assertTrue(now < t)
 
@@ -304,7 +304,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
         with self.app.session_scope() as session:
             r = session.query(models.Records).filter_by(bibcode='bib_augment_test3').first()
             j = r.toJSON()
-            self.assertEquals(j['augments'], ['-', '-', '-', 'CfA'])
+            self.assertEquals(j['augments'], {'affiliations': ['-', '-', '-', 'CfA']})
             t = j['augments_updated']
             self.assertTrue(now < t)
             

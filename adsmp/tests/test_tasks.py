@@ -108,7 +108,8 @@ class TestWorkers(unittest.TestCase):
         with patch('adsmp.tasks.task_index_records.delay') as next_task:
             tasks.task_update_record(AugmentAffiliationResponseRecord
                                      (bibcode='2015ApJ...815..133S', author='me', affiliation='CfA', sequence='1/1'))
-            self.assertEquals(self.app.get_record(bibcode='2015ApJ...815..133S')['augments'], ['CfA'])
+            self.assertEquals(self.app.get_record(bibcode='2015ApJ...815..133S')['augments'],
+                              {'affiliations': ['CfA']})
             self.assertFalse(next_task.called)
 
     def test_task_update_record_augments_list(self):

@@ -68,15 +68,17 @@ def extract_data_pipeline(data, solrdoc):
                 citation_count_norm=data.get('citation_count_norm', 1)
                 )
 
-def extract_augments_pipeline(aug_aff, solrdoc):
+
+def extract_augments_pipeline(db_augments, solrdoc):
     """merge any agumented values into aff field and return"""
     solr_aff = list(solrdoc.get('aff'))
-    if aug_aff is None or len(aug_aff) is 0:
-        aug_aff = '[]'
-    if isinstance(aug_aff, basestring):
-        aug_aff = json.loads(aug_aff)
+    if db_augments is None or len(db_augments) is 0:
+        db_augments = '{}'
+    if isinstance(db_augments, basestring):
+        db_augments = json.loads(db_augments)
+    affil_augments = db_augments.get('affiliations', [])
     # loop over augmented affils and overwrite current values
-    for index,a in enumerate(aug_aff):
+    for index, a in enumerate(affil_augments):
         if len(a) > 1:
             # here if have something larger than default '-' and need to overwrite
             if len(solr_aff) < index + 1:
@@ -84,6 +86,7 @@ def extract_augments_pipeline(aug_aff, solrdoc):
                 solr_aff = solr_aff + [u'-'] * (index - len(solr_aff) + 1)
             solr_aff[index] = a  # overwrite
     return {'aff': solr_aff}
+
 
 def extract_fulltext(data, solrdoc):
     out = {}

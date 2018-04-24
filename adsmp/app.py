@@ -245,8 +245,6 @@ class ADSMasterPipelineCelery(ADSCelery):
             return 'metrics_records'
         elif isinstance(msg, AugmentAffiliationResponseRecord):
             return 'augment'
-        elif isinstance(msg, AugmentAffiliationResponseRecordList):
-            return 'augment_records'
 
         else:
             raise exceptions.IgnorableException('Unkwnown type {0} submitted for update'.format(repr(msg)))

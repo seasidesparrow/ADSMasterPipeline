@@ -2,7 +2,7 @@
 from __future__ import absolute_import, unicode_literals
 from . import exceptions
 from .models import Records, ChangeLog, IdentifierMapping
-from adsmsg import OrcidClaims, DenormalizedRecord, FulltextUpdate, MetricsRecord, NonBibRecord, NonBibRecordList, MetricsRecordList
+from adsmsg import OrcidClaims, DenormalizedRecord, FulltextUpdate, MetricsRecord, NonBibRecord, NonBibRecordList, MetricsRecordList, AugmentAffiliationResponseRecord, AugmentAffiliationResponseRecordList
 from adsmsg.msg import Msg
 from adsputils import ADSCelery, create_engine, sessionmaker, scoped_session, contextmanager
 from sqlalchemy.orm import load_only as _load_only
@@ -108,6 +108,27 @@ class ADSMasterPipelineCelery(ADSCelery):
                 oldval = 'not-stored'
                 r.metrics = payload
                 r.metrics_updated = now
+            elif type == 'augment':
+                # r.augments holds a dict, only key currently supported is affiliations
+                # use sequence entry to determine location in affiliation array
+                db_augments = r.augments
+                if db_augments is None or len(db_augments) is 0:
+                    db_augments = '{}'
+                db_augments = json.loads(db_augments)
+                affil_augments = db_augments.get('affiliations', [])
+                j = json.loads(payload)
+                # sequence count starts at 1, not 0
+                index = int(j['sequence'].split('/')[0]) - 1
+                if len(affil_augments) < index + 1:
+                    # here if db array is not long enough to hold new value
+                    # so we extend it by appending placeholder '-'
+                    affil_augments = affil_augments + [u'-'] * (index - len(affil_augments) + 1)
+                affil_augments[index] = j['affiliation']
+                db_augments['affiliations'] = affil_augments
+                oldval = 'not-stored'
+                r.augments = json.dumps(db_augments)
+                r.augments_updated = now
+
             else:
                 raise Exception('Unknown type: %s' % type)
             session.add(ChangeLog(key=bibcode, type=type, oldvalue=oldval))
@@ -222,7 +243,8 @@ class ADSMasterPipelineCelery(ADSCelery):
             return 'metrics'
         elif isinstance(msg, MetricsRecordList):
             return 'metrics_records'
-
+        elif isinstance(msg, AugmentAffiliationResponseRecord):
+            return 'augment'
 
         else:
             raise exceptions.IgnorableException('Unkwnown type {0} submitted for update'.format(repr(msg)))

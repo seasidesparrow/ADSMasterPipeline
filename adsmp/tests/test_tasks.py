@@ -7,7 +7,7 @@ import unittest
 from adsmp import app, tasks
 from adsmp.models import Base, Records
 from adsputils import get_date
-from adsmsg import DenormalizedRecord, FulltextUpdate, NonBibRecord, NonBibRecordList, MetricsRecord, MetricsRecordList
+from adsmsg import DenormalizedRecord, FulltextUpdate, NonBibRecord, NonBibRecordList, MetricsRecord, MetricsRecordList,AugmentAffiliationResponseRecord
 from adsmsg.orcid_claims import OrcidClaims
 
 import mock
@@ -103,6 +103,25 @@ class TestWorkers(unittest.TestCase):
             tasks.task_update_record(recs)
             self.assertFalse(next_task.called)
 
+
+    def test_task_update_record_augments(self):
+        with patch('adsmp.tasks.task_index_records.delay') as next_task:
+            tasks.task_update_record(AugmentAffiliationResponseRecord
+                                     (bibcode='2015ApJ...815..133S', author='me', affiliation='CfA', sequence='1/1'))
+            self.assertEquals(self.app.get_record(bibcode='2015ApJ...815..133S')['augments'],
+                              {'affiliations': ['CfA']})
+            self.assertFalse(next_task.called)
+
+    def test_task_update_record_augments_list(self):
+        with patch('adsmp.tasks.task_index_records.delay') as next_task:
+            recs = NonBibRecordList()
+            nonbib_data = {'bibcode': '2003ASPC..295..361M', 'boost': 3.1}
+            nonbib_data2 = {'bibcode': '3003ASPC..295..361Z', 'boost': 3.2}
+            rec = NonBibRecord(**nonbib_data)
+            rec2 = NonBibRecord(**nonbib_data2)
+            recs.nonbib_records.extend([rec._data, rec2._data])
+            tasks.task_update_record(recs)
+            self.assertFalse(next_task.called)
 
     def test_task_update_record_metrics(self):
         with patch('adsmp.tasks.task_index_records.delay') as next_task:

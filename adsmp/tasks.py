@@ -4,10 +4,6 @@ import adsputils
 from adsmp import app as app_module
 from adsmp import solr_updater
 from kombu import Queue
-import math
-import requests
-import json
-from adsmsg import MetricsRecord, NonBibRecord
 from adsmsg.msg import Msg
 
 # ============================= INITIALIZATION ==================================== #
@@ -68,6 +64,12 @@ def task_update_record(msg):
                 bibcodes.append(m.bibcode)
                 record = app.update_storage(m.bibcode, 'metrics', m.toJSON(including_default_value_fields=True))
                 logger.debug('Saved record from list: %s', record)
+        elif type =='augment':
+            bibcodes.append(msg.bibcode)
+            record = app.update_storage(msg.bibcode, 'augment',
+                                        msg.toJSON(including_default_value_fields=True))
+            logger.debug('Saved passed message: %s', msg)
+
         else:
             # here when record has a single bibcode
             bibcodes.append(msg.bibcode)

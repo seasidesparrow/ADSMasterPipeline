@@ -225,6 +225,12 @@ if __name__ == '__main__':
                         'Default is to update both solr and metrics. You can choose what to update.' + 
                         '(s = update solr, m = update metrics, l = update link resolver)')
 
+    parser.add_argument('--delete',
+                        dest='delete',
+                        action='store_true',
+                        default=False,
+                        help='delete a file of bibcodes')
+    
     parser.add_argument('-e', 
                         '--batch_size', 
                         dest='batch_size', 
@@ -290,6 +296,18 @@ if __name__ == '__main__':
         d = validate.Validate(fields, ignore_fields, new_fields)
         d.compare_solr(bibcodelist=args.bibcodes,filename=args.filename)
 
+    elif args.delete:
+        if args.filename:
+            print 'deleting bibcodes from file via queue'
+            bibs = []
+            with open(args.filename) as f:
+                for line in f:
+                    bibcode = line.strip()
+                    if bibcode:
+                        tasks.task_delete_documents(bibcode)
+        else:
+            print 'please provide a file of bibcodes to delete via -n'
+        
     elif args.reindex:
         update_solr = 's' in args.reindex.lower()
         update_metrics = 'm' in args.reindex.lower()
@@ -318,4 +336,6 @@ if __name__ == '__main__':
             reindex(since=args.since, batch_size=args.batch_size, force_indexing=args.force_indexing, 
                     update_solr=update_solr, update_metrics=update_metrics, 
                     update_links = update_links, force_processing=args.force_processing, ignore_checksums=args.ignore_checksums)
+        
+            
 

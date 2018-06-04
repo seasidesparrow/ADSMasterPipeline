@@ -503,7 +503,7 @@ class ADSMasterPipelineCelery(ADSCelery):
 
     def metrics_delete_by_bibcode(self, bibcode):
         with self.metrics_session_scope() as session:
-            r = session.query(MetricsRecord).filter_by(bibcode=bibcode).first()
+            r = session.query(MetricsModel).filter_by(bibcode=bibcode).first()
             if r is not None:
                 session.delete(r)
                 session.commit()

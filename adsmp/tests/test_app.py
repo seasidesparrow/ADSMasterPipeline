@@ -212,7 +212,20 @@ class TestAdsOrcidCelery(unittest.TestCase):
             self.assertTrue(r['metrics_processed'])
             self.assertFalse(r['solr_processed'])
 
-
+    def test_delete_metrics(self):
+        """Makes sure we can delete a metrics record by bibcode"""
+        self.app.update_storage('abc', 'metrics', {
+                     'author_num': 1,
+                     'bibcode': 'abc',
+                    })
+        r = self.app.get_record('abc')
+        self.app.update_metrics_db([r], [])
+        m = self.app.get_metrics('abc')
+        self.assertTrue(m, 'intialized metrics data')
+        self.app.metrics_delete_by_bibcode('abc')
+        m = self.app.get_metrics('abc')
+        self.assertFalse(m, 'deleted metrics data')
+        
     def test_update_records(self):
         """Makes sure we can write recs into the storage."""
         now = adsputils.get_date()

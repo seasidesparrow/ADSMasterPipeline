@@ -277,7 +277,7 @@ if __name__ == '__main__':
                   'bibstem', 'bibstem_facet', 'body', 'citation', 'citation_count', 'cite_read_boost', 'classic_factor',
                   'comment', 'copyright', 'data', 'data_count', 'data_facet', 'database', 'date', 'doctype',
                   'doctype_facet_hier',
-                  'doi', 'eid', 'email', 'entry_date', 'esources', 'first_author', 'first_author_facet_hier',
+                  'doi', 'eid', 'editor', 'email', 'entry_date', 'esources', 'first_author', 'first_author_facet_hier',
                   'first_author_norm', 'fulltext_mtime', 'grant', 'grant_facet_hier', 'id', 'identifier', 'indexstamp',
                   'isbn', 'issn', 'issue', 'keyword', 'keyword_facet', 'keyword_norm', 'keyword_schema', 'lang',
                   'links_data', 'metadata_mtime', 'metrics_mtime', 'nedid', 'nedtype', 'ned_object_facet_hier',
@@ -290,7 +290,7 @@ if __name__ == '__main__':
         ignore_fields = ('id', 'indexstamp', 'fulltext_mtime', 'links_data', 'metadata_mtime', 'metrics_mtime',
                          'nonbib_mtime', 'orcid_mtime', 'recid', 'update_timestamp')
 
-        new_fields = ('data_count', 'entry_date', 'esources', 'nedid', 'nedtype', 'ned_object_facet_hier', 'origin',
+        new_fields = ('data_count', 'editor', 'entry_date', 'esources', 'nedid', 'nedtype', 'ned_object_facet_hier', 'origin',
                       'page_count', 'page_range')
 
         d = validate.Validate(fields, ignore_fields, new_fields)

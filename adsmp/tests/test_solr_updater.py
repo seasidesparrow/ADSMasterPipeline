@@ -225,7 +225,7 @@ class TestSolrUpdater(unittest.TestCase):
              u'first_author_facet_hier': [u'0/Blecksmith, E',
               u'1/Blecksmith, E/Blecksmith, E.'],
              u'first_author_norm': u'Blecksmith, E',
-             u'id': u'1401492',
+             u'id': 1,  # from id in master database records table
              u'identifier': [u'2003adass..12..283B'],
              u'links_data': u'',
              'orcid_other' : [u'-', u'-', u'0000-0003-2377-2356', u'-'],

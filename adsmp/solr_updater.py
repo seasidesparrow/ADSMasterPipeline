@@ -1,6 +1,7 @@
 import requests
 import json
 from adsputils import setup_logging, date2solrstamp
+import sys
 import time
 from collections import OrderedDict
 
@@ -273,7 +274,7 @@ def transform_json_record(db_record):
         if ts:
             ts = time.mktime(ts.timetuple())
         else:
-            ts = -1  
+            ts = sys.maxsize  # default to use option without timestamp
         timestamps.append((k, v, ts))
     timestamps.sort(key=lambda x: x[2])
     

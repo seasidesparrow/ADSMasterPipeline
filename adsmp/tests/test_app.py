@@ -2,18 +2,19 @@
 # -*- coding: utf-8 -*-
 
 
-
+from mock import patch
+from mock import mock_open
+import mock
+import unittest
 import sys
 import os
-
-import unittest
 import json
 import re
 import os
 import math
-import mock
+
+
 import adsputils
-from mock import patch
 from io import BytesIO
 from datetime import datetime
 from adsmp import app, models
@@ -35,7 +36,6 @@ class TestAdsOrcidCelery(unittest.TestCase):
     def tearDownClass(cls):
         cls.postgresql.stop()
         
-
     def setUp(self):
         unittest.TestCase.setUp(self)
         
@@ -334,6 +334,76 @@ class TestAdsOrcidCelery(unittest.TestCase):
             
         self.assertTrue(self.app.get_changelog('abc'), [{'target': u'def', 'key': u'abc'}])
 
-    
+    def test_solr_tweak(self):
+        """use hard coded string to verify app.tweaks is set from file"""
+        test_tweak = {
+            "docs": [
+                {
+                    "aff": [
+                        "Purdue University (United States)",
+                        "Purdue University (United States)",
+                        "Purdue University (United States)"
+                    ],
+                    "aff_abbrev": [
+                        "NA",
+                        "NA",
+                        "NA"
+                    ],
+                    "aff_canonical": [
+                        "Not Matched",
+                        "Not Matched",
+                        "Not Matched"
+                    ],
+                    "aff_facet_hier": [],
+                    "author": [
+                        "Mikhail, E. M.",
+                        "Kurtz, M. K.",
+                        "Stevenson, W. H."
+                    ],
+                    "bibcode": "1971SPIE...26..187M",
+                    "title": [
+                        "Metric Characteristics Of Holographic Imagery"
+                    ]
+                }
+                ]
+            }
+        with patch('__builtin__.open',
+                   mock_open(read_data=json.dumps(test_tweak))):
+            self.app.load_tweak_file('foo')
+            self.assertTrue("1971SPIE...26..187M" in self.app.tweaks)
+            v = test_tweak['docs'][0]
+            v.pop('bibcode')
+            self.assertEqual(v,
+                             self.app.tweaks['1971SPIE...26..187M'])
+
+        # verify tweaks are merged into solr record
+        # reindex changed the passed dict
+        with mock.patch('adsmp.solr_updater.update_solr', return_value=[200]):
+            doc = {'bibcode': '1971SPIE...26..187M',
+                   'abstract': 'test abstract'}
+            failed = self.app.reindex([doc], ['http://solr1'])
+            self.assertTrue(len(failed) == 0)
+            self.assertTrue('abstract' in doc)
+            self.assertTrue('aff' in doc)
+            self.assertTrue('aff_abbrev' in doc)
+            self.assertTrue('aff_canonical' in doc)
+            self.assertTrue('aff_facet_hier' in doc)
+            self.assertTrue('title' in doc)
+            self.assertEqual('1971SPIE...26..187M', doc['bibcode'])
+
+    @unittest.skip('mock not yet working')
+    def test_read_tweak_files(self, mocked_isdir):
+        self.assertTrue(os.path.isdir('/asdfsdf'))
+        self.app.quux()
+        with mock.patch('adsmp.app.os.path.isdir', return_value=True), \
+             mock.patch('os.listdir', return_value=('foo.json', 'bar')), \
+             mock.patch('adsmp.app.ADSMasterPipelineCelery.load_tweak_file') as m:
+            self.assertTrue(os.path.isdir('/asdfsdf'))
+            self.foo()
+            self.app.quux()
+            self.app.load_tweak_files()
+            m.assert_called_once_with('foo.json')
+
+
 if __name__ == '__main__':
     unittest.main()

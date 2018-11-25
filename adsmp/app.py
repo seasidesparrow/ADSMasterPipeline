@@ -17,10 +17,12 @@ from multiprocessing.util import register_after_fork
 import zlib
 import requests
 from copy import deepcopy
+from os import listdir
+from os.path import join, isdir
+
 
 class ADSMasterPipelineCelery(ADSCelery):
 
-    
     def __init__(self, app_name, *args, **kwargs):
         ADSCelery.__init__(self, app_name, *args, **kwargs)
         # this is used for bulk/efficient updates to metrics db
@@ -72,7 +74,34 @@ class ADSMasterPipelineCelery(ADSCelery):
                      'rn_citations': bindparam('rn_citations', required=False),
                      'rn_citation_data': bindparam('rn_citation_data', required=False),
                 })
+        # solr tweaks are read in from json files
+        # when bibcodes match, the dict is used to update a solr doc
+        self.tweak_dir = './tweak_files/'
+        self.tweaks = {}  # key=bibcode, value=dict of solr field, value
+        self.load_tweak_files()
 
+    def load_tweak_files(self):
+        """load all tweak files from the tweak directory"""
+        if isdir(self.tweak_dir):
+            tweak_files = listdir(self.tweak_files).sort()
+            for t in tweak_files:
+                if t.endswith('.json'):
+                    self.load_tweak_file(t)
+
+    def load_tweak_file(self, filename):
+        """load solr json tweak file"""
+        self.logger.info('loading tweak file {}'.format(filename))
+        try:
+            with open(join(self.tweak_dir, filename)) as f:
+                j = json.load(f)
+                docs = j['docs']
+                for doc in docs:
+                    bibcode = doc.pop('bibcode')
+                    if bibcode in self.tweaks:
+                        self.logger.error('bibcode {} appeared in multiple tweak files'.format(bibcode))
+                    self.tweaks[bibcode] = doc
+        except Exception, e:
+            self.logger.error('error loading tweak file {}'.format(e))
 
     def update_storage(self, bibcode, type, payload):
         """Update the document in the database, every time
@@ -270,13 +299,18 @@ class ADSMasterPipelineCelery(ADSCelery):
     
 
     def reindex(self, solr_docs, solr_urls, commit=False):
-        """Sends documents to solr and to Metrics DB. It will update
+        """Sends documents to solr. It will update
         the solr_processed timestamp for every document which succeeded.
-        
+
         :param: solr_docs - list of json objects (solr documents)
         :param: solr_urls - list of strings, solr servers.
         """
         self.logger.debug('Updating solr: num_docs=%s solr_urls=%s', len(solr_docs), solr_urls)
+        for doc in solr_docs:
+            if doc['bibcode'] in self.tweaks:
+                # apply tweaks that add/override values
+                doc.update(self.tweaks[doc['bibcode']])
+        # batch send solr updates
         out = solr_updater.update_solr(solr_docs, solr_urls, ignore_errors=True)
         failed_bibcodes = []
         errs = [x for x in out if x != 200]

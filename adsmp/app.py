@@ -83,7 +83,8 @@ class ADSMasterPipelineCelery(ADSCelery):
     def load_tweak_files(self):
         """load all tweak files from the tweak directory"""
         if isdir(self.tweak_dir):
-            tweak_files = listdir(self.tweak_files).sort()
+            tweak_files = listdir(self.tweak_dir)
+            tweak_files.sort()
             for t in tweak_files:
                 if t.endswith('.json'):
                     self.load_tweak_file(t)

@@ -17,8 +17,8 @@ from multiprocessing.util import register_after_fork
 import zlib
 import requests
 from copy import deepcopy
-from os import listdir
-from os.path import join, isdir
+from os.path import join
+import os
 
 
 class ADSMasterPipelineCelery(ADSCelery):
@@ -82,8 +82,8 @@ class ADSMasterPipelineCelery(ADSCelery):
 
     def load_tweak_files(self):
         """load all tweak files from the tweak directory"""
-        if isdir(self.tweak_dir):
-            tweak_files = listdir(self.tweak_dir)
+        if os.path.isdir(self.tweak_dir):
+            tweak_files = os.listdir(self.tweak_dir)
             tweak_files.sort()
             for t in tweak_files:
                 if t.endswith('.json'):

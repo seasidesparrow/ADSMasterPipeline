@@ -1,25 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-
 from mock import patch
 from mock import mock_open
 import mock
 import unittest
-import sys
 import os
 import json
-import re
-import os
-import math
-
 
 import adsputils
-from io import BytesIO
-from datetime import datetime
 from adsmp import app, models
 from adsmp.models import Base, MetricsBase
 import testing.postgresql
+
 
 class TestAdsOrcidCelery(unittest.TestCase):
     """
@@ -391,16 +384,11 @@ class TestAdsOrcidCelery(unittest.TestCase):
             self.assertTrue('title' in doc)
             self.assertEqual('1971SPIE...26..187M', doc['bibcode'])
 
-    @unittest.skip('mock not yet working')
-    def test_read_tweak_files(self, mocked_isdir):
-        self.assertTrue(os.path.isdir('/asdfsdf'))
-        self.app.quux()
-        with mock.patch('adsmp.app.os.path.isdir', return_value=True), \
-             mock.patch('os.listdir', return_value=('foo.json', 'bar')), \
+    def test_read_tweak_files(self):
+        """validates code that processes directory of tweak files"""
+        with mock.patch('os.path.isdir', return_value=True), \
+             mock.patch('os.listdir', return_value=['foo.json', 'bar.txt']), \
              mock.patch('adsmp.app.ADSMasterPipelineCelery.load_tweak_file') as m:
-            self.assertTrue(os.path.isdir('/asdfsdf'))
-            self.foo()
-            self.app.quux()
             self.app.load_tweak_files()
             m.assert_called_once_with('foo.json')
 

@@ -32,7 +32,7 @@ def task_update_record(msg):
     status = app.get_msg_status(msg)
     type = app.get_msg_type(msg)
     bibcodes = []
-    
+
     if status == 'deleted':
         if type == 'metadata':
             task_delete_documents(msg.bibcode)
@@ -49,7 +49,6 @@ def task_update_record(msg):
             logger.debug('Deleted %s, result: %s', type, app.update_storage(msg.bibcode, type, None))
         
     elif status == 'active':
-        
         # save into a database
         # passed msg may contain details on one bibcode or a list of bibcodes
         if type == 'nonbib_records':
@@ -68,7 +67,7 @@ def task_update_record(msg):
             bibcodes.append(msg.bibcode)
             record = app.update_storage(msg.bibcode, 'augment',
                                         msg.toJSON(including_default_value_fields=True))
-            logger.debug('Saved passed message: %s', msg)
+            logger.debug('Saved augment message: %s', msg)
 
         else:
             # here when record has a single bibcode

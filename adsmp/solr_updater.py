@@ -71,24 +71,15 @@ def extract_data_pipeline(data, solrdoc):
 
 
 def extract_augments_pipeline(db_augments, solrdoc):
-    """merge any agumented values into aff field and return"""
-    solr_aff = list(solrdoc.get('aff'))
-    if db_augments is None or len(db_augments) is 0:
-        db_augments = '{}'
-    if isinstance(db_augments, basestring):
-        db_augments = json.loads(db_augments)
-    affil_augments = db_augments.get('affiliations', [])
-    # loop over augmented affils and overwrite current values
-    for index, a in enumerate(affil_augments):
-        if len(a) > 1:
-            # here if have something larger than default '-' and need to overwrite
-            if len(solr_aff) < index + 1:
-                # extend array to make room for this entry
-                solr_aff = solr_aff + [u'-'] * (index - len(solr_aff) + 1)
-            logger.info('augmenting affiliation for %s, %s changed index %s to %s'
-                        % (solrdoc.get('bibcode'), solr_aff, index, a))
-            solr_aff[index] = a  # overwrite
-    return {'aff': solr_aff}
+    """retrieve expected agumented affiliation values"""
+    if db_augments is None or len(db_augments) == 0:
+        return {}
+    return {'aff': db_augments.get('aff', None),
+            'aff_abbrev': db_augments.get('aff_abbrev', None),
+            'aff_canonical': db_augments.get('aff_canonical', None),
+            'aff_facet': db_augments.get('aff_facet', None),
+            'aff_facet_hier': db_augments.get('aff_facet_hier', None),
+            'aff_id': db_augments.get('aff_id', None)}
 
 
 def extract_fulltext(data, solrdoc):
@@ -207,7 +198,7 @@ DB_COLUMN_DESTINATIONS = OrderedDict([
     ('id', 'id'),
     ('fulltext', extract_fulltext),
     ('#timestamps', get_timestamps), # use 'id' to be always called
-    ('augments', extract_augments_pipeline)  # over-writes existing field values
+    ('augments', extract_augments_pipeline)  # over aff field, adds aff_*
     ])
 
 

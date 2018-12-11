@@ -139,26 +139,11 @@ class ADSMasterPipelineCelery(ADSCelery):
                 r.metrics = payload
                 r.metrics_updated = now
             elif type == 'augment':
-                # r.augments holds a dict, only key currently supported is affiliations
-                # use sequence entry to determine location in affiliation array
-                db_augments = r.augments
-                if db_augments is None or len(db_augments) is 0:
-                    db_augments = '{}'
-                db_augments = json.loads(db_augments)
-                affil_augments = db_augments.get('affiliations', [])
-                j = json.loads(payload)
-                # sequence count starts at 1, not 0
-                index = int(j['sequence'].split('/')[0]) - 1
-                if len(affil_augments) < index + 1:
-                    # here if db array is not long enough to hold new value
-                    # so we extend it by appending placeholder '-'
-                    affil_augments = affil_augments + [u'-'] * (index - len(affil_augments) + 1)
-                affil_augments[index] = j['affiliation']
-                db_augments['affiliations'] = affil_augments
+                # payload contains new value for affilation fields
+                # r.augments holds a dict, save it in database
                 oldval = 'not-stored'
-                r.augments = json.dumps(db_augments)
+                r.augments = payload
                 r.augments_updated = now
-
             else:
                 raise Exception('Unknown type: %s' % type)
             session.add(ChangeLog(key=bibcode, type=type, oldvalue=oldval))

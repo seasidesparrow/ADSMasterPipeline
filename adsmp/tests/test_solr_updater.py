@@ -172,12 +172,22 @@ class TestSolrUpdater(unittest.TestCase):
              u'citation_count_norm': .2,
              })
         self.app.update_storage('bibcode', 'augment',
-                                {'sequence': '2/4', 'affiliation': 'CfA'})
+                                {u'aff': [u'augment aff', u'-', u'-', u'-'],
+                                 u'aff_abbrev': [u'-', u'-', u'-', u'-'],
+                                 u'aff_canonical': [u'-', u'-', u'-', u'-'],
+                                 u'aff_facet': [u'-', u'-', u'-', u'-'],
+                                 u'aff_facet_hier': [u'-', u'-', u'-', u'-'],
+                                 u'aff_id': [u'-', u'-', u'-', u'-']})
         
         rec = self.app.get_record('bibcode')
         self.assertDictContainsSubset({u'abstract': u'abstract text',
              u'ack': u'aaa',
-             u'aff': [u'-', u'CfA', u'-', u'-'],
+             u'aff': [u'augment aff', u'-', u'-', u'-'],
+             u'aff_abbrev': [u'-', u'-', u'-', u'-'],
+             u'aff_canonical': [u'-', u'-', u'-', u'-'],
+             u'aff_facet': [u'-', u'-', u'-', u'-'],
+             u'aff_facet_hier': [u'-', u'-', u'-', u'-'],
+             u'aff_id': [u'-', u'-', u'-', u'-'],
              u'alternate_bibcode': [u'2003adass..12..283B'],
              u'author': [u'Blecksmith, E.', u'Paltani, S.', u'Rots, A.', u'Winkelman, S.'],
              u'author_count': 4,

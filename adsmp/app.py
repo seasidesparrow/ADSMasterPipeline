@@ -2,7 +2,7 @@
 from __future__ import absolute_import, unicode_literals
 from . import exceptions
 from .models import Records, ChangeLog, IdentifierMapping
-from adsmsg import OrcidClaims, DenormalizedRecord, FulltextUpdate, MetricsRecord, NonBibRecord, NonBibRecordList, MetricsRecordList, AugmentAffiliationResponseRecord, AugmentAffiliationResponseRecordList
+from adsmsg import OrcidClaims, DenormalizedRecord, FulltextUpdate, MetricsRecord, NonBibRecord, NonBibRecordList, MetricsRecordList, AugmentAffiliationResponseRecord, AugmentAffiliationResponseRecordList, AugmentAffiliationRequestRecord
 from adsmsg.msg import Msg
 from adsputils import ADSCelery, create_engine, sessionmaker, scoped_session, contextmanager
 from sqlalchemy.orm import load_only as _load_only
@@ -19,6 +19,7 @@ import requests
 from copy import deepcopy
 from os.path import join
 import os
+from kombu import BrokerConnection
 
 
 class ADSMasterPipelineCelery(ADSCelery):
@@ -670,3 +671,25 @@ class ADSMasterPipelineCelery(ADSCelery):
                 for k,crc in vals.items():
                     setattr(r, k, crc)
             session.commit()
+
+    def request_aff_augment(self, bibcode, data=None):
+        """send aff data for bibcode to augment affiliation pipeline
+
+        set data parameter to provide test data"""
+        if data is None:
+            rec = self.get_record(bibcode)
+            aff = rec.get('aff', None)
+            author = rec.get('author', '')
+            data = {
+                'bibcode': bibcode,
+                "aff": aff,
+                "author": author,
+            }
+        if data and data['aff']:
+            message = AugmentAffiliationRequestRecord(**data)
+            with BrokerConnection(self.conf.get('CELERY_BROKER')) as connection:
+                queue = connection.SimpleQueue('augment')
+                queue.put(message)
+                print('sent message to queue')
+        else:
+            self.logger.warn('request_aff_augment called but bibcode {} has not aff data'.format(bibcode))

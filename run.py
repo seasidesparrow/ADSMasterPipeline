@@ -316,14 +316,6 @@ if __name__ == '__main__':
 
     elif args.augment:
         if args.filename:
-            data = {
-                'bibcode': '1971SPIE...26..187M',
-                'aff': ["Purdue University (United States)",
-                        "Purdue University (United States)",
-                        "Purdue University (United States)"],
-                'author': ["Mikhail, E. M.",
-                           "Kurtz, M. K.",
-                           "Stevenson, W. H."]}
             with open(args.filename, 'r') as f:
                 for line in f:
                     bibcode = line.strip()
@@ -331,7 +323,7 @@ if __name__ == '__main__':
                         # read db record for current aff value, send to queue
                         # aff values omes from bib pipeline
                         
-                        app.request_aff_augment(bibcode, data)
+                        app.request_aff_augment(bibcode)
         
     elif args.reindex:
         update_solr = 's' in args.reindex.lower()

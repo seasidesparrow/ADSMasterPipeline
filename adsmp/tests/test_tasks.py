@@ -106,10 +106,39 @@ class TestWorkers(unittest.TestCase):
 
     def test_task_update_record_augments(self):
         with patch('adsmp.tasks.task_index_records.delay') as next_task:
-            tasks.task_update_record(AugmentAffiliationResponseRecord
-                                     (bibcode='2015ApJ...815..133S', author='me', affiliation='CfA', sequence='1/1'))
-            self.assertEquals(self.app.get_record(bibcode='2015ApJ...815..133S')['augments'],
-                              {'affiliations': ['CfA']})
+            d = {
+                u"aff": [
+                    u"Purdue University (United States)",
+                    u"Purdue University (United States)",
+                    u"Purdue University (United States)"
+                ], 
+                u"aff_abbrev": [
+                    u"NA",
+                    u"NA",
+                    u"NA"
+                ], 
+                u"aff_canonical": [
+                    u"-", 
+                    u"-", 
+                    u"-"
+                ],
+                u"aff_facet": [],
+                u"aff_facet_hier": [],
+                u"aff_id": [],
+                u"author": [
+                    u"Mikhail, E. M.",
+                    u"Kurtz, M. K.",
+                    u"Stevenson, W. H."
+                ], 
+                u"bibcode": u"1971SPIE...26..187M"
+            }
+            tasks.task_update_record(AugmentAffiliationResponseRecord(**d))
+            db_rec = self.app.get_record(bibcode='1971SPIE...26..187M')
+            db_rec['augments'].pop('status')
+            self.maxDiff = None
+            self.assertDictEqual(db_rec['augments'], d)
+
+
             self.assertFalse(next_task.called)
 
     def test_task_update_record_augments_list(self):

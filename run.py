@@ -199,7 +199,7 @@ if __name__ == '__main__':
                         action='store_true',
                         default=False,
                         help='Submits records for processing even if they dont have any new updates (use this to rebuild index).')
-    
+
     parser.add_argument('-s', 
                         '--since', 
                         dest='since', 
@@ -256,12 +256,18 @@ if __name__ == '__main__':
                         action='store_true',
                         default=False,
                         help='Update persistent store even when checksum match says it is redundant')
+
+    parser.add_argument('-a',
+                        '--augment',
+                        dest='augment',
+                        action='store_true',
+                        default=False,
+                        help='sends bibcodes to augment affilation pipeline, works with --filename')
     
     args = parser.parse_args()
     
     if args.bibcodes:
         args.bibcodes = args.bibcodes.split(' ')
-    
     
     if args.kv:
         print_kvs()
@@ -300,13 +306,24 @@ if __name__ == '__main__':
         if args.filename:
             print 'deleting bibcodes from file via queue'
             bibs = []
-            with open(args.filename) as f:
+            with open(args.filename, 'r') as f:
                 for line in f:
                     bibcode = line.strip()
                     if bibcode:
                         tasks.task_delete_documents(bibcode)
         else:
             print 'please provide a file of bibcodes to delete via -n'
+
+    elif args.augment:
+        if args.filename:
+            with open(args.filename, 'r') as f:
+                for line in f:
+                    bibcode = line.strip()
+                    if bibcode:
+                        # read db record for current aff value, send to queue
+                        # aff values omes from bib pipeline
+                        
+                        app.request_aff_augment(bibcode)
         
     elif args.reindex:
         update_solr = 's' in args.reindex.lower()
@@ -336,6 +353,7 @@ if __name__ == '__main__':
             reindex(since=args.since, batch_size=args.batch_size, force_indexing=args.force_indexing, 
                     update_solr=update_solr, update_metrics=update_metrics, 
                     update_links = update_links, force_processing=args.force_processing, ignore_checksums=args.ignore_checksums)
+
         
             
 

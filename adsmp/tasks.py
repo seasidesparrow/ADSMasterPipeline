@@ -173,7 +173,7 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
             # get data for metrics
             if update_metrics:
                 m = r.get('metrics', None)
-                if ignore_checksums or (m and r.get('metrics_checksum', None) != app.checksum(m)):
+                if (m and ignore_checksums) or (m and r.get('metrics_checksum', None) != app.checksum(m)):
                     m['bibcode'] = bibcode
                     logger.debug('Got metrics: %s', m) 
                     if r.get('processed'):

@@ -436,6 +436,16 @@ class TestWorkers(unittest.TestCase):
                                      ignore_checksums=True)
             self.assertEquals(u.call_count, 1)
         
-            
+    def test_index_metrics_no_data(self):
+        """verify indexing works where there is no metrics data"""
+        with patch.object(self.app, 'get_record', return_value={'bibcode': 'noMetrics',
+                                                                'nonbib_data': {'boost': 1.2},
+                                                                'bib_data_updated': get_date(),
+                                                                'nonbib_data_updated': get_date(),
+                                                                'processed': get_date('2025')}), \
+                        patch('adsmp.app.ADSMasterPipelineCelery.update_remote_targets', new_callable=CopyingMock) as u:
+            tasks.task_index_records(['noMetrics'], ignore_checksums=True)
+            u.assert_not_called()
+
 if __name__ == '__main__':
     unittest.main()

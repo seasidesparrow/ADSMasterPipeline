@@ -15,7 +15,7 @@ import mock
 import adsputils
 from mock import patch
 from io import BytesIO
-from datetime import datetime
+from datetime import datetime, timedelta
 from adsmp import app, models, solr_updater
 from adsmp.models import Base, Records
 from adsputils import get_date
@@ -290,6 +290,40 @@ class TestSolrUpdater(unittest.TestCase):
                 self.assertEquals(x[f], '2017-09-20T21:17:12.026474Z')
             else:
                 self.assertEquals(x[f], '2017-09-19T21:17:12.026474Z')
+
+    def test_links_data_merge(self):
+        # links_data only from bib
+        db_record = {'bibcode': 'foo',
+                     'bib_data': {'links_data': 'asdf'},
+                     'bib_data_updated': datetime.now()}
+        solr_record = solr_updater.transform_json_record(db_record)
+        self.assertEqual(db_record['bib_data']['links_data'], solr_record['links_data'])
+
+        # links_data only from nonbib
+        db_record = {'bibcode': 'foo',
+                     'nonbib_data': {'links_data': 'asdf'},
+                     'nonbib_data_updated': datetime.now()}
+        solr_record = solr_updater.transform_json_record(db_record)
+        self.assertEqual(db_record['nonbib_data']['links_data'], solr_record['links_data'])
+
+        # links_data from both
+        db_record = {'bibcode': 'foo',
+                     'bib_data': {'links_data': 'asdf'},
+                     'bib_data_updated': datetime.now(),
+                     'nonbib_data': {'links_data': 'jkl'},
+                     'nonbib_data_updated': datetime.now() - timedelta(1)}
+        solr_record = solr_updater.transform_json_record(db_record)
+        self.assertEqual(db_record['nonbib_data']['links_data'], solr_record['links_data'])
+
+        db_record = {'bibcode': 'foo',
+                     'bib_data': {'links_data': 'asdf'},
+                     'bib_data_updated': datetime.now() - timedelta(1),
+                     'nonbib_data': {'links_data': 'jkl'},
+                     'nonbib_data_updated': datetime.now()}
+        solr_record = solr_updater.transform_json_record(db_record)
+        self.assertEqual(db_record['nonbib_data']['links_data'], solr_record['links_data'])
+
+        
 
 
 if __name__ == '__main__':

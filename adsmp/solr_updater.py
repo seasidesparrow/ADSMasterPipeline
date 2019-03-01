@@ -291,13 +291,26 @@ def transform_json_record(db_record):
                 if x:
                     out.update(x)
 
-    # finally, override temporal priority for links data
+    # override temporal priority for links data
     if db_record.get('bib_data', None) and db_record.get('nonbib_data', None) and \
        db_record['bib_data'].get('links_data', None) and db_record['nonbib_data'].get('links_data', None):
         # here if both bib and nonbib pipeline provided links data
         # use nonbib data even if it is older
         out['links_data'] = db_record['nonbib_data']['links_data']
-    
+
+    # if only bib data is available, use it to compute property
+    if db_record.get('nonbib_data', None) is None and db_record.get('bib_data', None):
+        links_data = db_record['bib_data'].get('links_data', None)
+        if links_data:
+            if type(links_data) is str:
+                links_data = json.loads(links_data)
+        # here if we only have bib data and it has data links
+        # use links_data to set propery saying we url
+        if 'property' not in out:
+            out['property'] = []
+        if links_data.get('access', None) == 'open':
+            out['property'].append('ESOURCE')
+       
     return out
 
 

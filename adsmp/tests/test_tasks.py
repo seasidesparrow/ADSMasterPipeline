@@ -407,7 +407,7 @@ class TestWorkers(unittest.TestCase):
                                                                 'bib_data_updated': get_date(),
                                                                 'nonbib_data_updated': get_date(),
                                                                 'processed': get_date('2025'),
-                                                                'links_checksum': '0xb9ba6b3f'}), \
+                                                                'links_checksum': '0x80e85169'}), \
                                                         patch('requests.put', return_value = r, new_callable=CopyingMock) as p:
             # update with matching checksum and then update and ignore checksums
             tasks.task_index_records(['linkstest'], update_solr=False, update_metrics=False, update_links=True, force=True,

@@ -346,6 +346,33 @@ class TestAdsOrcidCelery(unittest.TestCase):
             self.app.load_tweak_files()
             m.assert_called_once_with('foo.json')
 
+    def test_generate_links_for_resolver(self):
+        only_nonbib = {'bibcode': 'asdf',
+                       'nonbib_data': 
+                       {'data_links_rows': [{'url': ['http://arxiv.org/abs/1902.09522']}]}}
+        links = self.app.generate_links_for_resolver(only_nonbib)
+        self.assertEqual(only_nonbib['bibcode'], links['bibcode'])
+        self.assertEqual(only_nonbib['nonbib_data']['data_links_rows'], links['data_links_rows'])
+
+        only_bib = {'bibcode': 'asdf',
+                    'bib_data':
+                    {'links_data': [{'access': 'open', 'instances': '', "title": '', 'type': 'preprint',
+                                     'url': 'http://arxiv.org/abs/1902.09522'}]}}
+        links = self.app.generate_links_for_resolver(only_bib)
+        self.assertEqual(only_bib['bibcode'], links['bibcode'])
+        self.assertEqual(only_bib['bib_data']['links_data'][0]['url'], links['data_links_rows'][0]['url'][0])
+
+        bib_and_nonbib = {'bibcode': 'asdf',
+                          'bib_data':
+                          {'links_data': [{'access': 'open', 'instances': '', "title": '', 'type': 'preprint',
+                                           'url': 'http://arxiv.org/abs/1902.09522zz'}]},
+                          'nonbib_data':
+                          {'data_links_rows': [{'url': ['http://arxiv.org/abs/1902.09522']}]}}
+        links = self.app.generate_links_for_resolver(bib_and_nonbib)
+        self.assertEqual(only_nonbib['bibcode'], links['bibcode'])
+        self.assertEqual(only_nonbib['nonbib_data']['data_links_rows'], links['data_links_rows'])
+
+
 
 if __name__ == '__main__':
     unittest.main()

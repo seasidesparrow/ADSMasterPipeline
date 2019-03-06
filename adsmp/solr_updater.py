@@ -48,26 +48,28 @@ def extract_data_pipeline(data, solrdoc):
         nedtype.append(map_ned_type(ntype))
         ned_object_facet_hier.extend(generate_hier_facet(map_ned_type(ntype), nid))
 
-    return dict(reader=reader, 
-                read_count=read_count,
-                cite_read_boost=data.get('boost', 0.0),
-                classic_factor=data.get('norm_cites', 0.0),
-                reference=data.get('reference', []),
-                data=data.get('data', []),
-                data_facet=map(lambda x: x.split(':')[0], data.get('data', [])),
-                data_count=data.get('total_link_counts', 0),
-                esources = data.get('esource', []),
-                property = data.get('property', []),
-                grant=grant,
-                grant_facet_hier=grant_facet_hier,
-                simbid=simbid,
-                simbtype=simbtype,
-                simbad_object_facet_hier=simbad_object_facet_hier,
-                nedid=nedid,
-                nedtype=nedtype,
-                ned_object_facet_hier=ned_object_facet_hier,
-                citation_count_norm=data.get('citation_count_norm', 1)
-                )
+    d =  dict(reader=reader, 
+              read_count=read_count,
+              cite_read_boost=data.get('boost', 0.0),
+              classic_factor=data.get('norm_cites', 0.0),
+              reference=data.get('reference', []),
+              data=data.get('data', []),
+              data_facet=map(lambda x: x.split(':')[0], data.get('data', [])),
+              esources=data.get('esource', []),
+              property=data.get('property', []),
+              grant=grant,
+              grant_facet_hier=grant_facet_hier,
+              simbid=simbid,
+              simbtype=simbtype,
+              simbad_object_facet_hier=simbad_object_facet_hier,
+              nedid=nedid,
+              nedtype=nedtype,
+              ned_object_facet_hier=ned_object_facet_hier,
+              citation_count_norm=data.get('citation_count_norm', 1)
+    )
+    if data.get('links_data', None):
+        d['links_data'] = data['links_data']
+    return d
 
 
 def extract_augments_pipeline(db_augments, solrdoc):
@@ -257,7 +259,7 @@ def update_solr(json_records, solr_urls, ignore_errors=False, commit=False):
 
 def transform_json_record(db_record):
     out = {'bibcode': db_record['bibcode']}
-    
+
     # order timestamps (if any)
     timestamps = []
     for k, v in DB_COLUMN_DESTINATIONS.items():
@@ -268,7 +270,8 @@ def transform_json_record(db_record):
             ts = sys.maxsize  # default to use option without timestamp
         timestamps.append((k, v, ts))
     timestamps.sort(key=lambda x: x[2])
-    
+
+    # merge data based on timestamps
     for field, target, _ in timestamps:
         if db_record.get(field, None):
             if target:
@@ -287,7 +290,27 @@ def transform_json_record(db_record):
                 x = target(db_record, out) # in the interest of speed, don't create copy of out
                 if x:
                     out.update(x)
-    
+
+    # override temporal priority for links data
+    if db_record.get('bib_data', None) and db_record.get('nonbib_data', None) and \
+       db_record['bib_data'].get('links_data', None) and db_record['nonbib_data'].get('links_data', None):
+        # here if both bib and nonbib pipeline provided links data
+        # use nonbib data even if it is older
+        out['links_data'] = db_record['nonbib_data']['links_data']
+
+    # if only bib data is available, use it to compute property
+    if db_record.get('nonbib_data', None) is None and db_record.get('bib_data', None):
+        links_data = db_record['bib_data'].get('links_data', None)
+        if links_data:
+            if type(links_data) is str:
+                links_data = json.loads(links_data)
+        # here if we only have bib data and it has data links
+        # use links_data to set propery saying we url
+        if 'property' not in out:
+            out['property'] = []
+        if links_data.get('access', None) == 'open':
+            out['property'].append('ESOURCE')
+       
     return out
 
 

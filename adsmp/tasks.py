@@ -183,16 +183,12 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                 else:
                     logger.info('Checksum identical, skipping metrics update for: %s', bibcode)
 
-            if update_links and 'nonbib_data' in r and links_url:
-                nb = r.get('nonbib_data')
-                if nb and 'data_links_rows' in nb:
-                    first_data_links = nb['data_links_rows']
-                    if isinstance(first_data_links, list):
-                        first_data_links = first_data_links[0]
-                    # checksum currently only works on a dict
-                    if ignore_checksums or r.get('links_checksum', None) != app.checksum(first_data_links):
-                        tmp = {'bibcode': bibcode, 'data_links_rows': nb['data_links_rows']}
-                        links_data.append(tmp)
+            if update_links and links_url:
+                links = app.generate_links_for_resolver(r)
+                if links:
+                    checksum = app.checksum(links)
+                    if ignore_checksums or r.get('links_checksum', None) != checksum:
+                        links_data.append(links)
         else:
             # if forced and we have at least the bib data, index it
             if force is True:

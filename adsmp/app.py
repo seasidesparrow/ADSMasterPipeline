@@ -693,3 +693,38 @@ class ADSMasterPipelineCelery(ADSCelery):
                 print('sent message to queue')
         else:
             self.logger.warn('request_aff_augment called but bibcode {} has not aff data'.format(bibcode))
+
+    def generate_links_for_resolver(self, record):
+        """use nonbib or bib elements of database record and return links for resolver and checksum"""
+        # nonbib data has something like
+        #  "data_links_rows": [{"url": ["http://arxiv.org/abs/1902.09522"]
+        # bib data has json string for:
+        # "links_data": [{"access": "open", "instances": "", "title": "", "type": "preprint",
+
+        #                 "url": "http://arxiv.org/abs/1902.09522"}]
+        # checksum = None
+        resolver_record = None
+        bibcode = record.get('bibcode')
+        nonbib = record.get('nonbib_data', {})
+        nonbib_links = nonbib.get('data_links_rows', None)
+        if nonbib_links:
+            # when avilable, prefer link info from nonbib
+            resolver_record = {'bibcode': bibcode,
+                               'data_links_rows': nonbib_links}
+            
+        else:
+            # as a fallback, use link from bib/direct ingest
+            bib = record.get('bib_data', {})
+            bib_links_record = bib.get('links_data', {})
+            if type(bib_links_record) == str:
+                bib_links_record = json.loads(bib_links_record)
+            if type(bib_links_record) is list:
+                bib_links_record = bib_links_record[0]
+            url = bib_links_record.get('url', None)
+            if url:
+                resolver_record = {'bibcode': bibcode,
+                                   'data_links_rows': [{'url': [url]}]}
+            else:
+                pass
+                # no link is available, we'll just return None
+        return resolver_record

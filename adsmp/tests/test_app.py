@@ -372,6 +372,14 @@ class TestAdsOrcidCelery(unittest.TestCase):
         self.assertEqual(only_nonbib['bibcode'], links['bibcode'])
         self.assertEqual(only_nonbib['nonbib_data']['data_links_rows'], links['data_links_rows'])
 
+        # string in database
+        only_bib = {'bibcode': 'asdf',
+                    'bib_data':
+                    {'links_data': u'[{"access": "open", "instances": "", "title": "", "type": "preprint", "url": "http://arxiv.org/abs/1902.09522"}]'}}
+        links = self.app.generate_links_for_resolver(only_bib)
+        self.assertEqual(only_bib['bibcode'], links['bibcode'])
+        self.assertEqual('http://arxiv.org/abs/1902.09522', links['data_links_rows'][0]['url'][0])
+        
 
 
 if __name__ == '__main__':

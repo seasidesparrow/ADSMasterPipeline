@@ -716,7 +716,9 @@ class ADSMasterPipelineCelery(ADSCelery):
             # as a fallback, use link from bib/direct ingest
             bib = record.get('bib_data', {})
             bib_links_record = bib.get('links_data', {})
-            if type(bib_links_record) == str:
+            # database value is likely a unicode string
+            # convert to something useful
+            if type(bib_links_record) == str or type(bib_links_record) == unicode:
                 bib_links_record = json.loads(bib_links_record)
             if type(bib_links_record) is list:
                 bib_links_record = bib_links_record[0]

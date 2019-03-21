@@ -380,6 +380,17 @@ class TestAdsOrcidCelery(unittest.TestCase):
         self.assertEqual(only_bib['bibcode'], links['bibcode'])
         self.assertEqual('http://arxiv.org/abs/1902.09522', links['data_links_rows'][0]['url'][0])
         
+        # bad string in database
+        with mock.patch.object(self.app.logger, 'error') as m:
+            only_bib = {'bibcode': 'testbib',
+                        'bib_data':
+                        {'links_data': u'foobar[!)'}}
+            links = self.app.generate_links_for_resolver(only_bib)
+            self.assertEqual(None, links)
+            self.assertEqual(1, m.call_count)
+            m_args = m.call_args_list
+            self.assertTrue('testbib' in str(m_args[0]))
+            self.assertTrue('foobar' in str(m_args[0]))
 
 
 if __name__ == '__main__':

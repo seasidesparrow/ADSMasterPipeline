@@ -702,8 +702,8 @@ class ADSMasterPipelineCelery(ADSCelery):
         # "links_data": [{"access": "open", "instances": "", "title": "", "type": "preprint",
 
         #                 "url": "http://arxiv.org/abs/1902.09522"}]
-        # checksum = None
-        resolver_record = None
+
+        resolver_record = None   # default value to return
         bibcode = record.get('bibcode')
         nonbib = record.get('nonbib_data', {})
         nonbib_links = nonbib.get('data_links_rows', None)
@@ -718,15 +718,17 @@ class ADSMasterPipelineCelery(ADSCelery):
             bib_links_record = bib.get('links_data', {})
             # database value is likely a unicode string
             # convert to something useful
-            if type(bib_links_record) == str or type(bib_links_record) == unicode:
-                bib_links_record = json.loads(bib_links_record)
-            if type(bib_links_record) is list:
-                bib_links_record = bib_links_record[0]
-            url = bib_links_record.get('url', None)
-            if url:
-                resolver_record = {'bibcode': bibcode,
-                                   'data_links_rows': [{'url': [url]}]}
-            else:
-                pass
-                # no link is available, we'll just return None
+            try:
+                if type(bib_links_record) == str or type(bib_links_record) == unicode:
+                    bib_links_record = json.loads(bib_links_record)
+                if type(bib_links_record) is list:
+                        bib_links_record = bib_links_record[0]
+                if type(bib_links_record) is dict:
+                    url = bib_links_record.get('url', None)
+                    if url:
+                        resolver_record = {'bibcode': bibcode,
+                                           'data_links_rows': [{'url': [url]}]}
+            except ValueError:
+                # here if record holds unexpected value
+                self.logger.error('invalid links_record value in bib data, bibcode = {}, type = {}, value = {}'.format(bibcode, type(bib_links_record), bib_links_record))
         return resolver_record

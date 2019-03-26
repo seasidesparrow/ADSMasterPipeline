@@ -678,8 +678,8 @@ class ADSMasterPipelineCelery(ADSCelery):
         set data parameter to provide test data"""
         if data is None:
             rec = self.get_record(bibcode)
-            aff = rec.get('aff', None)
-            author = rec.get('author', '')
+            aff = rec.get('bib_data', {}).get('aff', None)
+            author = rec.get('bib_data', {}).get('author', '')
             data = {
                 'bibcode': bibcode,
                 "aff": aff,
@@ -687,12 +687,10 @@ class ADSMasterPipelineCelery(ADSCelery):
             }
         if data and data['aff']:
             message = AugmentAffiliationRequestRecord(**data)
-            with BrokerConnection(self.conf.get('CELERY_BROKER')) as connection:
-                queue = connection.SimpleQueue('augment')
-                queue.put(message)
-                print('sent message to queue')
+            self.forward_message(message)
+            self.logger.info('sent augment affiliation request for bibcode {}'.format(bibcode))
         else:
-            self.logger.warn('request_aff_augment called but bibcode {} has not aff data'.format(bibcode))
+            self.logger.warn('request_aff_augment called but bibcode {} has no aff data'.format(bibcode))
 
     def generate_links_for_resolver(self, record):
         """use nonbib or bib elements of database record and return links for resolver and checksum"""

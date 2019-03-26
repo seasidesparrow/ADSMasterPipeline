@@ -10,6 +10,8 @@ SQLALCHEMY_ECHO = False
 LOGGING_LEVEL = 'INFO'
 CELERY_INCLUDE = ['adsmp.tasks']
 
+OUTPUT_CELERY_BROKER = 'pyamqp://test:test@localhost:5682/test_augment_pipeline'
+OUTPUT_TASKNAME = 'ADSAffil.tasks.task_update_record'
 
 
 # db connection to the db instance where we should send data; if not present

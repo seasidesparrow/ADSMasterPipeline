@@ -678,8 +678,14 @@ class ADSMasterPipelineCelery(ADSCelery):
         set data parameter to provide test data"""
         if data is None:
             rec = self.get_record(bibcode)
-            aff = rec.get('bib_data', {}).get('aff', None)
-            author = rec.get('bib_data', {}).get('author', '')
+            if rec is None:
+                self.logger.warn('request_aff_augment called but no data at all for bibcode {}'.format(bibcode))
+                return
+            bib_data = rec.get('bib_data', None)
+            if bib_data is None:
+                self.logger.warn('request_aff_augment called but no bib data for bibcode {}'.format(bibcode))
+                return
+            aff = bib_data.get('aff', None)
             data = {
                 'bibcode': bibcode,
                 "aff": aff,

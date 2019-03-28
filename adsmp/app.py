@@ -686,6 +686,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                 self.logger.warn('request_aff_augment called but no bib data for bibcode {}'.format(bibcode))
                 return
             aff = bib_data.get('aff', None)
+            author = bib_data.get('author', '')            
             data = {
                 'bibcode': bibcode,
                 "aff": aff,

@@ -45,16 +45,20 @@ class TestWorkers(unittest.TestCase):
 
 
     def test_task_update_record(self):
-        with patch('adsmp.tasks.task_index_records.delay') as next_task:
+        with patch('adsmp.tasks.task_index_records.delay') as next_task, \
+             patch('adsmp.app.ADSMasterPipelineCelery.request_aff_augment') as augment:
             tasks.task_update_record(DenormalizedRecord(bibcode='2015ApJ...815..133S'))
             self.assertFalse(next_task.called)
+            self.assertTrue(augment.called)
             
         
         with patch('adsmp.solr_updater.delete_by_bibcodes', return_value=[('2015ApJ...815..133S'), ()]) as solr_delete, \
-            patch.object(self.app, 'metrics_delete_by_bibcode', return_value=True) as metrics_delete:
+             patch('adsmp.app.ADSMasterPipelineCelery.request_aff_augment') as augment, \
+             patch.object(self.app, 'metrics_delete_by_bibcode', return_value=True) as metrics_delete:
             tasks.task_update_record(DenormalizedRecord(bibcode='2015ApJ...815..133S', status='deleted'))
             self.assertTrue(solr_delete.called)
             self.assertTrue(metrics_delete.called)
+            self.assertFalse(augment.called)
             
     
     def test_task_update_record_delete(self):

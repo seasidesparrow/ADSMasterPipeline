@@ -74,6 +74,11 @@ def task_update_record(msg):
             bibcodes.append(msg.bibcode)
             record = app.update_storage(msg.bibcode, type, msg.toJSON())
             logger.debug('Saved record: %s', record)
+            if type == 'metadata':
+                # with new bib data we request to augment the affiliation
+                # that pipeline will eventually respond with a msg to task_update_record
+                logger.info('requesting affilation augmentation for %s', msg.bibcode)
+                app.request_aff_augment(msg.bibcode)
     
     else:
         logger.error('Received a message with unclear status: %s', msg)

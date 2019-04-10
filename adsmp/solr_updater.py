@@ -284,6 +284,7 @@ def transform_json_record(db_record):
             else:
                 if target is None:
                     continue
+                print 'field = {}'.format(field)
                 out.update(db_record.get(field))
         elif field.startswith('#'):
             if callable(target):
@@ -304,6 +305,8 @@ def transform_json_record(db_record):
         if links_data:
             if type(links_data) is str:
                 links_data = json.loads(links_data)
+            if type(links_data) is list:
+                links_data = links_data[0]
         # here if we only have bib data and it has data links
         # use links_data to set propery saying we url
         if 'property' not in out:

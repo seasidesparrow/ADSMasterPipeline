@@ -298,6 +298,11 @@ class TestSolrUpdater(unittest.TestCase):
                      'bib_data_updated': datetime.now()}
         solr_record = solr_updater.transform_json_record(db_record)
         self.assertEqual(db_record['bib_data']['links_data'], solr_record['links_data'])
+        db_record = {'bibcode': 'foo',
+                     'bib_data': {'links_data': [{'url': 'http://asdf'}]},
+                     'bib_data_updated': datetime.now()}
+        solr_record = solr_updater.transform_json_record(db_record)
+        self.assertEqual(db_record['bib_data']['links_data'], solr_record['links_data'])
 
         # links_data only from nonbib
         db_record = {'bibcode': 'foo',

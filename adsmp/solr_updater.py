@@ -303,7 +303,7 @@ def transform_json_record(db_record):
     if db_record.get('nonbib_data', None) is None and db_record.get('bib_data', None):
         links_data = db_record['bib_data'].get('links_data', None)
         if links_data:
-            if type(links_data) is str:
+            if type(links_data) in (str, unicode):
                 links_data = json.loads(links_data)
             if type(links_data) is list:
                 links_data = links_data[0]

@@ -177,7 +177,8 @@ class TestSolrUpdater(unittest.TestCase):
                                  u'aff_canonical': [u'-', u'-', u'-', u'-'],
                                  u'aff_facet': [u'-', u'-', u'-', u'-'],
                                  u'aff_facet_hier': [u'-', u'-', u'-', u'-'],
-                                 u'aff_id': [u'-', u'-', u'-', u'-']})
+                                 u'aff_id': [u'-', u'-', u'-', u'-'],
+                                 u'institution': [u'-', u'-', u'-', u'-']})
         
         rec = self.app.get_record('bibcode')
         self.assertDictContainsSubset({u'abstract': u'abstract text',
@@ -188,6 +189,7 @@ class TestSolrUpdater(unittest.TestCase):
              u'aff_facet': [u'-', u'-', u'-', u'-'],
              u'aff_facet_hier': [u'-', u'-', u'-', u'-'],
              u'aff_id': [u'-', u'-', u'-', u'-'],
+             u'institution': [u'-', u'-', u'-', u'-'],
              u'alternate_bibcode': [u'2003adass..12..283B'],
              u'author': [u'Blecksmith, E.', u'Paltani, S.', u'Rots, A.', u'Winkelman, S.'],
              u'author_count': 4,

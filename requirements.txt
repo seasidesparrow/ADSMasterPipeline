@@ -1,4 +1,4 @@
-git+https://github.com/adsabs/ADSPipelineUtils.git@v1.0.10
+git+https://github.com/adsabs/ADSPipelineUtils.git@v1.0.12
 alembic==0.9.1
 DateTime==4.1.1
 librabbitmq==1.6.1

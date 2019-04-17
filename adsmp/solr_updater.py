@@ -81,7 +81,8 @@ def extract_augments_pipeline(db_augments, solrdoc):
             'aff_canonical': db_augments.get('aff_canonical', None),
             'aff_facet': db_augments.get('aff_facet', None),
             'aff_facet_hier': db_augments.get('aff_facet_hier', None),
-            'aff_id': db_augments.get('aff_id', None)}
+            'aff_id': db_augments.get('aff_id', None),
+            'institution': db_augments.get('institution', None)}
 
 
 def extract_fulltext(data, solrdoc):

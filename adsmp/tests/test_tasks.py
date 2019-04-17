@@ -134,7 +134,8 @@ class TestWorkers(unittest.TestCase):
                     u"Kurtz, M. K.",
                     u"Stevenson, W. H."
                 ], 
-                u"bibcode": u"1971SPIE...26..187M"
+                u"bibcode": u"1971SPIE...26..187M",
+                u"institution": []
             }
             tasks.task_update_record(AugmentAffiliationResponseRecord(**d))
             db_rec = self.app.get_record(bibcode='1971SPIE...26..187M')

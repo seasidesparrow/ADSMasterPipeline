@@ -720,20 +720,15 @@ class ADSMasterPipelineCelery(ADSCelery):
         else:
             # as a fallback, use link from bib/direct ingest
             bib = record.get('bib_data', {})
-            bib_links_record = bib.get('links_data', {})
-            # database value is likely a unicode string
-            # convert to something useful
-            try:
-                if type(bib_links_record) == str or type(bib_links_record) == unicode:
-                    bib_links_record = json.loads(bib_links_record)
-                if type(bib_links_record) is list:
-                        bib_links_record = bib_links_record[0]
-                if type(bib_links_record) is dict:
-                    url = bib_links_record.get('url', None)
+            bib_links_record = bib.get('links_data', None)
+            if bib_links_record:
+                try:
+                    bib_links_data = json.loads(bib_links_record[0])
+                    url = bib_links_data.get('url', None)
                     if url:
                         resolver_record = {'bibcode': bibcode,
                                            'data_links_rows': [{'url': [url]}]}
-            except ValueError:
-                # here if record holds unexpected value
-                self.logger.error('invalid links_record value in bib data, bibcode = {}, type = {}, value = {}'.format(bibcode, type(bib_links_record), bib_links_record))
+                except (KeyError, ValueError):
+                    # here if record holds unexpected value
+                    self.logger.error('invalid value in bib data, bibcode = {}, type = {}, value = {}'.format(bibcode, type(bib_links_record), bib_links_record))
         return resolver_record

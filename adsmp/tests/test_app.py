@@ -356,16 +356,14 @@ class TestAdsOrcidCelery(unittest.TestCase):
 
         only_bib = {'bibcode': 'asdf',
                     'bib_data':
-                    {'links_data': [{'access': 'open', 'instances': '', "title": '', 'type': 'preprint',
-                                     'url': 'http://arxiv.org/abs/1902.09522'}]}}
+                    {'links_data': ['{"access": "open", "instances": "", "title": "", "type": "preprint", "url": "http://arxiv.org/abs/1902.09522"}']}}
         links = self.app.generate_links_for_resolver(only_bib)
         self.assertEqual(only_bib['bibcode'], links['bibcode'])
-        self.assertEqual(only_bib['bib_data']['links_data'][0]['url'], links['data_links_rows'][0]['url'][0])
+        self.assertEqual('http://arxiv.org/abs/1902.09522', links['data_links_rows'][0]['url'][0])
 
         bib_and_nonbib = {'bibcode': 'asdf',
                           'bib_data':
-                          {'links_data': [{'access': 'open', 'instances': '', "title": '', 'type': 'preprint',
-                                           'url': 'http://arxiv.org/abs/1902.09522zz'}]},
+                          {'links_data': ['{"access": "open", "instances": "", "title": "", "type": "preprint", "url": "http://arxiv.org/abs/1902.09522zz"}']},
                           'nonbib_data':
                           {'data_links_rows': [{'url': ['http://arxiv.org/abs/1902.09522']}]}}
         links = self.app.generate_links_for_resolver(bib_and_nonbib)
@@ -375,7 +373,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
         # string in database
         only_bib = {'bibcode': 'asdf',
                     'bib_data':
-                    {'links_data': u'[{"access": "open", "instances": "", "title": "", "type": "preprint", "url": "http://arxiv.org/abs/1902.09522"}]'}}
+                    {'links_data': [u'{"access": "open", "instances": "", "title": "", "type": "preprint", "url": "http://arxiv.org/abs/1902.09522"}']}}
         links = self.app.generate_links_for_resolver(only_bib)
         self.assertEqual(only_bib['bibcode'], links['bibcode'])
         self.assertEqual('http://arxiv.org/abs/1902.09522', links['data_links_rows'][0]['url'][0])

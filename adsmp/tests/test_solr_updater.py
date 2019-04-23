@@ -296,12 +296,12 @@ class TestSolrUpdater(unittest.TestCase):
     def test_links_data_merge(self):
         # links_data only from bib
         db_record = {'bibcode': 'foo',
-                     'bib_data': {'links_data': {'url': 'http://asdf'}},
+                     'bib_data': {'links_data': ['{"url": "http://asdf"}']},
                      'bib_data_updated': datetime.now()}
         solr_record = solr_updater.transform_json_record(db_record)
         self.assertEqual(db_record['bib_data']['links_data'], solr_record['links_data'])
         db_record = {'bibcode': 'foo',
-                     'bib_data': {'links_data': [{'url': 'http://asdf'}]},
+                     'bib_data': {'links_data': ['{"url": "http://asdf"}']},
                      'bib_data_updated': datetime.now()}
         solr_record = solr_updater.transform_json_record(db_record)
         self.assertEqual(db_record['bib_data']['links_data'], solr_record['links_data'])
@@ -331,13 +331,13 @@ class TestSolrUpdater(unittest.TestCase):
         self.assertEqual(db_record['nonbib_data']['links_data'], solr_record['links_data'])
 
         db_record = {'bibcode': 'foo',
-                     'bib_data': {'links_data': {'url': 'http://foo', 'access': 'open'}},
+                     'bib_data': {'links_data': ['{"url": "http://foo", "access": "open"}']},
                      'bib_data_updated': datetime.now()}
         solr_record = solr_updater.transform_json_record(db_record)
         self.assertTrue('ESOURCE' in solr_record['property'])
 
         db_record = {'bibcode': 'foo',
-                     'bib_data': {'links_data': {'url': 'http://foo', 'access': 'closed'}},
+                     'bib_data': {'links_data': ['{"url": "http://foo", "access": "closed"}']},
                      'bib_data_updated': datetime.now()}
         solr_record = solr_updater.transform_json_record(db_record)
         self.assertTrue('ESOURCE' not in solr_record['property'])

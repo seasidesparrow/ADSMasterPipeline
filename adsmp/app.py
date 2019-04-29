@@ -711,6 +711,8 @@ class ADSMasterPipelineCelery(ADSCelery):
         resolver_record = None   # default value to return
         bibcode = record.get('bibcode')
         nonbib = record.get('nonbib_data', {})
+        if type(nonbib) is not dict:
+            nonbib = {}    # in case database has None or something odd
         nonbib_links = nonbib.get('data_links_rows', None)
         if nonbib_links:
             # when avilable, prefer link info from nonbib
@@ -720,6 +722,8 @@ class ADSMasterPipelineCelery(ADSCelery):
         else:
             # as a fallback, use link from bib/direct ingest
             bib = record.get('bib_data', {})
+            if type(bib) is not dict:
+                bib = {}
             bib_links_record = bib.get('links_data', None)
             if bib_links_record:
                 try:

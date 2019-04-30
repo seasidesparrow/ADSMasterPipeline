@@ -309,7 +309,14 @@ def transform_json_record(db_record):
                 if 'property' not in out:
                     out['property'] = []
                 if links_data.get('access', None) == 'open':
-                    out['property'].append('ESOURCE')
+                    out['property'].extend(['ESOURCE',
+                                            'ARTICLE',
+                                            'NOT REFEREED',
+                                            'EPRINT_OPENACCESS',
+                                            'OPENACCESS'])
+                    if 'esources' not in out:
+                        out['esources'] = []
+                    out['esources'].extend(['EPRINT_HTML', 'EPRINT_PDF'])
             except (KeyError, ValueError):
                     # here if record holds unexpected value
                     logger.error('invalid value in bib data, bibcode = {}, type = {}, value = {}'.format(db_record['bibcode'], type(links_data), links_data))

@@ -335,6 +335,13 @@ class TestSolrUpdater(unittest.TestCase):
                      'bib_data_updated': datetime.now()}
         solr_record = solr_updater.transform_json_record(db_record)
         self.assertTrue('ESOURCE' in solr_record['property'])
+        # verify all values are populated
+        self.assertTrue('ARTICLE' in solr_record['property'])
+        self.assertTrue('NOT REFEREED' in solr_record['property'])
+        self.assertTrue('EPRINT_OPENACCESS' in solr_record['property'])
+        self.assertTrue('OPENACCESS' in solr_record['property'])
+        self.assertTrue('EPRINT_HTML' in solr_record['esources'])
+        self.assertTrue('EPRINT_PDF' in solr_record['esources'])
 
         db_record = {'bibcode': 'foo',
                      'bib_data': {'links_data': ['{"url": "http://foo", "access": "closed"}']},

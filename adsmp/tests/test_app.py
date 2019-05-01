@@ -363,8 +363,8 @@ class TestAdsOrcidCelery(unittest.TestCase):
         self.assertEqual('http://arxiv.org/abs/1902.09522', first['url'][0])
         self.assertEqual('ESOURCE', first['link_type'])
         self.assertEqual('EPRINT_HTML', first['link_sub_type'])
-        self.assertEqual('', first['title'])
-        self.assertEqual(0, first['count'])
+        self.assertEqual([''], first['title'])
+        self.assertEqual(0, first['item_count'])
 
         bib_and_nonbib = {'bibcode': 'asdf',
                           'bib_data':

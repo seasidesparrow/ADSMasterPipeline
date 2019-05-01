@@ -732,7 +732,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                     if url:
                         resolver_record = {'bibcode': bibcode,
                                            'data_links_rows': [{'url': [url],
-                                                                'title': '', 'count': 0,
+                                                                'title': [''], 'item_count': 0,
                                                                 'link_type': 'ESOURCE',
                                                                 'link_sub_type': 'EPRINT_HTML'}]}
                 except (KeyError, ValueError):

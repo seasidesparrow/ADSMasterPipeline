@@ -359,7 +359,12 @@ class TestAdsOrcidCelery(unittest.TestCase):
                     {'links_data': ['{"access": "open", "instances": "", "title": "", "type": "preprint", "url": "http://arxiv.org/abs/1902.09522"}']}}
         links = self.app.generate_links_for_resolver(only_bib)
         self.assertEqual(only_bib['bibcode'], links['bibcode'])
-        self.assertEqual('http://arxiv.org/abs/1902.09522', links['data_links_rows'][0]['url'][0])
+        first = links['data_links_rows'][0]
+        self.assertEqual('http://arxiv.org/abs/1902.09522', first['url'][0])
+        self.assertEqual('ESOURCE', first['link_type'])
+        self.assertEqual('EPRINT_HTML', first['link_sub_type'])
+        self.assertEqual('', first['title'])
+        self.assertEqual(0, first['count'])
 
         bib_and_nonbib = {'bibcode': 'asdf',
                           'bib_data':
@@ -376,7 +381,10 @@ class TestAdsOrcidCelery(unittest.TestCase):
                     {'links_data': [u'{"access": "open", "instances": "", "title": "", "type": "preprint", "url": "http://arxiv.org/abs/1902.09522"}']}}
         links = self.app.generate_links_for_resolver(only_bib)
         self.assertEqual(only_bib['bibcode'], links['bibcode'])
-        self.assertEqual('http://arxiv.org/abs/1902.09522', links['data_links_rows'][0]['url'][0])
+        first = links['data_links_rows'][0]
+        self.assertEqual('http://arxiv.org/abs/1902.09522', first['url'][0])
+        self.assertEqual('ESOURCE', first['link_type'])
+        self.assertEqual('EPRINT_HTML', first['link_sub_type'])
         
         # bad string in database
         with mock.patch.object(self.app.logger, 'error') as m:

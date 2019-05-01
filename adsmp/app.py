@@ -731,7 +731,10 @@ class ADSMasterPipelineCelery(ADSCelery):
                     url = bib_links_data.get('url', None)
                     if url:
                         resolver_record = {'bibcode': bibcode,
-                                           'data_links_rows': [{'url': [url]}]}
+                                           'data_links_rows': [{'url': [url],
+                                                                'title': '', 'count': 0,
+                                                                'link_type': 'ESOURCE',
+                                                                'link_sub_type': 'EPRINT_HTML'}]}
                 except (KeyError, ValueError):
                     # here if record holds unexpected value
                     self.logger.error('invalid value in bib data, bibcode = {}, type = {}, value = {}'.format(bibcode, type(bib_links_record), bib_links_record))

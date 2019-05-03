@@ -319,21 +319,19 @@ class ADSMasterPipelineCelery(ADSCelery):
                     # then we try once more without fulltext
                     # this bibcode needs to investigated as to why fulltext/body is failing
                     failed_bibcode = doc['bibcode']                    
-                    if 'body' in str(e):
+                    if 'body' in str(e) or 'not all arguments converted during string formatting' in str(e):
                         tmp_doc = dict(doc)
                         tmp_doc.pop('body', None)
                         try:
                             solr_updater.update_solr([tmp_doc], solr_urls, ignore_errors=False, commit=commit)
                             self.update_processed_timestamp(doc['bibcode'], type='solr')
                             self.logger.debug('%s success without body', doc['bibcode'])
-                            self.logger.error('Failed posting fulltext to Solr for bibcode %s, non-fulltext ingested\nurls: %s, offending payload: %s', 
-                                              failed_bibcode, solr_urls, doc)
                         except Exception as e:
-                            self.logger.error('Failed posting bibcode %s to Solr even without fulltext\nurls: %s, offending payload %s', failed_bibcode, solr_urls, doc)
+                            self.logger.error('Failed posting bibcode %s to Solr even without fulltext\nurls: %s, offending payload %s, error is  %s', failed_bibcode, solr_urls, doc, e)
                             failed_bibcodes.append(failed_bibcode)
                     else:
                         # here if body not in error message do not retry, just note as a fail
-                        self.logger.error('Failed posting individual bibcode %s to Solr\nurls: %s, offending payload %s', failed_bibcode, solr_urls, doc)
+                        self.logger.error('Failed posting individual bibcode %s to Solr\nurls: %s, offending payload %s, error is %s', failed_bibcode, solr_urls, doc, e)
                         failed_bibcodes.append(failed_bibcode)
         return failed_bibcodes
 

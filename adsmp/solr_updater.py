@@ -65,7 +65,7 @@ def extract_data_pipeline(data, solrdoc):
               nedid=nedid,
               nedtype=nedtype,
               ned_object_facet_hier=ned_object_facet_hier,
-              citation_count_norm=data.get('citation_count_norm', 1)
+              citation_count_norm=data.get('citation_count_norm', 0)
     )
     if data.get('links_data', None):
         d['links_data'] = data['links_data']

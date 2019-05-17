@@ -728,11 +728,17 @@ class ADSMasterPipelineCelery(ADSCelery):
                     bib_links_data = json.loads(bib_links_record[0])
                     url = bib_links_data.get('url', None)
                     if url:
+                        # need to change what direct sends
+                        url_pdf = url.replace('/abs/', '/pdf/')
                         resolver_record = {'bibcode': bibcode,
                                            'data_links_rows': [{'url': [url],
                                                                 'title': [''], 'item_count': 0,
                                                                 'link_type': 'ESOURCE',
-                                                                'link_sub_type': 'EPRINT_HTML'}]}
+                                                                'link_sub_type': 'EPRINT_HTML'},
+                                                               {'url': [url_pdf],
+                                                                'title': [''], 'item_count': 0,
+                                                                'link_type': 'ESOURCE',
+                                                                'link_sub_type': 'EPRINT_PDF'}]}
                 except (KeyError, ValueError):
                     # here if record holds unexpected value
                     self.logger.error('invalid value in bib data, bibcode = {}, type = {}, value = {}'.format(bibcode, type(bib_links_record), bib_links_record))

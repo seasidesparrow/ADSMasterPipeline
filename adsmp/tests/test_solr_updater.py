@@ -233,11 +233,11 @@ class TestSolrUpdater(unittest.TestCase):
              u'doctype_facet_hier': [u'0/Article', u'1/Article/Proceedings Article'],
              u'editor': [u'Testeditor, Z.'],
              u'email': [u'-', u'-', u'-', u'-'],
+             u'facility': ['fac1', 'fac2', 'fac3'],
              u'first_author': u'Blecksmith, E.',
              u'first_author_facet_hier': [u'0/Blecksmith, E',
               u'1/Blecksmith, E/Blecksmith, E.'],
              u'first_author_norm': u'Blecksmith, E',
-             u'facility': ['fac1', 'fac2', 'fac3'],
              u'id': 1,  # from id in master database records table
              u'identifier': [u'2003adass..12..283B'],
              u'links_data': u'',

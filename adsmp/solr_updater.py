@@ -9,19 +9,19 @@ logger = setup_logging('solr_updater')
 
 
 def extract_metrics_pipeline(data, solrdoc):
-    
+
     citation=data.get('citations', [])
     citation_count=len(citation)
-    
-    return dict(citation=citation, 
+
+    return dict(citation=citation,
                 citation_count=citation_count,
                 )
-    
+
 def extract_data_pipeline(data, solrdoc):
-    
+
     reader=data.get('readers', [])
     read_count=len(reader)
-    
+
     grant = []
     grant_facet_hier = []
     for x in data.get('grants', []):
@@ -29,7 +29,7 @@ def extract_data_pipeline(data, solrdoc):
         grant.append(agency)
         grant.append(grant_no)
         grant_facet_hier.extend(generate_hier_facet(agency, grant_no))
-        
+
     simbid = []
     simbtype = []
     simbad_object_facet_hier = []
@@ -38,7 +38,7 @@ def extract_data_pipeline(data, solrdoc):
         simbid.append(sid)
         simbtype.append(map_simbad_type(stype))
         simbad_object_facet_hier.extend(generate_hier_facet(map_simbad_type(stype), sid))
-    
+
     nedid = []
     nedtype = []
     ned_object_facet_hier = []
@@ -48,7 +48,7 @@ def extract_data_pipeline(data, solrdoc):
         nedtype.append(map_ned_type(ntype))
         ned_object_facet_hier.extend(generate_hier_facet(map_ned_type(ntype), nid))
 
-    d =  dict(reader=reader, 
+    d =  dict(reader=reader,
               read_count=read_count,
               cite_read_boost=data.get('boost', 0.0),
               classic_factor=data.get('norm_cites', 0.0),
@@ -87,11 +87,11 @@ def extract_augments_pipeline(db_augments, solrdoc):
 
 def extract_fulltext(data, solrdoc):
     out = {}
-    for x,f in (('body', 'body'), ('acknowledgements', 'ack')):
+    for x,f in (('body', 'body'), ('acknowledgements', 'ack'), ('facilities', 'facilities')):
         if x in data:
             out[f] = data[x]
     return out
-        
+
 
 def generate_hier_facet(*levels):
     levels = list(levels)
@@ -104,7 +104,7 @@ def generate_hier_facet(*levels):
         tmpl += '/{}'
         i += 1
     return out
-    
+
 def get_orcid_claims(data, solrdoc):
     out = {}
     # TODO(rca): shall we check that list of authors corresponds?
@@ -173,7 +173,7 @@ def map_ned_type(otype):
 # 'destination' (string) == insert the value into record[destination]
 # '' (empty value) == extend the existing values with what you find under this key
 # None == ignore the value completely
-# function == receives the data (and solr doc as built already), should return dict 
+# function == receives the data (and solr doc as built already), should return dict
 fmap = dict(metadata_mtime='bib_data_updated',
            nonbib_mtime='nonbib_data_updated',
            fulltext_mtime='fulltext_updated',
@@ -192,7 +192,7 @@ def get_timestamps(db_record, out):
     if last_update:
         out['update_timestamp'] = date2solrstamp(last_update)
     return out
-     
+
 DB_COLUMN_DESTINATIONS = OrderedDict([
     ('bib_data', ''),
     ('orcid_claims', get_orcid_claims),
@@ -206,9 +206,9 @@ DB_COLUMN_DESTINATIONS = OrderedDict([
 
 
 def delete_by_bibcodes(bibcodes, urls):
-    '''Deletes records from SOLR, it returns the databstructure with 
+    '''Deletes records from SOLR, it returns the databstructure with
     indicating which bibcodes were deleted.'''
-  
+
     deleted = []
     failed = []
     headers = {"Content-Type":"application/json"}
@@ -225,7 +225,7 @@ def delete_by_bibcodes(bibcodes, urls):
         else:
             failed.append(bibcode)
     return (deleted, failed)
-        
+
 
 
 def update_solr(json_records, solr_urls, ignore_errors=False, commit=False):
@@ -233,7 +233,7 @@ def update_solr(json_records, solr_urls, ignore_errors=False, commit=False):
         :param: json_records - list of JSON formatted data (formatted in the way
                 that SOLR expects)
         :param: solr_urls: list of urls where to post data to
-        :param: ignore_errors: (True) if to generate an exception if a status 
+        :param: ignore_errors: (True) if to generate an exception if a status
                 code as returned from SOLR is not 200
         :return:  list of status codes, one per each request
     """
@@ -279,7 +279,7 @@ def transform_json_record(db_record):
                 if callable(target):
                     x = target(db_record.get(field), out) # in the interest of speed, don't create copy of out
                     if x:
-                        out.update(x) 
+                        out.update(x)
                 else:
                     out[target] = db_record.get(field)
             else:
@@ -321,6 +321,5 @@ def transform_json_record(db_record):
                     # here if record holds unexpected value
                     logger.error('invalid value in bib data, bibcode = {}, type = {}, value = {}'.format(db_record['bibcode'], type(links_data), links_data))
     return out
-       
-    return out
 
+    return out

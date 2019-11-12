@@ -98,7 +98,7 @@ class TestSolrUpdater(unittest.TestCase):
              u'title': [u'Chandra Data Archive Download and Usage Database'],
              u'volume': u'295',
              u'year': u'2003'})
-        self.app.update_storage('bibcode', 'fulltext', {'body': 'texttext', 'acknowledgements': 'aaa', 'dataset': ['a', 'b', 'c'], 'facilities': ['fac1', 'fac2', 'fac3']})
+        self.app.update_storage('bibcode', 'fulltext', {'body': 'texttext', 'acknowledgements': 'aaa', 'dataset': ['a', 'b', 'c'], 'facility': ['fac1', 'fac2', 'fac3']})
         self.app.update_storage('bibcode', 'metrics', {"downloads": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 1, 0, 0, 0, 1, 2],
                                                        "bibcode": "2003ASPC..295..361M",
                                                        "reads": [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 4, 2, 5, 1, 0, 0, 1, 0, 0, 2, 4, 5],
@@ -237,7 +237,7 @@ class TestSolrUpdater(unittest.TestCase):
              u'first_author_facet_hier': [u'0/Blecksmith, E',
               u'1/Blecksmith, E/Blecksmith, E.'],
              u'first_author_norm': u'Blecksmith, E',
-             u'facilities': ['fac1', 'fac2', 'fac3'],
+             u'facility': ['fac1', 'fac2', 'fac3'],
              u'id': 1,  # from id in master database records table
              u'identifier': [u'2003adass..12..283B'],
              u'links_data': u'',

@@ -87,7 +87,7 @@ def extract_augments_pipeline(db_augments, solrdoc):
 
 def extract_fulltext(data, solrdoc):
     out = {}
-    for x,f in (('body', 'body'), ('acknowledgements', 'ack'), ('facilities', 'facilities')):
+    for x,f in (('body', 'body'), ('acknowledgements', 'ack'), ('facility', 'facility')):
         if x in data:
             out[f] = data[x]
     return out

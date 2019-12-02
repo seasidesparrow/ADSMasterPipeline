@@ -37,19 +37,19 @@ class TestSolrUpdater(unittest.TestCase):
             })
         Base.metadata.bind = self.app._session.get_bind()
         Base.metadata.create_all()
-    
-    
+
+
     def tearDown(self):
         unittest.TestCase.tearDown(self)
         Base.metadata.drop_all()
         self.app.close_app()
 
-    
 
-    
+
+
     def test_solr_transformer(self):
         """Makes sure we can write recs into the storage."""
-        
+
         self.app.update_storage('bibcode', 'metadata', {u'abstract': u'abstract text',
              u'aff': [u'-', u'-', u'-', u'-'],
              u'alternate_bibcode': [u'2003adass..12..283B'],
@@ -98,10 +98,10 @@ class TestSolrUpdater(unittest.TestCase):
              u'title': [u'Chandra Data Archive Download and Usage Database'],
              u'volume': u'295',
              u'year': u'2003'})
-        self.app.update_storage('bibcode', 'fulltext', {'body': 'texttext', 'acknowledgements': 'aaa', 'dataset': ['a', 'b', 'c']})
-        self.app.update_storage('bibcode', 'metrics', {"downloads": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 1, 0, 0, 0, 1, 2], 
-                                                       "bibcode": "2003ASPC..295..361M", 
-                                                       "reads": [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 4, 2, 5, 1, 0, 0, 1, 0, 0, 2, 4, 5], 
+        self.app.update_storage('bibcode', 'fulltext', {'body': 'texttext', 'acknowledgements': 'aaa', 'dataset': ['a', 'b', 'c'], 'facility': ['fac1', 'fac2', 'fac3']})
+        self.app.update_storage('bibcode', 'metrics', {"downloads": [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 1, 0, 0, 0, 1, 2],
+                                                       "bibcode": "2003ASPC..295..361M",
+                                                       "reads": [0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 4, 2, 5, 1, 0, 0, 1, 0, 0, 2, 4, 5],
                                                        "author_num": 2})
         self.app.update_storage('bibcode', 'orcid_claims', {'authors': ['Blecksmith, E.', 'Paltani, S.', 'Rots, A.', 'Winkelman, S.'],
              'bibcode': '2003ASPC..295..283B',
@@ -179,7 +179,7 @@ class TestSolrUpdater(unittest.TestCase):
                                  u'aff_facet_hier': [u'-', u'-', u'-', u'-'],
                                  u'aff_id': [u'-', u'-', u'-', u'-'],
                                  u'institution': [u'-', u'-', u'-', u'-']})
-        
+
         rec = self.app.get_record('bibcode')
         self.assertDictContainsSubset({u'abstract': u'abstract text',
              u'ack': u'aaa',
@@ -233,6 +233,7 @@ class TestSolrUpdater(unittest.TestCase):
              u'doctype_facet_hier': [u'0/Article', u'1/Article/Proceedings Article'],
              u'editor': [u'Testeditor, Z.'],
              u'email': [u'-', u'-', u'-', u'-'],
+             u'facility': ['fac1', 'fac2', 'fac3'],
              u'first_author': u'Blecksmith, E.',
              u'first_author_facet_hier': [u'0/Blecksmith, E',
               u'1/Blecksmith, E/Blecksmith, E.'],
@@ -280,11 +281,11 @@ class TestSolrUpdater(unittest.TestCase):
         for x in Records._date_fields:
             if x in rec:
                 rec[x] = get_date('2017-09-19T21:17:12.026474+00:00')
-        
+
         x = solr_updater.transform_json_record(rec)
         for f in ('metadata_mtime', 'fulltext_mtime', 'orcid_mtime', 'nonbib_mtime', 'metrics_mtime', 'update_timestamp'):
             self.assertEquals(x[f], '2017-09-19T21:17:12.026474Z')
-        
+
         rec['orcid_claims_updated'] = get_date('2017-09-20T21:17:12.026474+00:00')
         x = solr_updater.transform_json_record(rec)
         for f in ('metadata_mtime', 'fulltext_mtime', 'orcid_mtime', 'nonbib_mtime', 'metrics_mtime', 'update_timestamp'):

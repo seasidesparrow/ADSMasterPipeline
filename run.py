@@ -29,30 +29,30 @@ def _print_record(bibcode):
         else:
             print 'None'
         print '-' * 80
-        
+
         print 'as seen by SOLR'
         solr_doc = solr_updater.transform_json_record(r.toJSON())
         print json.dumps(solr_doc, indent=2, default=str, sort_keys=True)
         print '=' * 80
-        
+
 def diagnostics(bibcodes):
     """
     Show information about what we have in our storage.
-    
+
     :param: bibcodes - list of bibcodes
     """
-    
+
     if not bibcodes:
         print 'Printing 3 randomly selected records (if any)'
         bibcodes = []
         with app.session_scope() as session:
             for r in session.query(Records).limit(3).all():
                 bibcodes.append(r.bibcode)
-                
+
     for b in bibcodes:
         _print_record(b)
-        
-    
+
+
     with app.session_scope() as session:
         for x in dir(Records):
             if isinstance(getattr(Records, x), InstrumentedAttribute):
@@ -64,7 +64,7 @@ def diagnostics(bibcodes):
 
 
 
-def print_kvs():    
+def print_kvs():
     """Prints the values stored in the KeyValue table."""
     print 'Key, Value from the storage:'
     print '-' * 80
@@ -83,15 +83,15 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
         key = 'last.reindex.forced'
     else:
         key = 'last.reindex.normal'
-        
+
     if update_solr and update_metrics:
         pass # default
     elif update_solr:
         key = key + '.solr-only'
     else:
         key = key + '.metrics-only'
-        
-    
+
+
     previous_since = None
     now = get_date()
     if since is None:
@@ -108,13 +108,13 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
             session.commit()
     else:
         since = get_date(since)
-    
-    
+
+
     logger.info('Sending records changed since: %s', since.isoformat())
     sent = 0
     last_bibcode = None
     year_zero = adsputils.get_date('1972')
-    
+
     try:
         # select everything that was updated since
         batch = []
@@ -129,14 +129,14 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
                 else:
                     processed = get_date(rec.processed)
                 updated = get_date(rec.updated)
-                
+
                 if not force_processing and processed > updated:
-                    continue # skip records that were already processed 
+                    continue # skip records that were already processed
 
                 sent += 1
                 if sent % 1000 == 0:
                     logger.debug('Sending %s records', sent)
-                
+
                 if not batch_size or batch_size < 0:
                     batch.append(rec.bibcode)
                 elif batch_size > len(batch):
@@ -148,15 +148,15 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
                                                    ignore_checksums=ignore_checksums)
                     batch = []
                     last_bibcode = rec.bibcode
-                
+
         if len(batch) > 0:
-            tasks.task_index_records.delay(batch, force=force_indexing, update_solr=update_solr, update_metrics=update_metrics, 
+            tasks.task_index_records.delay(batch, force=force_indexing, update_solr=update_solr, update_metrics=update_metrics,
                                            commit=force_indexing, ignore_checksums=ignore_checksums)
         elif force_indexing and last_bibcode:
             # issue one extra call with the commit
-            tasks.task_index_records.delay([last_bibcode], force=force_indexing, update_solr=update_solr, update_metrics=update_metrics, 
+            tasks.task_index_records.delay([last_bibcode], force=force_indexing, update_solr=update_solr, update_metrics=update_metrics,
                                            commit=force_indexing, ignore_checksums=ignore_checksums)
-        
+
         logger.info('Done processing %s records', sent)
     except Exception, e:
         if previous_since:
@@ -179,20 +179,20 @@ if __name__ == '__main__':
                         dest='diagnostics',
                         action='store_true',
                         help='Show diagnostic message')
-    
+
     parser.add_argument('-b',
                         '--bibcodes',
                         dest='bibcodes',
                         action='store',
                         help='List of bibcodes separated by spaces')
-    
+
     parser.add_argument('-f',
                         '--force_indexing',
                         dest='force_indexing',
                         action='store_true',
                         default=False,
                         help='Forces indexing of documents as soon as we receive them.')
-    
+
     parser.add_argument('-o',
                         '--force_processing',
                         dest='force_processing',
@@ -200,20 +200,20 @@ if __name__ == '__main__':
                         default=False,
                         help='Submits records for processing even if they dont have any new updates (use this to rebuild index).')
 
-    parser.add_argument('-s', 
-                        '--since', 
-                        dest='since', 
+    parser.add_argument('-s',
+                        '--since',
+                        dest='since',
                         action='store',
                         default=None,
                         help='Starting date for reindexing')
-    
-    parser.add_argument('-k', 
-                        '--kv', 
-                        dest='kv', 
+
+    parser.add_argument('-k',
+                        '--kv',
+                        dest='kv',
                         action='store_true',
                         default=False,
                         help='Show current values of KV store')
-    
+
     parser.add_argument('-r',
                         '--index',
                         nargs='?',
@@ -221,8 +221,8 @@ if __name__ == '__main__':
                         action='store',
                         const = 'sml',
                         default='sml',
-                        help='Sent all updated documents to SOLR/Postgres (you can combine with --since).' + 
-                        'Default is to update both solr and metrics. You can choose what to update.' + 
+                        help='Sent all updated documents to SOLR/Postgres (you can combine with --since).' +
+                        'Default is to update both solr and metrics. You can choose what to update.' +
                         '(s = update solr, m = update metrics, l = update link resolver)')
 
     parser.add_argument('--delete',
@@ -230,10 +230,10 @@ if __name__ == '__main__':
                         action='store_true',
                         default=False,
                         help='delete a file of bibcodes')
-    
-    parser.add_argument('-e', 
-                        '--batch_size', 
-                        dest='batch_size', 
+
+    parser.add_argument('-e',
+                        '--batch_size',
+                        dest='batch_size',
                         action='store',
                         default=1000,
                         type=int,
@@ -263,12 +263,12 @@ if __name__ == '__main__':
                         action='store_true',
                         default=False,
                         help='sends bibcodes to augment affilation pipeline, works with --filename')
-    
+
     args = parser.parse_args()
-    
+
     if args.bibcodes:
         args.bibcodes = args.bibcodes.split(' ')
-    
+
     if args.kv:
         print_kvs()
 
@@ -283,7 +283,7 @@ if __name__ == '__main__':
                   'bibstem', 'bibstem_facet', 'body', 'citation', 'citation_count', 'cite_read_boost', 'classic_factor',
                   'comment', 'copyright', 'data', 'data_count', 'data_facet', 'database', 'date', 'doctype',
                   'doctype_facet_hier',
-                  'doi', 'eid', 'editor', 'email', 'entry_date', 'esources', 'first_author', 'first_author_facet_hier',
+                  'doi', 'eid', 'editor', 'email', 'entry_date', 'esources', 'facility', 'first_author', 'first_author_facet_hier',
                   'first_author_norm', 'fulltext_mtime', 'grant', 'grant_facet_hier', 'id', 'identifier', 'indexstamp',
                   'isbn', 'issn', 'issue', 'keyword', 'keyword_facet', 'keyword_norm', 'keyword_schema', 'lang',
                   'links_data', 'metadata_mtime', 'metrics_mtime', 'nedid', 'nedtype', 'ned_object_facet_hier',
@@ -322,14 +322,14 @@ if __name__ == '__main__':
                     if bibcode:
                         # read db record for current aff value, send to queue
                         # aff values omes from bib pipeline
-                        
+
                         app.request_aff_augment(bibcode)
-        
+
     elif args.reindex:
         update_solr = 's' in args.reindex.lower()
         update_metrics = 'm' in args.reindex.lower()
         update_links = 'l' in args.reindex.lower()
-        
+
         if args.filename:
             print 'sending bibcodes from file to the queue for reindexing'
             bibs = []
@@ -339,21 +339,17 @@ if __name__ == '__main__':
                     if bibcode:
                         bibs.append(bibcode)
                     if len(bibs) >= 100:
-                        tasks.task_index_records.delay(bibs, force=True, 
+                        tasks.task_index_records.delay(bibs, force=True,
                                                        update_solr=update_solr, update_metrics=update_metrics,
                                                        update_links = update_links, ignore_checksums=args.ignore_checksums)
                         bibs = []
                 if len(bibs) > 0:
-                    tasks.task_index_records.delay(bibs, force=True, 
+                    tasks.task_index_records.delay(bibs, force=True,
                                                    update_solr=update_solr, update_metrics=update_metrics,
                                                    update_links = update_links, ignore_checksums=args.ignore_checksums)
                     bibs = []
         else:
             print 'sending bibcode since date to the queue for reindexing'
-            reindex(since=args.since, batch_size=args.batch_size, force_indexing=args.force_indexing, 
-                    update_solr=update_solr, update_metrics=update_metrics, 
+            reindex(since=args.since, batch_size=args.batch_size, force_indexing=args.force_indexing,
+                    update_solr=update_solr, update_metrics=update_metrics,
                     update_links = update_links, force_processing=args.force_processing, ignore_checksums=args.ignore_checksums)
-
-        
-            
-

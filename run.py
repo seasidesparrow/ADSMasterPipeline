@@ -170,6 +170,51 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
         raise e
 
 
+def rebuild_collection(collection_name):
+    """
+    Will grab all recs from the database and send them to solr
+    """
+    
+    now = get_date()
+    if collection_name.startswith('http'):
+        solr_urls = [collection_name]
+    else:
+        solr_urls = []
+        urls = app.conf['SOLR_URLS']
+        for u in urls:
+            parts = u.split('/')
+            parts[-2] = collection_name
+            solr_urls.append('/'.join(parts))
+    
+    logger.info('Sending all records to: %s', ';'.join(solr_urls))
+    sent = 0
+
+    batch = []
+    with app.session_scope() as session:
+        # deleted docs are in the db, no? but i don't see how to filter them out
+        for rec in session.query(Records) \
+            .options(load_only(Records.bibcode, Records.updated, Records.processed)) \
+            .yield_per(1000):
+
+            sent += 1
+            if sent % 1000 == 0:
+                logger.debug('Sending %s records', sent)
+
+            batch.append(rec.bibcode)
+            if len(batch) > 1000:
+                tasks.task_index_records(batch, force=True, update_solr=True,
+                                           update_metrics=False, update_links=False,
+                                           ignore_checksums=True, solr_targets=solr_urls)
+                batch = []
+
+    if len(batch) > 0:
+        tasks.task_index_records(batch, force=True, update_solr=True,
+                                           update_metrics=False, update_links=False,
+                                           ignore_checksums=True, solr_targets=solr_urls)
+        
+    logger.info('Done processing %s records', sent)
+
+
 if __name__ == '__main__':
 
     parser = argparse.ArgumentParser(description='Process user input.')
@@ -263,6 +308,12 @@ if __name__ == '__main__':
                         action='store_true',
                         default=False,
                         help='sends bibcodes to augment affilation pipeline, works with --filename')
+    
+    parser.add_argument('-x', 
+                        '--rebuild-collection',
+                        action='store',
+                        default='collection2',
+                        help='Will send all solr docs for indexing to another collection; by purpose this task is synchronous. You can send the name of the collection or the full url to the solr instance incl http')
 
     args = parser.parse_args()
 
@@ -324,7 +375,9 @@ if __name__ == '__main__':
                         # aff values omes from bib pipeline
 
                         app.request_aff_augment(bibcode)
-
+    
+    elif args.rebuild_collection:
+        rebuild_collection(args.rebuild_collection)
     elif args.reindex:
         update_solr = 's' in args.reindex.lower()
         update_metrics = 'm' in args.reindex.lower()

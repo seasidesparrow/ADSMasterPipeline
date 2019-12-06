@@ -556,7 +556,7 @@ class ADSMasterPipelineCelery(ADSCelery):
     
     
     def update_remote_targets(self, solr=None, metrics=None, links=None,
-                              commit_solr=False):
+                              commit_solr=False, solr_urls=None):
         """Updates remote databases/solr
             @param batch: list solr documents (already formatted)
             @param metrics: tuple with two lists, the first is a list
@@ -606,7 +606,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                 crcs[b][type + '_checksum'] = self.checksum(x)
                 
         if len(batch):
-            failed_bibcodes = self.reindex(batch, self.conf.get('SOLR_URLS'), commit=commit_solr)
+            failed_bibcodes = self.reindex(batch, solr_urls or self.conf.get('SOLR_URLS'), commit=commit_solr)
             failed_bibcodes = set(failed_bibcodes)
             update_crc('solr', batch, failed_bibcodes)
         

@@ -4,4 +4,4 @@ DateTime==4.1.1
 librabbitmq==1.6.1
 python-dateutil==2.6.0
 requests==2.13.0
-psycopg2==2.7.1
+psycopg2==2.8.4

@@ -191,7 +191,7 @@ def rebuild_collection(collection_name):
 
     batch = []
     with app.session_scope() as session:
-        # deleted docs are in the db, no? but i don't see how to filter them out
+        # master db only contains valid documents, indexing task will make sure that incomplete docs are rejected
         for rec in session.query(Records) \
             .options(load_only(Records.bibcode, Records.updated, Records.processed)) \
             .yield_per(1000):
@@ -212,7 +212,7 @@ def rebuild_collection(collection_name):
                                            update_metrics=False, update_links=False,
                                            ignore_checksums=True, solr_targets=solr_urls)
         
-    logger.info('Done processing %s records', sent)
+    logger.info('Done rebuilding collection %s, sent %s records', (collection_name, sent))
 
 
 if __name__ == '__main__':

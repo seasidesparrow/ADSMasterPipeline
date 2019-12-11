@@ -87,7 +87,7 @@ def task_update_record(msg):
 
 @app.task(queue='index-records')
 def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=True, update_links=True, commit=False,
-                       ignore_checksums=False):
+                       ignore_checksums=False, solr_targets=None):
     """
     This task is (normally) called by the cronjob task
     (that one, quite obviously, is in turn started by cron)
@@ -203,7 +203,8 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                             (bibcode, bib_data_updated, orcid_claims_updated, nonbib_data_updated, fulltext_updated, \
                              metrics_updated))
     if batch or batch_insert or batch_update or links_data:
-        app.update_remote_targets(solr=batch, metrics=(batch_insert, batch_update), links=links_data, commit_solr=commit)
+        app.update_remote_targets(solr=batch, metrics=(batch_insert, batch_update), links=links_data, 
+                                  commit_solr=commit, solr_urls=solr_targets)
     
 
 

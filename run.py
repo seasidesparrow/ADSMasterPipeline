@@ -308,12 +308,16 @@ if __name__ == '__main__':
                         action='store_true',
                         default=False,
                         help='sends bibcodes to augment affilation pipeline, works with --filename')
-    
+    parser.add_argument('--solr-collection',
+                       dest='solr_collection',
+                       default='collection2',
+                       action='store',
+                       help='name of solr collection, currently only used by rebuild collection')
     parser.add_argument('-x', 
                         '--rebuild-collection',
-                        action='store',
-                        default='collection2',
-                        help='Will send all solr docs for indexing to another collection; by purpose this task is synchronous. You can send the name of the collection or the full url to the solr instance incl http')
+                        action='store_true',
+                        default=False,
+                        help='Will send all solr docs for indexing to another collection; by purpose this task is synchronous. You can send the name of the collection or the full url to the solr instance incl http via --solr-collection')
 
     args = parser.parse_args()
 
@@ -377,7 +381,7 @@ if __name__ == '__main__':
                         app.request_aff_augment(bibcode)
     
     elif args.rebuild_collection:
-        rebuild_collection(args.rebuild_collection)
+        rebuild_collection(args.solr_collection)
     elif args.reindex:
         update_solr = 's' in args.reindex.lower()
         update_metrics = 'm' in args.reindex.lower()

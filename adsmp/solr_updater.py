@@ -285,7 +285,6 @@ def transform_json_record(db_record):
             else:
                 if target is None:
                     continue
-                print 'field = {}'.format(field)
                 out.update(db_record.get(field))
         elif field.startswith('#'):
             if callable(target):

@@ -6,13 +6,15 @@ import sys
 import pickle
 import requests
 import time
-from subprocess import PIPE, Popen
-from adsmp import tasks
-from adsputils import setup_logging
 
 homedir = os.path.dirname(os.path.dirname(__file__))
 if homedir not in sys.path:
     sys.path.append(homedir)
+
+from subprocess import PIPE, Popen
+from adsmp import tasks
+from adsputils import setup_logging
+
 
 app = tasks.app
 logger = setup_logging('rebuild')
@@ -69,7 +71,7 @@ def run():
         data['start'] = now
         write_lockfile(lockfile, data)
         
-        command = 'python run.py --rebuild-collection collection2 >> %s/logs/reindex.log' % (homedir)
+        command = 'python run.py --rebuild-collection --solr-collection collection2 >> %s/logs/reindex.log' % (homedir)
         retcode, stdout, stderr = execute(command, cwd=homedir)
 
         if retcode != 0:
@@ -133,8 +135,8 @@ def write_lockfile(lockfile, data):
 def verify_collection2_size(data):
     if data.get('numDocs', 0) <= 14150713:
         raise Exception('Too few documents in the new index: %s' % data.get('numDocs', 0))
-    if data.get('sizeInBytes', 0) / (1024*1024*1024.0) < 160.0: # index size at least 160GB
-        raise Exception('The index is suspcisously small: %s' % (data.get('sizeInBytes', 0) / (1024*1024*1024.0)))
+    if data.get('sizeInBytes', 0) / (1024*1024*1024.0) >= 146.0: # index size at least 146GB
+        raise Exception('The index is suspiciously small: %s' % (data.get('sizeInBytes', 0) / (1024*1024*1024.0)))
 
         
 if __name__ == '__main__':

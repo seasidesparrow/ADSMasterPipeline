@@ -190,7 +190,7 @@ def rebuild_collection(collection_name):
     sent = 0
 
     batch = []
-    tasks = []
+    _tasks = []
     with app.session_scope() as session:
         # master db only contains valid documents, indexing task will make sure that incomplete docs are rejected
         for rec in session.query(Records) \
@@ -206,22 +206,22 @@ def rebuild_collection(collection_name):
                 t = tasks.task_index_records.delay(batch, force=True, update_solr=True,
                                            update_metrics=False, update_links=False,
                                            ignore_checksums=True, solr_targets=solr_urls)
-                tasks.append(t)
+                _tasks.append(t)
                 batch = []
 
     if len(batch) > 0:
         t = tasks.task_index_records.delay(batch, force=True, update_solr=True,
                                            update_metrics=False, update_links=False,
                                            ignore_checksums=True, solr_targets=solr_urls)
-        tasks.append(t)
+        _tasks.append(t)
         
     
-    total = len(tasks)
-    while len(tasks):
-        stime = len(tasks) * 0.1
-        logger.info('Waiting %s for rebuild-collection tasks to finish, pending: %s/%s' % (stime, len(tasks), total))
+    total = len(_tasks)
+    while len(_tasks):
+        stime = len(_tasks) * 0.1
+        logger.info('Waiting %s for rebuild-collection tasks to finish, pending: %s/%s' % (stime, len(_tasks), total))
         time.sleep(stime)
-        tasks = filter(lambda x: not x.ready(), tasks)
+        _tasks = filter(lambda x: not x.ready(), _tasks)
         
         
     logger.info('Done rebuilding collection %s, sent %s records', (collection_name, sent))

@@ -7,7 +7,7 @@ import pickle
 import requests
 import time
 
-homedir = os.path.dirname(os.path.dirname(__file__))
+homedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if homedir not in sys.path:
     sys.path.append(homedir)
 

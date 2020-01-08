@@ -73,15 +73,17 @@ def extract_data_pipeline(data, solrdoc):
 
 
 def extract_augments_pipeline(db_augments, solrdoc):
-    """retrieve expected agumented affiliation values"""
+    """retrieve expected agumented affiliation values 
+
+    aff is a solr virtual field so it should never be set"""
     if db_augments is None or len(db_augments) == 0:
         return {}
-    return {'aff': db_augments.get('aff', None),
-            'aff_abbrev': db_augments.get('aff_abbrev', None),
+    return {'aff_abbrev': db_augments.get('aff_abbrev', None),
             'aff_canonical': db_augments.get('aff_canonical', None),
             'aff_facet': db_augments.get('aff_facet', None),
             'aff_facet_hier': db_augments.get('aff_facet_hier', None),
             'aff_id': db_augments.get('aff_id', None),
+            'aff_raw': db_augments.get('aff', None),  # string originaly sent to augment
             'institution': db_augments.get('institution', None)}
 
 
@@ -285,7 +287,15 @@ def transform_json_record(db_record):
             else:
                 if target is None:
                     continue
-                out.update(db_record.get(field))
+                
+                if field == 'bib_data':
+                    # need to re-write a key name in bib_data
+                    tmp = dict(db_record.get(field))
+                    tmp['aff_raw'] = tmp.pop('aff', None)
+                    out.update(tmp)
+                else:
+                    out.update(db_record.get(field))
+
         elif field.startswith('#'):
             if callable(target):
                 x = target(db_record, out) # in the interest of speed, don't create copy of out
@@ -298,6 +308,9 @@ def transform_json_record(db_record):
         # here if both bib and nonbib pipeline provided links data
         # use nonbib data even if it is older
         out['links_data'] = db_record['nonbib_data']['links_data']
+    # override temporal priority for augmented aff data
+    if db_record.get('bib_data', None) and db_record.get('augments', None):
+        out['aff_raw'] = db_record.get('augments').get('aff')
 
     # if only bib data is available, use it to compute property
     if db_record.get('nonbib_data', None) is None and db_record.get('bib_data', None):

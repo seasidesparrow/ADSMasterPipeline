@@ -9,7 +9,6 @@ import os
 import unittest
 import json
 import re
-import os
 import math
 import mock
 import adsputils
@@ -171,19 +170,27 @@ class TestSolrUpdater(unittest.TestCase):
              u'grants': [u'2419335 g', u'3111723 g*'],
              u'citation_count_norm': .2,
              })
+        rec = self.app.get_record('bibcode')
+        x = solr_updater.transform_json_record(rec)
+        self.assertFalse('aff' in x, 'virtual field should not be in solr output')
+        self.assertTrue(x['aff_raw'] == rec['bib_data']['aff'],
+                          'solr record should include aff from bib data when augment is not available')
+        self.assertFalse('aff_abbrev' in x,
+                         'augment field should not be in solr record when augment is not available')
+        
         self.app.update_storage('bibcode', 'augment',
-                                {u'aff': [u'augment aff', u'-', u'-', u'-'],
+                                {u'aff': [u'augment pipeline aff', u'-', u'-', u'-'],
                                  u'aff_abbrev': [u'-', u'-', u'-', u'-'],
                                  u'aff_canonical': [u'-', u'-', u'-', u'-'],
                                  u'aff_facet': [u'-', u'-', u'-', u'-'],
                                  u'aff_facet_hier': [u'-', u'-', u'-', u'-'],
                                  u'aff_id': [u'-', u'-', u'-', u'-'],
+                                 u'aff_raw': [u'augment pipeline aff', u'-', u'-', u'-'],
                                  u'institution': [u'-', u'-', u'-', u'-']})
 
         rec = self.app.get_record('bibcode')
         self.assertDictContainsSubset({u'abstract': u'abstract text',
              u'ack': u'aaa',
-             u'aff': [u'augment aff', u'-', u'-', u'-'],
              u'aff_abbrev': [u'-', u'-', u'-', u'-'],
              u'aff_canonical': [u'-', u'-', u'-', u'-'],
              u'aff_facet': [u'-', u'-', u'-', u'-'],
@@ -293,6 +300,13 @@ class TestSolrUpdater(unittest.TestCase):
                 self.assertEquals(x[f], '2017-09-20T21:17:12.026474Z')
             else:
                 self.assertEquals(x[f], '2017-09-19T21:17:12.026474Z')
+
+        rec = self.app.get_record('bibcode')
+        x = solr_updater.transform_json_record(rec)
+        self.assertFalse('aff' in x)  #  virtual field should not be in solr output
+        self.assertEquals(x['aff_raw'], rec['augments']['aff'])  # solr record should prioritize aff data from augment
+        self.assertEquals(x['aff_abbrev'], rec['augments']['aff_abbrev'])  # solr record should include augment data
+        
 
     def test_links_data_merge(self):
         # links_data only from bib

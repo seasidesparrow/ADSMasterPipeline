@@ -73,17 +73,27 @@ def extract_data_pipeline(data, solrdoc):
 
 
 def extract_augments_pipeline(db_augments, solrdoc):
-    """retrieve expected agumented affiliation values"""
+    """retrieve expected agumented affiliation values 
+
+    aff is a solr virtual field so it should never be set"""
     if db_augments is None or len(db_augments) == 0:
         return {}
-    return {'aff': db_augments.get('aff', None),
-            'aff_abbrev': db_augments.get('aff_abbrev', None),
+    return {'aff_abbrev': db_augments.get('aff_abbrev', None),
             'aff_canonical': db_augments.get('aff_canonical', None),
             'aff_facet': db_augments.get('aff_facet', None),
             'aff_facet_hier': db_augments.get('aff_facet_hier', None),
             'aff_id': db_augments.get('aff_id', None),
+            'aff_raw': db_augments.get('aff_raw', None),
             'institution': db_augments.get('institution', None)}
 
+def modify_affiliations(data, solrdoc):
+    """Make sure that preference is given to affiliations extracted
+    by augment pipeline
+    """
+    if solrdoc.get('aff_raw', None):
+        solrdoc.pop('aff', None)
+    elif solrdoc.get('aff', None):
+        solrdoc['aff_raw'] = solrdoc.pop('aff', None)
 
 def extract_fulltext(data, solrdoc):
     out = {}
@@ -193,7 +203,8 @@ def get_timestamps(db_record, out):
         out['update_timestamp'] = date2solrstamp(last_update)
     return out
 
-DB_COLUMN_DESTINATIONS = OrderedDict([
+
+DB_COLUMN_DESTINATIONS = [
     ('bib_data', ''),
     ('orcid_claims', get_orcid_claims),
     ('nonbib_data', extract_data_pipeline),
@@ -201,8 +212,9 @@ DB_COLUMN_DESTINATIONS = OrderedDict([
     ('id', 'id'),
     ('fulltext', extract_fulltext),
     ('#timestamps', get_timestamps), # use 'id' to be always called
-    ('augments', extract_augments_pipeline)  # over aff field, adds aff_*
-    ])
+    ('augments', extract_augments_pipeline),  # over aff field, adds aff_*
+    ('#affiliations', modify_affiliations)
+    ]
 
 
 def delete_by_bibcodes(bibcodes, urls):
@@ -263,7 +275,7 @@ def transform_json_record(db_record):
 
     # order timestamps (if any)
     timestamps = []
-    for k, v in DB_COLUMN_DESTINATIONS.items():
+    for k, v in DB_COLUMN_DESTINATIONS:
         ts = db_record.get(k + '_updated', None)
         if ts:
             ts = time.mktime(ts.timetuple())
@@ -285,7 +297,9 @@ def transform_json_record(db_record):
             else:
                 if target is None:
                     continue
+                
                 out.update(db_record.get(field))
+
         elif field.startswith('#'):
             if callable(target):
                 x = target(db_record, out) # in the interest of speed, don't create copy of out
@@ -319,6 +333,5 @@ def transform_json_record(db_record):
             except (KeyError, ValueError):
                     # here if record holds unexpected value
                     logger.error('invalid value in bib data, bibcode = {}, type = {}, value = {}'.format(db_record['bibcode'], type(links_data), links_data))
-    return out
 
     return out

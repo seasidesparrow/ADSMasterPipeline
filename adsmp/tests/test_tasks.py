@@ -129,6 +129,7 @@ class TestWorkers(unittest.TestCase):
                 u"aff_facet": [],
                 u"aff_facet_hier": [],
                 u"aff_id": [],
+                u"aff_raw": [],
                 u"author": [
                     u"Mikhail, E. M.",
                     u"Kurtz, M. K.",

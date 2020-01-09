@@ -185,6 +185,7 @@ class TestSolrUpdater(unittest.TestCase):
                                  u'aff_facet': [u'-', u'-', u'-', u'-'],
                                  u'aff_facet_hier': [u'-', u'-', u'-', u'-'],
                                  u'aff_id': [u'-', u'-', u'-', u'-'],
+                                 u'aff_raw': [u'augment pipeline aff', u'-', u'-', u'-'],
                                  u'institution': [u'-', u'-', u'-', u'-']})
 
         rec = self.app.get_record('bibcode')
@@ -300,10 +301,11 @@ class TestSolrUpdater(unittest.TestCase):
             else:
                 self.assertEquals(x[f], '2017-09-19T21:17:12.026474Z')
 
+        rec = self.app.get_record('bibcode')
         x = solr_updater.transform_json_record(rec)
-        self.assertFalse('aff' in x, 'virtual field should not be in solr output')
-        self.assertEquals(x['aff_raw'], rec['augments']['aff'], 'solr record should prioritize aff data from augment')
-        self.assertEquals(x['aff_abbrev'], rec['augments']['aff_abbrev'], 'solr record should include all augment data')
+        self.assertFalse('aff' in x)  #  virtual field should not be in solr output
+        self.assertEquals(x['aff_raw'], rec['augments']['aff'])  # solr record should prioritize aff data from augment
+        self.assertEquals(x['aff_abbrev'], rec['augments']['aff_abbrev'])  # solr record should include augment data
         
 
     def test_links_data_merge(self):

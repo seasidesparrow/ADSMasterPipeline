@@ -86,6 +86,14 @@ def extract_augments_pipeline(db_augments, solrdoc):
             'aff_raw': db_augments.get('aff_raw', None),
             'institution': db_augments.get('institution', None)}
 
+def modify_affiliations(data, solrdoc):
+    """Make sure that preference is given to affiliations extracted
+    by augment pipeline
+    """
+    if solrdoc.get('aff_raw', None):
+        solrdoc.pop('aff', None)
+    elif solrdoc.get('aff', None):
+        solrdoc['aff_raw'] = solrdoc.pop('aff', None)
 
 def extract_fulltext(data, solrdoc):
     out = {}
@@ -195,7 +203,8 @@ def get_timestamps(db_record, out):
         out['update_timestamp'] = date2solrstamp(last_update)
     return out
 
-DB_COLUMN_DESTINATIONS = OrderedDict([
+
+DB_COLUMN_DESTINATIONS = [
     ('bib_data', ''),
     ('orcid_claims', get_orcid_claims),
     ('nonbib_data', extract_data_pipeline),
@@ -203,8 +212,9 @@ DB_COLUMN_DESTINATIONS = OrderedDict([
     ('id', 'id'),
     ('fulltext', extract_fulltext),
     ('#timestamps', get_timestamps), # use 'id' to be always called
-    ('augments', extract_augments_pipeline)  # over aff field, adds aff_*
-    ])
+    ('augments', extract_augments_pipeline),  # over aff field, adds aff_*
+    ('#affiliations', modify_affiliations)
+    ]
 
 
 def delete_by_bibcodes(bibcodes, urls):
@@ -265,7 +275,7 @@ def transform_json_record(db_record):
 
     # order timestamps (if any)
     timestamps = []
-    for k, v in DB_COLUMN_DESTINATIONS.items():
+    for k, v in DB_COLUMN_DESTINATIONS:
         ts = db_record.get(k + '_updated', None)
         if ts:
             ts = time.mktime(ts.timetuple())
@@ -288,13 +298,7 @@ def transform_json_record(db_record):
                 if target is None:
                     continue
                 
-                if field == 'bib_data':
-                    # need to re-write a key name in bib_data
-                    tmp = dict(db_record.get(field))
-                    tmp['aff_raw'] = tmp.pop('aff', None)
-                    out.update(tmp)
-                else:
-                    out.update(db_record.get(field))
+                out.update(db_record.get(field))
 
         elif field.startswith('#'):
             if callable(target):
@@ -308,9 +312,6 @@ def transform_json_record(db_record):
         # here if both bib and nonbib pipeline provided links data
         # use nonbib data even if it is older
         out['links_data'] = db_record['nonbib_data']['links_data']
-    # override temporal priority for augmented aff data
-    if db_record.get('bib_data', None) and db_record.get('augments', None):
-        out['aff_raw'] = db_record.get('augments').get('aff')
 
     # if only bib data is available, use it to compute property
     if db_record.get('nonbib_data', None) is None and db_record.get('bib_data', None):
@@ -332,6 +333,5 @@ def transform_json_record(db_record):
             except (KeyError, ValueError):
                     # here if record holds unexpected value
                     logger.error('invalid value in bib data, bibcode = {}, type = {}, value = {}'.format(db_record['bibcode'], type(links_data), links_data))
-    return out
 
     return out

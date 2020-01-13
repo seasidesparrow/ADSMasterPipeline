@@ -211,6 +211,7 @@ class TestWorkers(unittest.TestCase):
         with patch.object(self.app, 'mark_processed', return_value=None) as update_timestamp,\
             patch('adsmp.solr_updater.update_solr', return_value=[200]) as update_solr, \
             patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
+                                                               'augments_updated': get_date(),
                                                                'bib_data_updated': get_date(),
                                                                'nonbib_data_updated': get_date(),
                                                                'orcid_claims_updated': get_date(),
@@ -221,13 +222,15 @@ class TestWorkers(unittest.TestCase):
             tasks.task_index_records('2015ApJ...815..133S')
             self.assertTrue(update_solr.called)
             self.assertTrue(update_timestamp.called)
-        
+
         self._check_checksum('foobar', solr=True)
         self._reset_checksum('foobar')
+
 
         with patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
             patch('adsmp.solr_updater.update_solr', return_value=[200]) as update_solr, \
             patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
+                                                               'augments_updated': get_date(),
                                                                'bib_data_updated': get_date(),
                                                                'nonbib_data_updated': get_date(),
                                                                'orcid_claims_updated': get_date(),
@@ -247,6 +250,7 @@ class TestWorkers(unittest.TestCase):
         with patch.object(self.app, 'mark_processed', return_value=None) as update_timestamp,\
             patch('adsmp.solr_updater.update_solr', return_value=[200]) as update_solr, \
             patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
+                                                               'augments_updated': get_date(),
                                                                'bib_data_updated': get_date(),
                                                                'nonbib_data_updated': get_date(),
                                                                'orcid_claims_updated': get_date(),
@@ -262,10 +266,10 @@ class TestWorkers(unittest.TestCase):
         self._reset_checksum('foobar')
 
 
-
         with patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
             patch('adsmp.solr_updater.update_solr', return_value=None) as update_solr, \
             patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
+                                                               'augments_updated': get_date(),
                                                                'bib_data_updated': None,
                                                                'nonbib_data_updated': get_date(),
                                                                'orcid_claims_updated': get_date(),
@@ -284,6 +288,7 @@ class TestWorkers(unittest.TestCase):
         with patch.object(self.app, 'mark_processed', return_value=None) as update_timestamp,\
             patch('adsmp.solr_updater.update_solr', return_value=[200]) as update_solr, \
             patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
+                                                               'augments_updated': get_date(),
                                                                'bib_data_updated': get_date(),
                                                                'nonbib_data_updated': None,
                                                                'orcid_claims_updated': get_date(),
@@ -301,6 +306,7 @@ class TestWorkers(unittest.TestCase):
         with patch.object(self.app, 'update_processed_timestamp', return_value=None) as update_timestamp,\
             patch('adsmp.solr_updater.update_solr', return_value=[200]) as update_solr, \
             patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
+                                                               'augments_updated': get_date(),
                                                                'bib_data_updated': None,
                                                                'nonbib_data_updated': None,
                                                                'orcid_claims_updated': None,
@@ -312,7 +318,25 @@ class TestWorkers(unittest.TestCase):
             tasks.task_index_records('2015ApJ...815..133S')
             self.assertFalse(update_solr.called)
             self.assertFalse(update_timestamp.called)
-            
+
+        with patch.object(self.app, 'mark_processed', return_value=None) as update_timestamp,\
+            patch('adsmp.solr_updater.update_solr', return_value=[200]) as update_solr, \
+            patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
+                                                               'augments_updated': get_date(),
+                                                               'bib_data_updated': get_date('2012'),
+                                                               'nonbib_data_updated': get_date('2012'),
+                                                               'orcid_claims_updated': get_date('2012'),
+                                                               'processed': get_date('2014'),}), \
+            patch('adsmp.tasks.task_index_records.apply_async', return_value=None) as task_index_records:
+
+            self.assertFalse(update_solr.called)
+            tasks.task_index_records('2015ApJ...815..133S')
+            self.assertTrue(update_solr.called)
+            self.assertTrue(update_timestamp.called)
+
+        self._check_checksum('foobar', solr=True)
+        self._reset_checksum('foobar')
+
 
     def test_task_index_records(self):
         

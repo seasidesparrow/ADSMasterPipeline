@@ -138,11 +138,15 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
             logger.error('The bibcode %s doesn\'t exist!', bibcode)
             continue
     
+
+        augments_updated = r.get('augments_updated', None)
         bib_data_updated = r.get('bib_data_updated', None)
-        orcid_claims_updated = r.get('orcid_claims_updated', None)
-        nonbib_data_updated = r.get('nonbib_data_updated', None)
         fulltext_updated = r.get('fulltext_updated', None)
         metrics_updated = r.get('metrics_updated', None)
+        nonbib_data_updated = r.get('nonbib_data_updated', None)
+        orcid_claims_updated = r.get('orcid_claims_updated', None)
+
+
     
         year_zero = '1972'
         processed = r.get('processed', adsputils.get_date(year_zero))
@@ -154,17 +158,18 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
         if is_complete or (force is True and bib_data_updated):
             
             if force is False and all([
-                   bib_data_updated and bib_data_updated < processed,
-                   orcid_claims_updated and orcid_claims_updated < processed,
-                   nonbib_data_updated and nonbib_data_updated < processed
+                    augments_updated and augments_updated < processed,
+                    bib_data_updated and bib_data_updated < processed,
+                    nonbib_data_updated and nonbib_data_updated < processed,
+                    orcid_claims_updated and orcid_claims_updated < processed
                    ]):
                 logger.debug('Nothing to do for %s, it was already indexed/processed', bibcode)
                 continue
             
             if force:
-                logger.debug('Forced indexing of: %s (metadata=%s, orcid=%s, nonbib=%s, fulltext=%s, metrics=%s)' % \
+                logger.debug('Forced indexing of: %s (metadata=%s, orcid=%s, nonbib=%s, fulltext=%s, metrics=%s, augments=%s)' % \
                             (bibcode, bib_data_updated, orcid_claims_updated, nonbib_data_updated, fulltext_updated, \
-                             metrics_updated))
+                             metrics_updated, augments_updated))
 
             # build the solr record
             if update_solr:
@@ -199,9 +204,9 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
             if force is True:
                 logger.warn('%s is missing bib data, even with force=True, this cannot proceed', bibcode)
             else:
-                logger.debug('%s not ready for indexing yet (metadata=%s, orcid=%s, nonbib=%s, fulltext=%s, metrics=%s)' % \
+                logger.debug('%s not ready for indexing yet (metadata=%s, orcid=%s, nonbib=%s, fulltext=%s, metrics=%s, augments=%s)' % \
                             (bibcode, bib_data_updated, orcid_claims_updated, nonbib_data_updated, fulltext_updated, \
-                             metrics_updated))
+                             metrics_updated, augments_updated))
     if batch or batch_insert or batch_update or links_data:
         app.update_remote_targets(solr=batch, metrics=(batch_insert, batch_update), links=links_data, 
                                   commit_solr=commit, solr_urls=solr_targets)

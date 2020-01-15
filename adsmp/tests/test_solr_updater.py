@@ -172,7 +172,8 @@ class TestSolrUpdater(unittest.TestCase):
              })
         rec = self.app.get_record('bibcode')
         x = solr_updater.transform_json_record(rec)
-        self.assertFalse('aff' in x, 'virtual field should not be in solr output')
+        # self.assertFalse('aff' in x, 'virtual field should not be in solr output')
+        self.assertTrue('aff' in x)  # temporarily populating both aff and aff_raw
         self.assertTrue(x['aff_raw'] == rec['bib_data']['aff'],
                           'solr record should include aff from bib data when augment is not available')
         self.assertFalse('aff_abbrev' in x,
@@ -303,7 +304,8 @@ class TestSolrUpdater(unittest.TestCase):
 
         rec = self.app.get_record('bibcode')
         x = solr_updater.transform_json_record(rec)
-        self.assertFalse('aff' in x)  #  virtual field should not be in solr output
+        # self.assertFalse('aff' in x)  #  virtual field should not be in solr output
+        self.assertTrue('aff' in x)  #  aff is no longer a virtual field
         self.assertEquals(x['aff_raw'], rec['augments']['aff'])  # solr record should prioritize aff data from augment
         self.assertEquals(x['aff_abbrev'], rec['augments']['aff_abbrev'])  # solr record should include augment data
         

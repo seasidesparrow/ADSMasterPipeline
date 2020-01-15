@@ -8,7 +8,7 @@ from adsmsg.msg import Msg
 
 # ============================= INITIALIZATION ==================================== #
 
-app = app_module.ADSMasterPipelineCelery('master-pipeline')
+app = app_module.ADSMasterPipelineCelery('master-pipeline', backend='amqp')
 logger = app.logger
 
 app.conf.CELERY_QUEUES = (

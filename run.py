@@ -9,6 +9,7 @@ warnings.simplefilter('ignore', exceptions.InsecurePlatformWarning)
 import time
 import requests
 from difflib import SequenceMatcher
+from pyrabbit.api import Client as PyRabbitClient
 
 from adsputils import setup_logging, get_date
 from adsmp.models import KeyValue, Records
@@ -174,6 +175,12 @@ def rebuild_collection(collection_name):
     """
     Will grab all recs from the database and send them to solr
     """
+    # first, fail if we can not monitor queue length before we queue anything
+    u = urlparse(app.conf['OUTPUT_CELERY_BROKER'])
+    rabbitmq = PyRabbitClient(u.netloc, u.username, u.password)
+    if not rabbitmq.is_alive():
+        logger.error('failed to connect to rabbitmq with PyRabbit to monitor queue')
+        sys.exit(1)
     
     now = get_date()
     if collection_name.startswith('http'):
@@ -203,26 +210,26 @@ def rebuild_collection(collection_name):
 
             batch.append(rec.bibcode)
             if len(batch) > 1000:
-                t = tasks.task_index_records.delay(batch, force=True, update_solr=True,
+                t = tasks.task_rebuild_index.delay(batch, force=True, update_solr=True,
                                            update_metrics=False, update_links=False,
                                            ignore_checksums=True, solr_targets=solr_urls)
                 _tasks.append(t)
                 batch = []
 
     if len(batch) > 0:
-        t = tasks.task_index_records.delay(batch, force=True, update_solr=True,
+        t = tasks.task_rebuild_index.delay(batch, force=True, update_solr=True,
                                            update_metrics=False, update_links=False,
                                            ignore_checksums=True, solr_targets=solr_urls)
         _tasks.append(t)
         
-    
-    total = len(_tasks)
-    while len(_tasks):
-        stime = len(_tasks) * 0.1
-        logger.info('Waiting %s for rebuild-collection tasks to finish, pending: %s/%s' % (stime, len(_tasks), total))
+    logger.info('Done queueing bibcodes for rebuilding collection %s', (collection_name))
+    # now wait for queue to empty
+    queue_length = 1
+    while queue_length > 0:
+        queue_length = rabbitmq.get_queue_depth('master_pipeline', 'rebuild_index')
+        stime = queue_length * 0.1
+        logger.info('Waiting %s for rebuild-collection tasks to finish, pending: %s' % (stime, queue_length, sent))
         time.sleep(stime)
-        _tasks = filter(lambda x: not x.ready(), _tasks)
-        
         
     logger.info('Done rebuilding collection %s, sent %s records', (collection_name, sent))
 

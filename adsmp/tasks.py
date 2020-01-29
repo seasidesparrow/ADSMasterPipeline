@@ -92,7 +92,7 @@ def task_rebuild_index(bibcodes, force=False, update_solr=True, update_metrics=T
 
     note that which collection to update is part of the url in solr_targets
     """
-    reindex_records(bibcodes, force=force, update_solr=update_solr, update_metrics=_update_metrics, update_links=update_links, commit=commit,
+    reindex_records(bibcodes, force=force, update_solr=update_solr, update_metrics=update_metrics, update_links=update_links, commit=commit,
                        ignore_checksums=ignore_checksums, solr_targets=solr_targets)
 
 

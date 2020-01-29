@@ -10,6 +10,7 @@ import time
 import requests
 from difflib import SequenceMatcher
 from pyrabbit.api import Client as PyRabbitClient
+from urlparse import urlparse
 
 from adsputils import setup_logging, get_date
 from adsmp.models import KeyValue, Records
@@ -177,8 +178,8 @@ def rebuild_collection(collection_name):
     """
     # first, fail if we can not monitor queue length before we queue anything
     u = urlparse(app.conf['OUTPUT_CELERY_BROKER'])
-    rabbitmq = PyRabbitClient(u.netloc, u.username, u.password)
-    if not rabbitmq.is_alive():
+    rabbitmq = PyRabbitClient(u.hostname + str(u.port + 10000), u.username, u.password)
+    if not rabbitmq.is_alive('master_pipeline'):
         logger.error('failed to connect to rabbitmq with PyRabbit to monitor queue')
         sys.exit(1)
     
@@ -226,7 +227,7 @@ def rebuild_collection(collection_name):
     # now wait for queue to empty
     queue_length = 1
     while queue_length > 0:
-        queue_length = rabbitmq.get_queue_depth('master_pipeline', 'rebuild_index')
+        queue_length = rabbitmq.get_queue_depth('master_pipeline', 'rebuild-index')
         stime = queue_length * 0.1
         logger.info('Waiting %s for rebuild-collection tasks to finish, pending: %s' % (stime, queue_length, sent))
         time.sleep(stime)

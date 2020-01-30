@@ -13,8 +13,8 @@ logger = app.logger
 
 app.conf.CELERY_QUEUES = (
     Queue('update-record', app.exchange, routing_key='update-record'),
-    Queue('index-records', app.exchange, routing_key='route-record'),
-    Queue('rebuild-index', app.exchange, routing_key='route-record'),
+    Queue('index-records', app.exchange, routing_key='index-records'),
+    Queue('rebuild-index', app.exchange, routing_key='rebuild-index'),
     Queue('delete-records', app.exchange, routing_key='delete-records'),
 )
 

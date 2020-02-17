@@ -178,7 +178,7 @@ def rebuild_collection(collection_name):
     """
     # first, fail if we can not monitor queue length before we queue anything
     u = urlparse(app.conf['OUTPUT_CELERY_BROKER'])
-    rabbitmq = PyRabbitClient(u.hostname + str(u.port + 10000), u.username, u.password)
+    rabbitmq = PyRabbitClient(u.hostname + ':' + str(u.port + 10000), u.username, u.password)
     if not rabbitmq.is_alive('master_pipeline'):
         logger.error('failed to connect to rabbitmq with PyRabbit to monitor queue')
         sys.exit(1)

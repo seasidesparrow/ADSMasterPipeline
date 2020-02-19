@@ -59,7 +59,7 @@ def run():
         
         
         logger.info('First, we will delete all documents from collection2')
-        r = requests.get(update_url + '?commit=true&stream.body=%3Cdelete%3E%3Cquery%3E*%3A*%3C/query%3E%3C/delete%3E&waitSearcher=true', timeout=30*60)
+        r = requests.get(update_url + '?commit=true&stream.body=%3Cdelete%3E%3Cquery%3E*%3A*%3C/query%3E%3C/delete%3E&waitSearcher=true', timeout=60*60)
         r.raise_for_status()
         logger.info('Done deleting all docs from collection2')
         

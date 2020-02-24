@@ -1,6 +1,7 @@
 # purpose of this script is to rebuild a new solr collection
 # it will automatically activate it (by swapping cores)
 
+import datetime
 import os 
 import sys
 import pickle
@@ -33,6 +34,7 @@ def get_solr_url(path):
 
 cores_url = get_solr_url('/admin/cores')
 update_url = get_solr_url('/collection2/update')
+mbean_url = get_solr_url('/collection2/admin/mbeans?stats=true&wt=json')
 
 
 def run():
@@ -81,10 +83,37 @@ def run():
         
         logger.info('Successfully finished indexing in %s secs' % (time.time() - now))
         
-        # issue commit and verify the docs are there
-        r = requests.get(update_url + '?commit=true&waitSearcher=true', timeout=30*60)
+        # issue commit
+        commit_time = datetime.datetime.utcnow()
+        r = requests.get(update_url + '?commit=true&waitSearcher=false')
         r.raise_for_status()
-        logger.info('Issued commit to SOLR')
+        logger.info('Issued async commit to SOLR')
+
+        # wait for solr commit to complete
+        solr_error_count = 0
+        finished = False
+        while not finished:
+            r = requests.get(mbean_url)
+            if r.status_code != 200:
+                solr_error_count += 1
+                if solr_error_count > 2:
+                    r.raise_for_status()
+            else:
+                beans = r.json()[u'solr-mbeans']
+                for bean in beans:
+                    if type(bean) is dict and 'searcher' in bean:
+                        x = bean['searcher']['stats']['registeredAt']
+                        t = datetime.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S.%fZ")
+                        logger.debug('waiting for solr commit to complete, commit_time: %s, searcher registeredAt: %s' % (commit_time, t))
+                        if t > commit_time:
+                            finished = True
+                        time_waiting = datetime.datetime.utcnow() - commit_time
+                        if (time_waiting.seconds > 3600):
+                            logger.warn('Solr commit running for over an hour, aborting')
+                            raise
+            if not finished:
+                time.sleep(30)
+        logger.info('Solr has registered a new searcher')
         
         # all went well, verify the numDocs is similar to the previous collection
         cores = requests.get(cores_url + '?wt=json').json()

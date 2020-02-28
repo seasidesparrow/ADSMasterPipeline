@@ -300,7 +300,7 @@ if __name__ == '__main__':
                         '--batch_size',
                         dest='batch_size',
                         action='store',
-                        default=1000,
+                        default=100,
                         type=int,
                         help='How many records to process/index in one batch')
 

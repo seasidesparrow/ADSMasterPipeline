@@ -196,7 +196,7 @@ def reindex_records(bibcodes, force=False, update_solr=True, update_metrics=True
                 if ignore_checksums or r.get('solr_checksum', None) != app.checksum(d):
                     batch.append(d)
                 else:
-                    logger.info('Checksum identical, skipping solr update for: %s', bibcode)
+                    logger.debug('Checksum identical, skipping solr update for: %s', bibcode)
 
             # get data for metrics
             if update_metrics:
@@ -209,13 +209,13 @@ def reindex_records(bibcodes, force=False, update_solr=True, update_metrics=True
                     else:
                         batch_insert.append(m)
                 else:
-                    logger.info('Checksum identical, skipping metrics update for: %s', bibcode)
+                    logger.debug('Checksum identical, skipping metrics update for: %s', bibcode)
 
             if update_links and links_url:
                 links = app.generate_links_for_resolver(r)
                 if links:
                     checksum = app.checksum(links)
-                    if ignore_checksums or r.get('links_checksum', None) != checksum:
+                    if ignore_checksums or r.get('datalinks_checksum', None) != checksum:
                         links_data.append(links)
         else:
             # if forced and we have at least the bib data, index it

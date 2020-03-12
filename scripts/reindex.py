@@ -162,9 +162,9 @@ def write_lockfile(lockfile, data):
 
 
 def verify_collection2_size(data):
-    if data.get('numDocs', 0) <= 14150713:
+    if data['index'].get('numDocs', 0) <= 14150713:
         raise Exception('Too few documents in the new index: %s' % data.get('numDocs', 0))
-    if data.get('sizeInBytes', 0) / (1024*1024*1024.0) >= 146.0: # index size at least 146GB
+    if data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0) >= 146.0: # index size at least 146GB
         raise Exception('The index is suspiciously small: %s' % (data.get('sizeInBytes', 0) / (1024*1024*1024.0)))
 
         

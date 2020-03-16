@@ -7,6 +7,7 @@ import sys
 import pickle
 import requests
 import time
+from dateutil.parser import parse
 
 homedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if homedir not in sys.path:
@@ -103,7 +104,7 @@ def run():
                 for bean in beans:
                     if type(bean) is dict and 'searcher' in bean:
                         x = bean['searcher']['stats']['registeredAt']
-                        t = datetime.datetime.strptime(x, "%Y-%m-%dT%H:%M:%S.%fZ")
+                        t = parse(x)
                         logger.debug('waiting for solr commit to complete, commit_time: %s, searcher registeredAt: %s' % (commit_time, t))
                         if t > commit_time:
                             finished = True

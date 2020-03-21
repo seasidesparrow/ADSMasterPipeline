@@ -1,8 +1,7 @@
-git+https://github.com/adsabs/ADSPipelineUtils.git@v1.2.0
+git+https://github.com/adsabs/ADSPipelineUtils.git@v1.2.1
 alembic==0.9.1
 DateTime==4.1.1
 librabbitmq==1.6.1
 pyrabbit==1.1.0
 python-dateutil==2.6.0
 psycopg2==2.8.4
-requests==2.13.0

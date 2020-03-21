@@ -7,7 +7,6 @@ import sys
 import pickle
 import requests
 import time
-from dateutil.parser import parse
 
 homedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if homedir not in sys.path:
@@ -48,24 +47,23 @@ def run():
         exit(1)
     else:
         data = {}
-    
-    
+
     try:
         # verify both cores are there
         cores = requests.get(cores_url + '?wt=json').json()
+
         if set(cores['status'].keys()) != set(['collection1', 'collection2']):
             raise Exception('we dont have both cores available')
         
         assert cores['status']['collection2']['dataDir'] != cores['status']['collection1']['dataDir']
         
         logger.info('We are starting the indexing into collection2; once finished; we will automatically activate the new core')
-        
-        
+
         logger.info('First, we will delete all documents from collection2')
         r = requests.get(update_url + '?commit=true&stream.body=%3Cdelete%3E%3Cquery%3E*%3A*%3C/query%3E%3C/delete%3E&waitSearcher=true', timeout=60*60)
         r.raise_for_status()
         logger.info('Done deleting all docs from collection2')
-        
+
         cores = requests.get(cores_url + '?wt=json').json()
         if set(cores['status'].keys()) != set(['collection1', 'collection2']):
             raise Exception('We dont have both cores available')
@@ -103,9 +101,8 @@ def run():
                 beans = r.json()[u'solr-mbeans']
                 for bean in beans:
                     if type(bean) is dict and 'searcher' in bean:
-                        x = bean['searcher']['stats']['registeredAt']
-                        t = parse(x)
-                        logger.debug('waiting for solr commit to complete, commit_time: %s, searcher registeredAt: %s' % (commit_time, t))
+                        t = str_to_datetime(bean['searcher']['stats']['registeredAt'])
+                        logger.info('waiting for solr commit to complete, commit_time: %s, searcher registeredAt: %s' % (commit_time, t))
                         if t > commit_time:
                             finished = True
                         time_waiting = datetime.datetime.utcnow() - commit_time
@@ -130,9 +127,9 @@ def run():
         time.sleep(5)
         
         # verify the new core is loaded
-        new_cores = requests.get(cores_url + '?wt=json').json()
-        assert cores['status']['collection2']['dataDir'] == new_cores['status']['collection1']['dataDir']
-        logger.info('Verified the new collection is in place')
+        # new_cores = requests.get(cores_url + '?wt=json').json()
+        # assert cores['status']['collection2']['dataDir'] == new_cores['status']['collection1']['dataDir']
+        # logger.info('Verified the new collection is in place')
         
         
         logger.info('Deleting the lock; congratulations on your new solr collection!')
@@ -165,9 +162,21 @@ def write_lockfile(lockfile, data):
 def verify_collection2_size(data):
     if data['index'].get('numDocs', 0) <= 14150713:
         raise Exception('Too few documents in the new index: %s' % data.get('numDocs', 0))
-    if data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0) >= 146.0: # index size at least 146GB
+    if data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0) <= 146.0: # index size at least 146GB
         raise Exception('The index is suspiciously small: %s' % (data.get('sizeInBytes', 0) / (1024*1024*1024.0)))
 
-        
+
+def str_to_datetime(s):
+    """convert utc date string into a datetime object
+
+    note: code in this file uses is timezone naive
+    """
+    try:
+        d = datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%S.%fZ')
+    except ValueError:
+        d = datetime.datetime.strptime(s, '%Y-%m-%dT%H:%M:%SZ')
+    return d
+
+
 if __name__ == '__main__':
     run()

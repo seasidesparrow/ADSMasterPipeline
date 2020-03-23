@@ -114,7 +114,9 @@ def run():
         logger.info('Solr has registered a new searcher')
         
         # all went well, verify the numDocs is similar to the previous collection
+        time.sleep(60)
         cores = requests.get(cores_url + '?wt=json').json()
+        logger.info('core info is: {}'.format(cores))
         verify_collection2_size(cores['status']['collection2'])
         logger.info('Successfully verified the collection')
         
@@ -161,9 +163,9 @@ def write_lockfile(lockfile, data):
 
 def verify_collection2_size(data):
     if data['index'].get('numDocs', 0) <= 14150713:
-        raise Exception('Too few documents in the new index: %s' % data.get('numDocs', 0))
+        raise Exception('Too few documents in the new index: %s' % data['index'].get('numDocs', 0))
     if data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0) <= 146.0: # index size at least 146GB
-        raise Exception('The index is suspiciously small: %s' % (data.get('sizeInBytes', 0) / (1024*1024*1024.0)))
+        raise Exception('The index is suspiciously small: %s' % (data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0)))
 
 
 def str_to_datetime(s):

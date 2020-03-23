@@ -81,6 +81,9 @@ def run():
             raise
         
         logger.info('Successfully finished indexing in %s secs' % (time.time() - now))
+
+        # wait for solr workers to complete final messages
+        monitor_solr_writes()
         
         # issue commit
         commit_time = datetime.datetime.utcnow()
@@ -112,7 +115,7 @@ def run():
             if not finished:
                 time.sleep(30)
         logger.info('Solr has registered a new searcher')
-        
+
         # all went well, verify the numDocs is similar to the previous collection
         time.sleep(60)
         cores = requests.get(cores_url + '?wt=json').json()
@@ -180,5 +183,39 @@ def str_to_datetime(s):
     return d
 
 
+def monitor_solr_writes():
+    """detect when master pipeline workers have completed
+    
+    we wait for the number of pending docs on collection2 to not change for 2 minutes
+    docsPending is available from the mbeans
+    """
+    previous_docs_pending = -1
+    consecutive_match_count = 0
+    solr_error_count = 0
+    finshed = False
+    logger.info('starting to monitor docsPending on solr')
+    while not finshed:
+        r = requests.get(mbean_url + '?wt=json')
+        if r.status_code != 200:
+            solr_error_count += 1
+            if solr_error_count > 2:
+                r.raise_for_status()
+        else:
+            beans = r.json()[u'solr-mbeans']
+            for bean in beans:
+                if type(bean) is dict and 'updateHandler' in bean:
+                    current_docs_pending = bean['updateHandler']['stats']['docsPending']
+            if current_docs_pending == previous_docs_pending:
+                consecutive_match_count += 1
+            else:
+                consecutive_match_count += 0
+            previous_docs_pending = current_docs_pending
+            if consecutive_match_count > 4:
+                finshed = True
+            else:
+                time.sleep(30)
+    logger.info('completed monitoring of docsPending on solr')
+
+    
 if __name__ == '__main__':
     run()

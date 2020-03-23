@@ -1,4 +1,5 @@
 from mock import patch, Mock
+import copy
 import datetime
 import unittest
 import json
@@ -19,8 +20,11 @@ class TestReindex(unittest.TestCase):
         solr_mbeans = Mock()
         solr_mbeans.status_code = 200
         solr_mbeans.json.return_value = json.loads(mbean_response)
+        all_solr_responses = [solr_cores, solr_success, solr_cores]
+        all_solr_responses.extend(self.create_solr_monitor_side_effect())
+        all_solr_responses.extend([solr_success, solr_mbeans, solr_cores, solr_success, solr_cores, solr_cores])
         solr_responses = Mock()
-        solr_responses.side_effect = [solr_cores, solr_success, solr_cores, solr_success, solr_mbeans, solr_cores, solr_success, solr_cores, solr_cores]
+        solr_responses.side_effect = all_solr_responses
         commit_time = datetime.datetime(2020,03,19,13,10,0)
         with patch('scripts.reindex.execute', return_value=(0, None, None)):
             with patch('os.path.exists', return_value=False):
@@ -30,16 +34,54 @@ class TestReindex(unittest.TestCase):
                             x = reindex.run()
                             # reindex raises exceptions on errors
 
-            
-
-            
     def test_date(self):
         # we have seen dates from solr with and without milliseconds
         d = reindex.str_to_datetime('2020-03-15T19:32:15Z')
         self.assertFalse(d.tzinfo)
         d = reindex.str_to_datetime('2020-03-15T19:32:15.314Z')
         self.assertFalse(d.tzinfo)
+
+    def create_solr_monitor_side_effect(self):
+        c1 = json.loads(mbean_response)
+        c1['solr-mbeans'][5]['updateHandler']['stats']['docsPending'] = 123
+        c2 = copy.deepcopy(c1)
+        c1['solr-mbeans'][5]['updateHandler']['stats']['docsPending'] = 124
+        c3 = copy.deepcopy(c1)
+        c3['solr-mbeans'][5]['updateHandler']['stats']['docsPending'] = 124
+        c4 = copy.deepcopy(c1)
+        c4['solr-mbeans'][5]['updateHandler']['stats']['docsPending'] = 124
+        c5 = copy.deepcopy(c1)
+        c5['solr-mbeans'][5]['updateHandler']['stats']['docsPending'] = 125
+        m1 = Mock()
+        m1.status_code = 200
+        m1.json.return_value = c1
+        m2 = Mock()
+        m2.status_code = 200
+        m2.json.return_value = c2
+        m3 = Mock()
+        m3.status_code = 200
+        m3.json.return_value = c3
+        m4 = Mock()
+        m4.status_code = 200
+        m4.json.return_value = c4
+        m5 = Mock()
+        m5.status_code = 200
+        m5.json.return_value = c5
+        return [m1, m2, m3, m4, m5, m5, m5, m5, m5]
+
+    def test_monitor_solr_writes(self):
+        """test code that waits for docsPending to not change for a while"""
+        # create changing then static docPending using sample mbean_respone
         
+        solr_responses = Mock()
+        solr_responses.side_effect = self.create_solr_monitor_side_effect()
+        with patch('requests.get', solr_responses):
+            with patch('time.sleep', return_value=None):
+                reindex.monitor_solr_writes()
+                self.assertEquals(9, solr_responses.call_count)
+
+
+
 # actual return from solr for testing
 
 cores_response = '{"status": {"collection2": {"index": {"sizeInBytes": 159152598126, "userData": {"commitTimeMSec": "1584472245704"}, "segmentCount": 60, "deletedDocs": 0, "maxDoc": 14384799, "lastModified": "2020-03-17T19:10:45.704Z", "segmentsFile": "segments_hy", "indexHeapUsageBytes": -1, "current": true, "version": 45566, "directory": "org.apache.lucene.store.NRTCachingDirectory:NRTCachingDirectory(MMapDirectory@/media/ebs_volume/collection2/index lockFactory=org.apache.lucene.store.NativeFSLockFactory@275cf72; maxCacheMB=48.0 maxMergeSizeMB=4.0)", "numDocs": 14384799, "segmentsFileSizeInBytes": 3944, "hasDeletions": false, "size": "148.22 GB"}, "uptime": 765382773, "name": "collection2", "dataDir": "/app/server/solr/collection2/conf/data/", "instanceDir": "/app/server/solr/collection2/conf", "startTime": "2020-03-10T16:42:58.553Z", "config": "solrconfig.xml", "schema": "schema.xml"}, "collection1": {"index": {"sizeInBytes": 229602075257, "userData": {"commitTimeMSec": "1584621862435"}, "segmentCount": 64, "deletedDocs": 2305730, "maxDoc": 16691388, "lastModified": "2020-03-19T12:44:22.435Z", "segmentsFile": "segments_1fe", "indexHeapUsageBytes": -1, "current": true, "version": 1674330, "directory": "org.apache.lucene.store.NRTCachingDirectory:NRTCachingDirectory(MMapDirectory@/media/ebs_volume/collection1/index lockFactory=org.apache.lucene.store.NativeFSLockFactory@275cf72; maxCacheMB=48.0 maxMergeSizeMB=4.0)", "numDocs": 14385658, "segmentsFileSizeInBytes": 4265, "hasDeletions": true, "size": "213.83 GB"}, "uptime": 765382071, "name": "collection1", "dataDir": "/app/server/solr/collection1/conf/data/", "instanceDir": "/app/server/solr/collection1/conf", "startTime": "2020-03-10T16:42:59.251Z", "config": "solrconfig.xml", "schema": "schema.xml"}}, "responseHeader": {"status": 0, "QTime": 16}, "initFailures": {}}'

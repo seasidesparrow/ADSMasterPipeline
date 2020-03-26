@@ -195,7 +195,7 @@ def monitor_solr_writes():
     finshed = False
     logger.info('starting to monitor docsPending on solr')
     while not finshed:
-        r = requests.get(mbean_url + '?wt=json')
+        r = requests.get(mbean_url)
         if r.status_code != 200:
             solr_error_count += 1
             if solr_error_count > 2:

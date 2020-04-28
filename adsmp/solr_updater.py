@@ -11,11 +11,8 @@ logger = setup_logging('solr_updater')
 def extract_metrics_pipeline(data, solrdoc):
 
     citation=data.get('citations', [])
-    citation_count=len(citation)
 
-    return dict(citation=citation,
-                citation_count=citation_count,
-                )
+    return dict(citation=citation)
 
 def extract_data_pipeline(data, solrdoc):
 
@@ -65,6 +62,7 @@ def extract_data_pipeline(data, solrdoc):
               nedid=nedid,
               nedtype=nedtype,
               ned_object_facet_hier=ned_object_facet_hier,
+              citation_count=data.get('citation_count', 0),
               citation_count_norm=data.get('citation_count_norm', 0)
     )
     if data.get('links_data', None):

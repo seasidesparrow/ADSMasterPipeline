@@ -168,6 +168,7 @@ class TestSolrUpdater(unittest.TestCase):
              u'simbad_objects': [u'2419335 sim', u'3111723 sim*'],
              u'ned_objects': [u'2419335 HII', u'3111723 ned*'],
              u'grants': [u'2419335 g', u'3111723 g*'],
+             u'citation_count': 6,
              u'citation_count_norm': .2,
              })
         rec = self.app.get_record('bibcode')

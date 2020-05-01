@@ -117,7 +117,7 @@ def run():
         logger.info('Solr has registered a new searcher')
 
         # all went well, verify the numDocs is similar to the previous collection
-        time.sleep(60)
+        time.sleep(60*30)
         cores = requests.get(cores_url + '?wt=json').json()
         logger.info('core info is: {}'.format(cores))
         verify_collection2_size(cores['status']['collection2'])

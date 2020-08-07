@@ -2,3 +2,4 @@ adsputils==1.2.8
 alembic==0.9.1
 portalocker==1.7.1
 psycopg2==2.7
+pyrabbit==1.1.0

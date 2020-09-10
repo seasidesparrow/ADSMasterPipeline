@@ -293,22 +293,22 @@ class TestSolrUpdater(unittest.TestCase):
 
         x = solr_updater.transform_json_record(rec)
         for f in ('metadata_mtime', 'fulltext_mtime', 'orcid_mtime', 'nonbib_mtime', 'metrics_mtime', 'update_timestamp'):
-            self.assertEquals(x[f], '2017-09-19T21:17:12.026474Z')
+            self.assertEqual(x[f], '2017-09-19T21:17:12.026474Z')
 
         rec['orcid_claims_updated'] = get_date('2017-09-20T21:17:12.026474+00:00')
         x = solr_updater.transform_json_record(rec)
         for f in ('metadata_mtime', 'fulltext_mtime', 'orcid_mtime', 'nonbib_mtime', 'metrics_mtime', 'update_timestamp'):
             if f == 'update_timestamp' or f == 'orcid_mtime':
-                self.assertEquals(x[f], '2017-09-20T21:17:12.026474Z')
+                self.assertEqual(x[f], '2017-09-20T21:17:12.026474Z')
             else:
-                self.assertEquals(x[f], '2017-09-19T21:17:12.026474Z')
+                self.assertEqual(x[f], '2017-09-19T21:17:12.026474Z')
 
         rec = self.app.get_record('bibcode')
         x = solr_updater.transform_json_record(rec)
         # self.assertFalse('aff' in x)  #  virtual field should not be in solr output
         self.assertTrue('aff' in x)  #  aff is no longer a virtual field
-        self.assertEquals(x['aff_raw'], rec['augments']['aff'])  # solr record should prioritize aff data from augment
-        self.assertEquals(x['aff_abbrev'], rec['augments']['aff_abbrev'])  # solr record should include augment data
+        self.assertEqual(x['aff_raw'], rec['augments']['aff'])  # solr record should prioritize aff data from augment
+        self.assertEqual(x['aff_abbrev'], rec['augments']['aff_abbrev'])  # solr record should include augment data
         
 
     def test_links_data_merge(self):

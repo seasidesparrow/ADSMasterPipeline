@@ -65,7 +65,7 @@ def extract_data_pipeline(data, solrdoc):
               classic_factor=data.get('norm_cites', 0.0),
               reference=data.get('reference', []),
               data=data.get('data', []),
-              data_facet=map(lambda x: x.split(':')[0], data.get('data', [])),
+              data_facet=[x.split(':')[0] for x in data.get('data', [])],
               esources=data.get('esource', []),
               property=data.get('property', []),
               grant=grant,
@@ -206,7 +206,7 @@ fmap = dict(metadata_mtime='bib_data_updated',
 def get_timestamps(db_record, out):
     out = {}
     last_update = None
-    for k,v in fmap.items():
+    for k, v in list(fmap.items()):
         if v in db_record and db_record[v]:
             t = db_record[v]
             out[k] = date2solrstamp(t)

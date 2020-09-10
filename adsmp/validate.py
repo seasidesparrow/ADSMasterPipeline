@@ -1,10 +1,15 @@
+from __future__ import division
+from builtins import map
+from builtins import object
+from past.utils import old_div
 import os
 import time
 import requests
+import sys
 from difflib import SequenceMatcher
 
 
-class Validate():
+class Validate(object):
     """Validates the output of a new pipeline by comparing its SOLR instance against
     that of a previous pipeline version"""
 
@@ -40,7 +45,7 @@ class Validate():
         else:
             with open(filename) as f:
                 lines = f.readlines()
-            lines = map(str.strip, lines)
+            lines = list(map(str.strip, lines))
 
         bibcodes = bibcodelist + lines
 
@@ -164,7 +169,7 @@ class Validate():
                     'Bibcode {}: cite_read_boost field is different between databases. Old: {} New: {}'.format(bibcode, f1,
                                                                                                                f2))
                 return False
-            elif (abs(f1-f2)/f1) > 0.1:
+            elif (old_div(abs(f1-f2),f1)) > 0.1:
                 self.logger.warn(
                     'Bibcode {}: cite_read_boost field is different between databases. Old: {} New: {}'.format(bibcode, f1, f2))
                 return False
@@ -207,7 +212,7 @@ class Validate():
 
         if f1 != f2:
             # check how similar strings are
-            if type(f1) is unicode:
+            if isinstance(f1, str) or (sys.version_info < (3,) and isinstance(f1, unicode)):
                 ratio = SequenceMatcher(None, f1, f2).ratio()
                 if ratio < 0.8:
                     if field == 'body':

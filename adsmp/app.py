@@ -1,5 +1,6 @@
 
 from __future__ import absolute_import, unicode_literals
+from past.builtins import basestring
 from . import exceptions
 from .models import Records, ChangeLog, IdentifierMapping
 from adsmsg import OrcidClaims, DenormalizedRecord, FulltextUpdate, MetricsRecord, NonBibRecord, NonBibRecordList, MetricsRecordList, AugmentAffiliationResponseRecord, AugmentAffiliationResponseRecordList, AugmentAffiliationRequestRecord
@@ -19,6 +20,7 @@ import requests
 from copy import deepcopy
 from os.path import join
 import os
+import sys
 from kombu import BrokerConnection
 
 
@@ -102,7 +104,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                     if bibcode in self.tweaks:
                         self.logger.error('bibcode {} appeared in multiple tweak files'.format(bibcode))
                     self.tweaks[bibcode] = doc
-        except Exception, e:
+        except Exception as e:
             self.logger.error('error loading tweak file {}'.format(e))
 
     def update_storage(self, bibcode, type, payload):
@@ -438,19 +440,19 @@ class ADSMasterPipelineCelery(ADSCelery):
                 try:
                     trans.session.execute(self._metrics_table_insert, batch_insert)
                     trans.commit()
-                    bibx = map(lambda x: x['bibcode'], batch_insert)
+                    bibx = [x['bibcode'] for x in batch_insert]
                     out.extend(bibx)
                     
-                except exc.IntegrityError, e:
+                except exc.IntegrityError as e:
                     trans.rollback()
                     self.logger.error('Insert batch failed, will upsert one by one %s recs', len(batch_insert))
                     for x in batch_insert:
                         try:
                             self._metrics_upsert(x, session, insert_first=False)
                             out.append(x['bibcode'])
-                        except Exception, e:
+                        except Exception as e:
                             self.logger.error('Failure while updating single metrics record: %s', e)
-                except Exception, e:
+                except Exception as e:
                     trans.rollback()
                     self.logger.error('DB failure: %s', e)
                     self.mark_processed(out, type='metrics')
@@ -462,23 +464,23 @@ class ADSMasterPipelineCelery(ADSCelery):
                     r = session.execute(self._metrics_table_update, batch_update)
                     trans.commit()
                     if r.rowcount != len(batch_update):
-                        self.logger.warn('Tried to update=%s rows, but matched only=%s, running upsert...', 
+                        self.logger.warning('Tried to update=%s rows, but matched only=%s, running upsert...',
                                          len(batch_update), r.rowcount)
                         for x in batch_update:
                             try:
                                 self._metrics_upsert(x, session, insert_first=False) # do updates, db engine should not touch the same vals...
                                 out.append(x['bibcode'])
-                            except Exception, e:
+                            except Exception as e:
                                 self.logger.error('Failure while updating single metrics record: %s', e)
                     else:
-                        bibx = map(lambda x: x['bibcode'], batch_update)
+                        bibx = [x['bibcode'] for x in batch_update]
                         out.extend(bibx)
-                except exc.IntegrityError, r:
+                except exc.IntegrityError as r:
                     trans.rollback()
                     self.logger.error('Update batch failed, will upsert one by one %s recs', len(batch_update))
                     for x in batch_update:
                         self._metrics_upsert(x, session, insert_first=True)
-                except Exception, e:
+                except Exception as e:
                     trans.rollback()
                     self.logger.error('DB failure: %s', e)
                     self.mark_processed(out, type='metrics')
@@ -494,12 +496,12 @@ class ADSMasterPipelineCelery(ADSCelery):
             try:
                 trans.session.execute(self._metrics_table_insert, record)
                 trans.commit()
-            except exc.IntegrityError, e:
+            except exc.IntegrityError as e:
                 trans.rollback()
                 trans = session.begin_nested()
                 trans.session.execute(self._metrics_table_update, record)
                 trans.commit()
-            except Exception, e:
+            except Exception as e:
                 trans.rollback()
                 self.logger.error('DB failure: %s', e)
                 raise e
@@ -510,12 +512,12 @@ class ADSMasterPipelineCelery(ADSCelery):
                 if r.rowcount == 0:
                     trans.session.execute(self._metrics_table_insert, record)
                 trans.commit()
-            except exc.IntegrityError, e:
+            except exc.IntegrityError as e:
                 trans.rollback()
                 trans = session.begin_nested()
                 trans.session.execute(self._metrics_table_insert, record)
                 trans.commit()
-            except Exception, e:
+            except Exception as e:
                 trans.rollback()
                 self.logger.error('DB failure: %s', e)
                 raise e
@@ -541,18 +543,26 @@ class ADSMasterPipelineCelery(ADSCelery):
         @return: checksum
         """
         assert isinstance(ignore_keys, tuple)
-        
+
         if isinstance(data, basestring):
-            return hex(zlib.crc32(unicode(data)) & 0xffffffff)
+            if sys.version_info > (3,):
+                data_str = data.encode('utf-8')
+            else:
+                data_str = unicode(data)
+            return hex(zlib.crc32(data_str) & 0xffffffff)
         else:
             data = deepcopy(data)
             # remove all the modification timestamps
-            for k,v in data.items():
+            for k, v in list(data.items()):
                 for x in ignore_keys:
                     if x in k:
                         del data[k]
                         break
-            return hex(zlib.crc32(json.dumps(data, sort_keys=True)) & 0xffffffff)
+            if sys.version_info > (3,):
+                data_str = json.dumps(data, sort_keys=True).encode('utf-8')
+            else:
+                data_str = json.dumps(data, sort_keys=True)
+            return hex(zlib.crc32(data_str) & 0xffffffff)
     
     
     def update_remote_targets(self, solr=None, metrics=None, links=None,
@@ -611,16 +621,16 @@ class ADSMasterPipelineCelery(ADSCelery):
             update_crc('solr', batch, failed_bibcodes)
         
         if failed_bibcodes and len(failed_bibcodes):
-            self.logger.warn('SOLR failed to update some bibcodes: %s', failed_bibcodes)
+            self.logger.warning('SOLR failed to update some bibcodes: %s', failed_bibcodes)
             
             # when solr_urls > 1, some of the servers may have successfully indexed
             # but here we are refusing to pass data to metrics db; this seems the 
             # right choice because there is only one metrics db (but if we had many,
             # then we could differentiate) 
                     
-            batch_insert = filter(lambda x: x['bibcode'] not in failed_bibcodes, batch_insert)
-            batch_update = filter(lambda x: x['bibcode'] not in failed_bibcodes, batch_update)
-            links_data = filter(lambda x: x['bibcode'] not in failed_bibcodes, links_data)
+            batch_insert = [x for x in batch_insert if x['bibcode'] not in failed_bibcodes]
+            batch_update = [x for x in batch_update if x['bibcode'] not in failed_bibcodes]
+            links_data = [x for x in links_data if x['bibcode'] not in failed_bibcodes]
             
             recs_to_process = recs_to_process - failed_bibcodes
             if len(failed_bibcodes):
@@ -662,11 +672,11 @@ class ADSMasterPipelineCelery(ADSCelery):
         it touches all checksums for a rec in one go.
         """
         with self.session_scope() as session:
-            for bibcode, vals in crcs.items():
+            for bibcode, vals in list(crcs.items()):
                 r = session.query(Records).filter_by(bibcode=bibcode).first()
                 if r is None:
                     raise Exception('whaay?! Cannot update crc, bibcode does not exist for: %s', bibcode)
-                for k,crc in vals.items():
+                for k, crc in list(vals.items()):
                     setattr(r, k, crc)
             session.commit()
 
@@ -677,11 +687,11 @@ class ADSMasterPipelineCelery(ADSCelery):
         if data is None:
             rec = self.get_record(bibcode)
             if rec is None:
-                self.logger.warn('request_aff_augment called but no data at all for bibcode {}'.format(bibcode))
+                self.logger.warning('request_aff_augment called but no data at all for bibcode {}'.format(bibcode))
                 return
             bib_data = rec.get('bib_data', None)
             if bib_data is None:
-                self.logger.warn('request_aff_augment called but no bib data for bibcode {}'.format(bibcode))
+                self.logger.warning('request_aff_augment called but no bib data for bibcode {}'.format(bibcode))
                 return
             aff = bib_data.get('aff', None)
             author = bib_data.get('author', '')            
@@ -695,7 +705,7 @@ class ADSMasterPipelineCelery(ADSCelery):
             self.forward_message(message)
             self.logger.info('sent augment affiliation request for bibcode {}'.format(bibcode))
         else:
-            self.logger.warn('request_aff_augment called but bibcode {} has no aff data'.format(bibcode))
+            self.logger.warning('request_aff_augment called but bibcode {} has no aff data'.format(bibcode))
 
     def generate_links_for_resolver(self, record):
         """use nonbib or bib elements of database record and return links for resolver and checksum"""

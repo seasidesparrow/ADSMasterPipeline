@@ -25,7 +25,7 @@ class TestReindex(unittest.TestCase):
         all_solr_responses.extend([solr_success, solr_mbeans, solr_cores, solr_success, solr_cores, solr_cores])
         solr_responses = Mock()
         solr_responses.side_effect = all_solr_responses
-        commit_time = datetime.datetime(2020,03,19,13,10,0)
+        commit_time = datetime.datetime(2020, 3, 19, 13, 10, 0)
         with patch('scripts.reindex.execute', return_value=(0, None, None)):
             with patch('os.path.exists', return_value=False):
                 with patch('requests.get', solr_responses):
@@ -78,7 +78,7 @@ class TestReindex(unittest.TestCase):
         with patch('requests.get', solr_responses):
             with patch('time.sleep', return_value=None):
                 reindex.monitor_solr_writes()
-                self.assertEquals(9, solr_responses.call_count)
+                self.assertEqual(9, solr_responses.call_count)
 
 
 

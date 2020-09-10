@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
 
+from past.builtins import basestring
 from adsputils import get_date
 from datetime import datetime
 from dateutil.tz import tzutc

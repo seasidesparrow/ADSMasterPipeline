@@ -65,17 +65,17 @@ class TestWorkers(unittest.TestCase):
 
         for x, cls in (('fulltext', FulltextUpdate), ('orcid_claims', OrcidClaims)):
             self.app.update_storage('bibcode', x, {'foo': 'bar'})
-            self.assertEquals(self.app.get_record('bibcode')[x]['foo'], 'bar')
+            self.assertEqual(self.app.get_record('bibcode')[x]['foo'], 'bar')
             with patch('adsmp.tasks.task_index_records.delay') as next_task:
                 tasks.task_update_record(cls(bibcode='bibcode', status='deleted'))
-                self.assertEquals(self.app.get_record('bibcode')[x], None)
+                self.assertEqual(self.app.get_record('bibcode')[x], None)
                 self.assertTrue(self.app.get_record('bibcode'))
         
         recs = NonBibRecordList()
         recs.nonbib_records.extend([NonBibRecord(bibcode='bibcode', status='deleted').data])
         with patch('adsmp.tasks.task_index_records.delay') as next_task:
             tasks.task_update_record(recs)
-            self.assertEquals(self.app.get_record('bibcode')['metrics'], None)
+            self.assertEqual(self.app.get_record('bibcode')['metrics'], None)
             self.assertTrue(self.app.get_record('bibcode'))
             
         with patch('adsmp.tasks.task_delete_documents') as next_task:
@@ -87,13 +87,13 @@ class TestWorkers(unittest.TestCase):
     def test_task_update_record_fulltext(self):
         with patch('adsmp.tasks.task_index_records.delay') as next_task:
             tasks.task_update_record(FulltextUpdate(bibcode='2015ApJ...815..133S', body='INTRODUCTION'))
-            self.assertEquals(self.app.get_record(bibcode='2015ApJ...815..133S')['fulltext']['body'], 'INTRODUCTION')
+            self.assertEqual(self.app.get_record(bibcode='2015ApJ...815..133S')['fulltext']['body'], 'INTRODUCTION')
             self.assertFalse(next_task.called)
 
     def test_task_update_record_nonbib(self):
         with patch('adsmp.tasks.task_index_records.delay') as next_task:
             tasks.task_update_record(NonBibRecord(bibcode='2015ApJ...815..133S', read_count=9))
-            self.assertEquals(self.app.get_record(bibcode='2015ApJ...815..133S')['nonbib_data']['read_count'], 9)
+            self.assertEqual(self.app.get_record(bibcode='2015ApJ...815..133S')['nonbib_data']['read_count'], 9)
             self.assertFalse(next_task.called)
 
     def test_task_update_record_nonbib_list(self):
@@ -368,9 +368,9 @@ class TestWorkers(unittest.TestCase):
             
         
         rec = self.app.get_record(bibcode='linkstest')
-        self.assertEquals(rec['datalinks_checksum'], '0x80e85169')
-        self.assertEquals(rec['solr_checksum'], None)
-        self.assertEquals(rec['metrics_checksum'], None)
+        self.assertEqual(rec['datalinks_checksum'], '0x80e85169')
+        self.assertEqual(rec['solr_checksum'], None)
+        self.assertEqual(rec['metrics_checksum'], None)
 
 
     def test_task_index_links_no_data(self):
@@ -400,7 +400,7 @@ class TestWorkers(unittest.TestCase):
             getter.return_value = {'bibcode': 'foo', 'bib_data_updated': get_date('1972-04-01')}
             tasks.task_index_records(['foo'], force=True)
             
-            self.assertEquals(update_solr.call_count, 1)
+            self.assertEqual(update_solr.call_count, 1)
             self._check_checksum('foo', solr='0xf2708ee8')
             
             # now change metrics (solr shouldn't be called)
@@ -408,7 +408,7 @@ class TestWorkers(unittest.TestCase):
                                    'bib_data_updated': get_date('1972-04-01'),
                                    'solr_checksum': '0xf2708ee8'}
             tasks.task_index_records(['foo'], force=True)
-            self.assertEquals(update_solr.call_count, 1)
+            self.assertEqual(update_solr.call_count, 1)
 
 
     def test_ignore_checksums_solr(self):
@@ -423,9 +423,9 @@ class TestWorkers(unittest.TestCase):
 
             # update with matching checksum and then update and ignore checksums
             tasks.task_index_records(['foo'], force=True, update_metrics=False, update_links=False, ignore_checksums=False)
-            self.assertEquals(update_solr.call_count, 0)
+            self.assertEqual(update_solr.call_count, 0)
             tasks.task_index_records(['foo'], force=True, update_metrics=False, update_links=False, ignore_checksums=True)
-            self.assertEquals(update_solr.call_count, 1)
+            self.assertEqual(update_solr.call_count, 1)
 
     def test_ignore_checksums_datalinks(self):
         """verify ingore_checksums works with datalinks updates"""        
@@ -442,10 +442,10 @@ class TestWorkers(unittest.TestCase):
             # update with matching checksum and then update and ignore checksums
             tasks.task_index_records(['linkstest'], update_solr=False, update_metrics=False, update_links=True, force=True,
                                      ignore_checksums=False)
-            self.assertEquals(p.call_count, 0)
+            self.assertEqual(p.call_count, 0)
             tasks.task_index_records(['linkstest'], update_solr=False, update_metrics=False, update_links=True, force=True,
                                      ignore_checksums=True)
-            self.assertEquals(p.call_count, 1)
+            self.assertEqual(p.call_count, 1)
 
     def test_ignore_checksums_metrics(self):
         """verify ingore_checksums works with datalinks updates"""        
@@ -461,10 +461,10 @@ class TestWorkers(unittest.TestCase):
             # update with matching checksum and then update and ignore checksums
             tasks.task_index_records(['metricstest'], update_solr=False, update_metrics=True, update_links=False, force=True,
                                      ignore_checksums=False)
-            self.assertEquals(u.call_count, 0)
+            self.assertEqual(u.call_count, 0)
             tasks.task_index_records(['metricstest'], update_solr=False, update_metrics=True, update_links=False, force=True,
                                      ignore_checksums=True)
-            self.assertEquals(u.call_count, 1)
+            self.assertEqual(u.call_count, 1)
         
     def test_index_metrics_no_data(self):
         """verify indexing works where there is no metrics data"""

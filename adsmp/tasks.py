@@ -1,5 +1,6 @@
 
 from __future__ import absolute_import, unicode_literals
+from past.builtins import basestring
 import os
 import adsputils
 from adsmp import app as app_module

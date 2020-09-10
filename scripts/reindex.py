@@ -1,6 +1,9 @@
+from __future__ import division
 # purpose of this script is to rebuild a new solr collection
 # it will automatically activate it (by swapping cores)
 
+from builtins import str
+from past.utils import old_div
 import datetime
 import os 
 import sys
@@ -42,7 +45,7 @@ def run():
     if os.path.exists(lockfile):
         sys.stderr.write('Lockfile %s already exists; exiting! (if you want to proceed, delete the file)\n' % (lockfile))
         data = read_lockfile(lockfile)
-        for k,v in data.items():
+        for k,v in list(data.items()):
             sys.stderr.write('%s=%s\n' % (k,v))
         exit(1)
     else:
@@ -140,7 +143,7 @@ def run():
         logger.info('Deleting the lock; congratulations on your new solr collection!')
         os.remove(lockfile)
         
-    except Exception, e:
+    except Exception as e:
         logger.error('Failed; we will keep the process permanently locked: %s' % (e))
         sys.stderr.write('Failed. Please see logs for more details')
         data['last-exception'] = str(e)
@@ -167,8 +170,8 @@ def write_lockfile(lockfile, data):
 def verify_collection2_size(data):
     if data['index'].get('numDocs', 0) <= 14150713:
         raise Exception('Too few documents in the new index: %s' % data['index'].get('numDocs', 0))
-    if data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0) <= 146.0: # index size at least 146GB
-        raise Exception('The index is suspiciously small: %s' % (data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0)))
+    if old_div(data['index'].get('sizeInBytes', 0), (1024*1024*1024.0)) <= 146.0: # index size at least 146GB
+        raise Exception('The index is suspiciously small: %s' % (old_div(data['index'].get('sizeInBytes', 0), (1024*1024*1024.0))))
 
 
 def str_to_datetime(s):

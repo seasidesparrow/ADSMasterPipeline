@@ -169,7 +169,7 @@ class Validate(object):
                     'Bibcode {}: cite_read_boost field is different between databases. Old: {} New: {}'.format(bibcode, f1,
                                                                                                                f2))
                 return False
-            elif (old_div(abs(f1-f2),f1)) > 0.1:
+            elif (abs(f1-f2)/f1) > 0.1:
                 self.logger.warn(
                     'Bibcode {}: cite_read_boost field is different between databases. Old: {} New: {}'.format(bibcode, f1, f2))
                 return False

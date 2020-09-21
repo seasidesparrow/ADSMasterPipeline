@@ -45,7 +45,7 @@ def run():
     if os.path.exists(lockfile):
         sys.stderr.write('Lockfile %s already exists; exiting! (if you want to proceed, delete the file)\n' % (lockfile))
         data = read_lockfile(lockfile)
-        for k,v in list(data.items()):
+        for k,v in data.items():
             sys.stderr.write('%s=%s\n' % (k,v))
         exit(1)
     else:
@@ -170,8 +170,8 @@ def write_lockfile(lockfile, data):
 def verify_collection2_size(data):
     if data['index'].get('numDocs', 0) <= 14150713:
         raise Exception('Too few documents in the new index: %s' % data['index'].get('numDocs', 0))
-    if old_div(data['index'].get('sizeInBytes', 0), (1024*1024*1024.0)) <= 146.0: # index size at least 146GB
-        raise Exception('The index is suspiciously small: %s' % (old_div(data['index'].get('sizeInBytes', 0), (1024*1024*1024.0))))
+    if data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0) <= 146.0: # index size at least 146GB
+        raise Exception('The index is suspiciously small: %s' % (data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0)))
 
 
 def str_to_datetime(s):

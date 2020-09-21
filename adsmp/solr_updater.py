@@ -206,7 +206,7 @@ fmap = dict(metadata_mtime='bib_data_updated',
 def get_timestamps(db_record, out):
     out = {}
     last_update = None
-    for k, v in list(fmap.items()):
+    for k, v in fmap.items():
         if v in db_record and db_record[v]:
             t = db_record[v]
             out[k] = date2solrstamp(t)

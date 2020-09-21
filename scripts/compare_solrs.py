@@ -10,7 +10,7 @@ import os
 import requests
 import argparse
 import json
-import pickle as pickle
+import pickle
 
 # python compare_solrs.py --solr-endpoints http://adsqb.cfa.harvard.edu:9983/solr/BumblebeeETL/select http://adsqb.cfa.harvard.edu:9983/solr/collection1/select --bibcode stdin fields < testBibcodes.txt
 
@@ -102,7 +102,7 @@ def compare_fields(result1, result2):
         'update_timestamp',
         ]
     error_count = 0
-    for key in list(doc1.keys()):
+    for key in doc1.keys():
         if key not in skip:
             if key not in doc2:
                 message = \
@@ -233,9 +233,9 @@ def main():
 
         data = parseDocs(result)
         for bibcode in data:
-            print(list(data[bibcode].keys()))
+            print(data[bibcode].keys())
             print('Difference in keys:\n', \
-                '\n'.join(set(data[bibcode][args.solr_endpoints[0]].keys()).difference(list(data[bibcode][args.solr_endpoints[1]].keys()))))
+                '\n'.join(set(data[bibcode][args.solr_endpoints[0]].keys()).difference(data[bibcode][args.solr_endpoints[1]].keys())))
     elif args.command == 'fields':
 
         # for the passed bibcode, do the two solrs contain the same values

@@ -672,11 +672,11 @@ class ADSMasterPipelineCelery(ADSCelery):
         it touches all checksums for a rec in one go.
         """
         with self.session_scope() as session:
-            for bibcode, vals in list(crcs.items()):
+            for bibcode, vals in crcs.items():
                 r = session.query(Records).filter_by(bibcode=bibcode).first()
                 if r is None:
                     raise Exception('whaay?! Cannot update crc, bibcode does not exist for: %s', bibcode)
-                for k, crc in list(vals.items()):
+                for k, crc in vals.items():
                     setattr(r, k, crc)
             session.commit()
 

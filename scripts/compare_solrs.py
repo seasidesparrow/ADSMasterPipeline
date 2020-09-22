@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # -*- coding: utf-8 -*-
 from __future__ import print_function
 from future import standard_library
@@ -259,5 +259,5 @@ def main():
         print('use "fields" to compare fields for the passed bibcodes match between solrs')
 
 
-if __name__ == '__main__':    
+if __name__ == '__main__':
     main()

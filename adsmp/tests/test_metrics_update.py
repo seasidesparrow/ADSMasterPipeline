@@ -150,8 +150,8 @@ class TestAdsOrcidCelery(unittest.TestCase):
         self.assertFalse(x['refereed'])
         self.assertTrue(y['refereed'])
         
-        print x
-        print y
+        print(x)
+        print(y)
         
 if __name__ == '__main__':
     unittest.main()

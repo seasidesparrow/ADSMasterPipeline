@@ -1,12 +1,16 @@
 #!/usr/bin/python2
 # -*- coding: utf-8 -*-
+from __future__ import print_function
+from future import standard_library
+standard_library.install_aliases()
+from builtins import str
 import json
 import sys
 import os
 import requests
 import argparse
 import json
-import cPickle as pickle
+import pickle
 
 # python compare_solrs.py --solr-endpoints http://adsqb.cfa.harvard.edu:9983/solr/BumblebeeETL/select http://adsqb.cfa.harvard.edu:9983/solr/collection1/select --bibcode stdin fields < testBibcodes.txt
 
@@ -58,7 +62,7 @@ def parseDocs(result):
             if b not in data:
                 data[b] = {}
             data[b][endpoint] = doc
-            print b, endpoint, data.keys()
+            print(b, endpoint, list(data.keys()))
 
     with open('pickle', 'w') as fp:
         pickle.dump(data, fp)
@@ -71,14 +75,14 @@ def compare_fields(result1, result2):
     if not ('response' in result1 and 'docs' in result1['response']
             and len(result1['response']['docs']) > 0):
         message = 'invalid response first solr' + str(result1)
-        print message
+        print(message)
         logger.error(message)
         mismatches.append('invalid response first solr')
         return mismatches
     if not ('response' in result2 and 'docs' in result2['response']
             and len(result1['response']['docs']) > 0):
         message = 'invalid response second solr' + str(result2)
-        print message
+        print(message)
         logger.error(message)
         mismatches.append('invalid response second solr')
         return mismatches
@@ -104,7 +108,7 @@ def compare_fields(result1, result2):
                 message = \
                     'bibcode {} has no value for key {}, value from first solr {}'.format(bibcode,
                         key, doc1[key])
-                print message
+                print(message)
                 logger.warn(message)
                 continue
             if doc1[key] != doc2[key]:
@@ -120,18 +124,18 @@ def compare_fields(result1, result2):
                         message = \
                             u'bibcode = {}, key mismatch {} on values {}, {}'.format(bibcode,
                                 key, doc1[key], doc2[key])
-                        print message
+                        print(message)
                         mismatches.append(key)
                         logger.warn(message)
                     else:
                         message = \
                             u'bibcode = {}, key {} delta within threshold on values {}, {}'.format(bibcode,
                                 key,
-                                unicode(value1).encode('unicode-escape'
+                                str(value1).encode('unicode-escape'
                                 ),
-                                unicode(value2).encode('unicode-escape'
+                                str(value2).encode('unicode-escape'
                                 ))
-                        print message
+                        print(message)
                         logger.warn(message)
                 elif isinstance(doc1[key], list) \
                     and isinstance(doc2[key], list):
@@ -148,10 +152,10 @@ def compare_fields(result1, result2):
                     message = \
                         u'bibcode = {}, key mismatch {} on values {}, {}'.format(bibcode,
                             key,
-                            unicode(doc1[key]).encode('unicode-escape'
+                            str(doc1[key]).encode('unicode-escape'
                             ),
-                            unicode(doc2[key]).encode('unicode-escape'))
-                    print message
+                            str(doc2[key]).encode('unicode-escape'))
+                    print(message)
                     mismatches.append(key)
                     logger.warn(message)
 
@@ -182,11 +186,11 @@ def query_and_compare(bibcode, endpoint1, endpoint2):
             'bibcode {} failed with {} errors: {}'.format(bibcode,
                 len(failure), failure)
         logger.error(message)
-        print message
+        print(message)
     else:
         message = 'bibcode {} success'.format(bibcode)
         logger.info(message)
-        print message
+        print(message)
 
     return failure
 
@@ -229,9 +233,9 @@ def main():
 
         data = parseDocs(result)
         for bibcode in data:
-            print data[bibcode].keys()
-            print 'Difference in keys:\n', \
-                '\n'.join(set(data[bibcode][args.solr_endpoints[0]].keys()).difference(data[bibcode][args.solr_endpoints[1]].keys()))
+            print(data[bibcode].keys())
+            print('Difference in keys:\n', \
+                '\n'.join(set(data[bibcode][args.solr_endpoints[0]].keys()).difference(data[bibcode][args.solr_endpoints[1]].keys())))
     elif args.command == 'fields':
 
         # for the passed bibcode, do the two solrs contain the same values
@@ -245,14 +249,14 @@ def main():
             mismatch = query_and_compare(bibcode,
                     args.solr_endpoints[0], args.solr_endpoints[1])
             if mismatch:
-                print 'mismatch on bibcode {}'.format(bibcode)
+                print('mismatch on bibcode {}'.format(bibcode))
             else:
                 failure = query_and_compare(args.bibcode,
                         args.solr_endpoints[0], args.solr_endpoints[1])
     else:
-        print 'no command supplied'
-        print 'use "bibcoces" to see if two solrs have the same bibcodes'
-        print 'use "fields" to compare fields for the passed bibcodes match between solrs'
+        print('no command supplied')
+        print('use "bibcoces" to see if two solrs have the same bibcodes')
+        print('use "fields" to compare fields for the passed bibcodes match between solrs')
 
 
 if __name__ == '__main__':

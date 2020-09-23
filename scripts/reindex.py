@@ -1,6 +1,9 @@
+from __future__ import division
 # purpose of this script is to rebuild a new solr collection
 # it will automatically activate it (by swapping cores)
 
+from builtins import str
+from past.utils import old_div
 import datetime
 import os
 import sys
@@ -138,9 +141,8 @@ def run():
 
 
         logger.info('Deleting the lock; congratulations on your new solr collection!')
-        os.remove(lockfile)
-
-    except Exception, e:
+        os.remove(lockfile)       
+    except Exception as e:
         logger.error('Failed; we will keep the process permanently locked: %s' % (e))
         sys.stderr.write('Failed. Please see logs for more details')
         data['last-exception'] = str(e)

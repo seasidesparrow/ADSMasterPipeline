@@ -7,6 +7,7 @@ import mock
 import unittest
 import os
 import json
+import sys
 
 import adsputils
 from adsmp import app, models
@@ -84,7 +85,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
     def test_mark_processed(self):
         self.app.mark_processed(['abc'], 'solr')
         r = self.app.get_record('abc')
-        self.assertEquals(r, None)
+        self.assertEqual(r, None)
         
         self.app.update_storage('abc', 'bib_data', {'bibcode': 'abc', 'hey': 1})
         self.app.mark_processed(['abc'], 'solr')
@@ -97,7 +98,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
         r = self.app.get_record('abc')
         self.assertTrue(r['solr_processed'])
         self.assertTrue(r['processed'])
-        self.assertEquals(r['status'], 'solr-failed')
+        self.assertEqual(r['status'], 'solr-failed')
 
 
     def test_reindex(self):
@@ -124,7 +125,11 @@ class TestAdsOrcidCelery(unittest.TestCase):
                                        {'bibcode': 'foo'}], 
                                       ['http://solr1'])
             self.assertTrue(len(failed) == 0)
-            self.assertEqual(str(upt.call_args_list), "[call('abc', type=u'solr'), call('foo', type=u'solr')]")
+            if sys.version_info > (3,):
+                solr_str = "'solr'"
+            else:
+                solr_str = "u'solr'"
+            self.assertEqual(str(upt.call_args_list), "[call('abc', type=%s), call('foo', type=%s)]" % (solr_str, solr_str))
             self.assertEqual(us.call_count, 3)
             self.assertEqual(str(us.call_args_list[-1]), "call([{'bibcode': 'foo'}], ['http://solr1'], commit=False, ignore_errors=False)") 
 
@@ -140,7 +145,11 @@ class TestAdsOrcidCelery(unittest.TestCase):
             self.assertEqual(us.call_count, 5)
             self.assertTrue(len(failed) == 0)
             self.assertEqual(upt.call_count, 2)
-            self.assertEqual(str(us.call_args_list[-2]), "call([{'body': 'bad body', 'bibcode': 'foo'}], ['http://solr1'], commit=False, ignore_errors=False)") 
+            if sys.version_info > (3,):
+                call_dict = "{'bibcode': 'foo', 'body': 'bad body'}"
+            else:
+                call_dict = "{'body': 'bad body', 'bibcode': 'foo'}"
+            self.assertEqual(str(us.call_args_list[-2]), "call([%s], ['http://solr1'], commit=False, ignore_errors=False)" % call_dict)
             self.assertEqual(str(us.call_args_list[-1]), "call([{'bibcode': 'foo'}], ['http://solr1'], commit=False, ignore_errors=False)")
 
         # pretend failure and then lots more failure
@@ -168,7 +177,11 @@ class TestAdsOrcidCelery(unittest.TestCase):
             self.assertEqual(us.call_count, 4)
             self.assertTrue(len(failed) == 2)
             self.assertEqual(upt.call_count, 0)
-            self.assertEqual(str(us.call_args_list[-1]), "call([{'body': 'good body', 'bibcode': 'foo'}], ['http://solr1'], commit=False, ignore_errors=False)") 
+            if sys.version_info > (3,):
+                call_dict = "{'bibcode': 'foo', 'body': 'good body'}"
+            else:
+                call_dict = "{'body': 'good body', 'bibcode': 'foo'}"
+            self.assertEqual(str(us.call_args_list[-1]), "call([%s], ['http://solr1'], commit=False, ignore_errors=False)" % call_dict)
 
         # pretend failure and and then a mix of failure and success
         with mock.patch('adsmp.solr_updater.update_solr') as us, \
@@ -180,7 +193,11 @@ class TestAdsOrcidCelery(unittest.TestCase):
             self.assertEqual(us.call_count, 4)
             self.assertTrue(len(failed) == 1)
             self.assertEqual(upt.call_count, 1)
-            self.assertEqual(str(us.call_args_list[-1]), "call([{'body': 'good body', 'bibcode': 'foo'}], ['http://solr1'], commit=False, ignore_errors=False)") 
+            if sys.version_info > (3,):
+                call_dict = "{'bibcode': 'foo', 'body': 'good body'}"
+            else:
+                call_dict = "{'body': 'good body', 'bibcode': 'foo'}"
+            self.assertEqual(str(us.call_args_list[-1]), "call([%s], ['http://solr1'], commit=False, ignore_errors=False)" % call_dict)
 
 
     def test_update_metrics(self):
@@ -197,7 +214,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
         batch_update = [self.app.get_record('foo')['metrics']]
         
         bibc, errs = self.app.update_metrics_db(batch_insert, batch_update)
-        self.assertEquals(bibc, ['abc', 'foo'])
+        self.assertEqual(bibc, ['abc', 'foo'])
         
         for x in ['abc', 'foo']:
             r = self.app.get_record(x)
@@ -229,7 +246,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
                 r = session.query(models.Records).filter_by(bibcode='abc').first()
                 self.assertTrue(r.id == 1)
                 j = r.toJSON()
-                self.assertEquals(j[k], {'foo': 'bar', 'hey': 1})
+                self.assertEqual(j[k], {'foo': 'bar', 'hey': 1})
                 t = j[k + '_updated']
                 self.assertTrue(now < t)
                 self.assertTrue(last_time < j['updated'])
@@ -240,20 +257,20 @@ class TestAdsOrcidCelery(unittest.TestCase):
             r = session.query(models.Records).filter_by(bibcode='abc').first()
             self.assertTrue(r.id == 1)
             j = r.toJSON()
-            self.assertEquals(j['fulltext'], {'body': 'foo bar'})
+            self.assertEqual(j['fulltext'], {'body': 'foo bar'})
             t = j['fulltext_updated']
             self.assertTrue(now < t)
         
         r = self.app.get_record('abc')
-        self.assertEquals(r['id'], 1)
-        self.assertEquals(r['processed'], None)
+        self.assertEqual(r['id'], 1)
+        self.assertEqual(r['processed'], None)
         
         r = self.app.get_record(['abc'])
-        self.assertEquals(r[0]['id'], 1)
-        self.assertEquals(r[0]['processed'], None)
+        self.assertEqual(r[0]['id'], 1)
+        self.assertEqual(r[0]['processed'], None)
         
         r = self.app.get_record('abc', load_only=['id'])
-        self.assertEquals(r['id'], 1)
+        self.assertEqual(r['id'], 1)
         self.assertFalse('processed' in r)
         
         self.app.update_processed_timestamp('abc')
@@ -314,7 +331,11 @@ class TestAdsOrcidCelery(unittest.TestCase):
                 }
                 ]
             }
-        with patch('__builtin__.open',
+        if sys.version_info > (3,):
+            open_func = 'builtins.open'
+        else:
+            open_func = '__builtin__.open'
+        with patch(open_func,
                    mock_open(read_data=json.dumps(test_tweak))):
             self.app.load_tweak_file('foo')
             self.assertTrue("1971SPIE...26..187M" in self.app.tweaks)

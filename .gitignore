@@ -102,3 +102,9 @@ ENV/
 
 # emacs
 *~
+
+logs
+python/*
+venv/*
+**/.DS_Store
+.idea/

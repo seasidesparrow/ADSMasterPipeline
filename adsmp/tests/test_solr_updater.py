@@ -373,5 +373,27 @@ class TestSolrUpdater(unittest.TestCase):
         solr_record = solr_updater.transform_json_record(db_record)
         self.assertTrue('property' not in solr_record)
 
+    def test_extract_data_pipeline(self):
+        nonbib = {'simbad_objects': ['947046 '],
+                  'ned_objects': ["MESSIER_031 G", "SN_1885A "]}
+        d = solr_updater.extract_data_pipeline(nonbib, None)
+        self.assertEqual(['947046'], d['simbid'])
+        self.assertEqual(['Other'], d['simbtype'])
+        self.assertEqual(['0/Other', '1/Other/947046'], d['simbad_object_facet_hier'])
+        self.assertEqual(['MESSIER_031', 'SN_1885A'], d['nedid'])
+        self.assertEqual([u'Galaxy', u'Other'], d['nedtype'])
+        self.assertEqual([u'0/Galaxy', u'1/Galaxy/MESSIER_031', u'0/Other', u'1/Other/SN_1885A'], d['ned_object_facet_hier'])
+
+        nonbib = {'simbad_objects': ['947046'],
+                  'ned_objects': ["MESSIER_031 G", "SN_1885A"]}
+        d = solr_updater.extract_data_pipeline(nonbib, None)
+        self.assertEqual(['947046'], d['simbid'])
+        self.assertEqual(['Other'], d['simbtype'])
+        self.assertEqual(['0/Other', '1/Other/947046'], d['simbad_object_facet_hier'])
+        self.assertEqual(['MESSIER_031', 'SN_1885A'], d['nedid'])
+        self.assertEqual([u'Galaxy', u'Other'], d['nedtype'])
+        self.assertEqual([u'0/Galaxy', u'1/Galaxy/MESSIER_031', u'0/Other', u'1/Other/SN_1885A'], d['ned_object_facet_hier'])
+
+
 if __name__ == '__main__':
     unittest.main()

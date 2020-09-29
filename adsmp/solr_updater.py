@@ -24,14 +24,15 @@ logger = setup_logging(__name__, proj_home=proj_home,
 
 def extract_metrics_pipeline(data, solrdoc):
 
-    citation=data.get('citations', [])
+    citation = data.get('citations', [])
 
     return dict(citation=citation)
 
+
 def extract_data_pipeline(data, solrdoc):
 
-    reader=data.get('readers', [])
-    read_count=len(reader)
+    reader = data.get('readers', [])
+    read_count = len(reader)
 
     grant = []
     grant_facet_hier = []
@@ -45,7 +46,12 @@ def extract_data_pipeline(data, solrdoc):
     simbtype = []
     simbad_object_facet_hier = []
     for x in data.get('simbad_objects', []):
-        sid, stype = x.split(' ', 1)
+        try:
+            sid, stype = x.split(' ', 1)
+        except ValueError:
+            sid = x
+            stype = ''
+            logger.error('invalid simbad_objects, did not contain space on {}, bibcode = {}, full list'.format(x, data.get('bibcode', 'not available'), data.get('simbad_objects')))
         simbid.append(sid)
         simbtype.append(map_simbad_type(stype))
         simbad_object_facet_hier.extend(generate_hier_facet(map_simbad_type(stype), sid))
@@ -54,30 +60,35 @@ def extract_data_pipeline(data, solrdoc):
     nedtype = []
     ned_object_facet_hier = []
     for x in data.get('ned_objects', []):
-        nid, ntype = x.split(' ', 1)
+        try:
+            nid, ntype = x.split(' ', 1)
+        except ValueError:
+            nid = x
+            ntype = ''
+            logger.error('invalid ned_objects, did not contain space on {}, bibcode = {}, full list'.format(x, data.get('bibcode', 'not available'), data.get('ned_objects')))
         nedid.append(nid)
         nedtype.append(map_ned_type(ntype))
         ned_object_facet_hier.extend(generate_hier_facet(map_ned_type(ntype), nid))
 
-    d =  dict(reader=reader,
-              read_count=read_count,
-              cite_read_boost=data.get('boost', 0.0),
-              classic_factor=data.get('norm_cites', 0.0),
-              reference=data.get('reference', []),
-              data=data.get('data', []),
-              data_facet=[x.split(':')[0] for x in data.get('data', [])],
-              esources=data.get('esource', []),
-              property=data.get('property', []),
-              grant=grant,
-              grant_facet_hier=grant_facet_hier,
-              simbid=simbid,
-              simbtype=simbtype,
-              simbad_object_facet_hier=simbad_object_facet_hier,
-              nedid=nedid,
-              nedtype=nedtype,
-              ned_object_facet_hier=ned_object_facet_hier,
-              citation_count=data.get('citation_count', 0),
-              citation_count_norm=data.get('citation_count_norm', 0)
+    d = dict(reader=reader,
+             read_count=read_count,
+             cite_read_boost=data.get('boost', 0.0),
+             classic_factor=data.get('norm_cites', 0.0),
+             reference=data.get('reference', []),
+             data=data.get('data', []),
+             data_facet=[x.split(':')[0] for x in data.get('data', [])],
+             esources=data.get('esource', []),
+             property=data.get('property', []),
+             grant=grant,
+             grant_facet_hier=grant_facet_hier,
+             simbid=simbid,
+             simbtype=simbtype,
+             simbad_object_facet_hier=simbad_object_facet_hier,
+             nedid=nedid,
+             nedtype=nedtype,
+             ned_object_facet_hier=ned_object_facet_hier,
+             citation_count=data.get('citation_count', 0),
+             citation_count_norm=data.get('citation_count_norm', 0)
     )
     if data.get('links_data', None):
         d['links_data'] = data['links_data']

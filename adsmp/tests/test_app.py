@@ -284,7 +284,10 @@ class TestAdsOrcidCelery(unittest.TestCase):
         with self.app.session_scope() as session:
             r = session.query(models.ChangeLog).filter_by(key='bibcode:abc').first()
             self.assertTrue(r.key, 'abc')
-            
+
+        # now test exceptions are caught
+        r = self.app.update_storage('abc', 'nonbib_data', '{"invalid_json"')
+        self.assertIsNone(r)
         
     def test_rename_bibcode(self):
         self.app.update_storage('abc', 'metadata', {'foo': 'bar', 'hey': 1})

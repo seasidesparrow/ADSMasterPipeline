@@ -110,52 +110,55 @@ class ADSMasterPipelineCelery(ADSCelery):
     def update_storage(self, bibcode, type, payload):
         """Update the document in the database, every time
         empty the solr/metrics processed timestamps."""
-        
-        if not isinstance(payload, basestring):
-            payload = json.dumps(payload)
 
-        with self.session_scope() as session:
-            r = session.query(Records).filter_by(bibcode=bibcode).first()
-            if r is None:
-                r = Records(bibcode=bibcode)
-                session.add(r)
-            now = adsputils.get_date()
-            oldval = None
-            if type == 'metadata' or type == 'bib_data':
-                oldval = r.bib_data
-                r.bib_data = payload
-                r.bib_data_updated = now
-            elif type == 'nonbib_data':
-                oldval = r.nonbib_data
-                r.nonbib_data = payload
-                r.nonbib_data_updated = now
-            elif type == 'orcid_claims':
-                oldval = r.orcid_claims
-                r.orcid_claims = payload
-                r.orcid_claims_updated = now
-            elif type == 'fulltext':
-                oldval = 'not-stored'
-                r.fulltext = payload
-                r.fulltext_updated = now
-            elif type == 'metrics':
-                oldval = 'not-stored'
-                r.metrics = payload
-                r.metrics_updated = now
-            elif type == 'augment':
-                # payload contains new value for affilation fields
-                # r.augments holds a dict, save it in database
-                oldval = 'not-stored'
-                r.augments = payload
-                r.augments_updated = now
-            else:
-                raise Exception('Unknown type: %s' % type)
-            session.add(ChangeLog(key=bibcode, type=type, oldvalue=oldval))
-            
-            r.updated = now
-            out = r.toJSON()
-            session.commit()
-            return out
+        try:
+            if not isinstance(payload, basestring):
+                payload = json.dumps(payload)
 
+            with self.session_scope() as session:
+                r = session.query(Records).filter_by(bibcode=bibcode).first()
+                if r is None:
+                    r = Records(bibcode=bibcode)
+                    session.add(r)
+                now = adsputils.get_date()
+                oldval = None
+                if type == 'metadata' or type == 'bib_data':
+                    oldval = r.bib_data
+                    r.bib_data = payload
+                    r.bib_data_updated = now
+                elif type == 'nonbib_data':
+                    oldval = r.nonbib_data
+                    r.nonbib_data = payload
+                    r.nonbib_data_updated = now
+                elif type == 'orcid_claims':
+                    oldval = r.orcid_claims
+                    r.orcid_claims = payload
+                    r.orcid_claims_updated = now
+                elif type == 'fulltext':
+                    oldval = 'not-stored'
+                    r.fulltext = payload
+                    r.fulltext_updated = now
+                elif type == 'metrics':
+                    oldval = 'not-stored'
+                    r.metrics = payload
+                    r.metrics_updated = now
+                elif type == 'augment':
+                    # payload contains new value for affilation fields
+                    # r.augments holds a dict, save it in database
+                    oldval = 'not-stored'
+                    r.augments = payload
+                    r.augments_updated = now
+                else:
+                    raise Exception('Unknown type: %s' % type)
+                session.add(ChangeLog(key=bibcode, type=type, oldvalue=oldval))
+
+                r.updated = now
+                out = r.toJSON()
+                session.commit()
+                return out
+        except Exception as e:
+            self.logger.error('error in app.update_storage while updating database for bibcode {}, type {}, payload {}, error is {}'.format(bibcode, type, payload, e))
+            return None
 
     def delete_by_bibcode(self, bibcode):
         with self.session_scope() as session:

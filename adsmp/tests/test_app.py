@@ -13,7 +13,7 @@ import adsputils
 from adsmp import app, models
 from adsmp.models import Base, MetricsBase
 import testing.postgresql
-
+from sqlalchemy.exc import IntegrityError
 
 class TestAdsOrcidCelery(unittest.TestCase):
     """
@@ -285,9 +285,12 @@ class TestAdsOrcidCelery(unittest.TestCase):
             r = session.query(models.ChangeLog).filter_by(key='bibcode:abc').first()
             self.assertTrue(r.key, 'abc')
 
-        # now test exceptions are caught
-        r = self.app.update_storage('abc', 'nonbib_data', '{"invalid_json"')
-        self.assertIsNone(r)
+    def test_update_records_db_error(self):
+        """test database exception IntegrityError is caught"""
+        with mock.patch('sqlalchemy.orm.session.Session.commit', side_effect=[IntegrityError('a', 'b', 'c', 'd'), None]):
+            r = self.app.update_storage('abc', 'nonbib_data', '{}')
+            self.assertTrue(isinstance(r, str) or isinstance(r, unicode))
+            self.assertTrue('abc' in r)
         
     def test_rename_bibcode(self):
         self.app.update_storage('abc', 'metadata', {'foo': 'bar', 'hey': 1})

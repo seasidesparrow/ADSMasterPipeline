@@ -43,14 +43,20 @@ def task_update_record(msg):
         elif type == 'nonbib_records':
             for m in msg.nonbib_records: # TODO: this is very ugly, we are repeating ourselves...
                 bibcodes.append(m.bibcode)
-                logger.debug('Deleted %s, result: %s', type, app.update_storage(m.bibcode, 'nonbib_data', None))
+                record = app.update_storage(m.bibcode, 'nonbib_data', None)
+                if record:
+                    logger.debug('Deleted %s, result: %s', type, record)
         elif type == 'metrics_records':
             for m in msg.metrics_records:
                 bibcodes.append(m.bibcode)
-                logger.debug('Deleted %s, result: %s', type, app.update_storage(m.bibcode, 'metrics', None))
+                record = app.update_storage(m.bibcode, 'metrics', None)
+                if record:
+                    logger.debug('Deleted %s, result: %s', type, record)
         else:
             bibcodes.append(msg.bibcode)
-            logger.debug('Deleted %s, result: %s', type, app.update_storage(msg.bibcode, type, None))
+            record = app.update_storage(msg.bibcode, type, None)
+            if record:
+                logger.debug('Deleted %s, result: %s', type, record)
 
     elif status == 'active':
         # save into a database
@@ -60,24 +66,28 @@ def task_update_record(msg):
                 m = Msg(m, None, None) # m is a raw protobuf, TODO: return proper instance from .nonbib_records
                 bibcodes.append(m.bibcode)
                 record = app.update_storage(m.bibcode, 'nonbib_data', m.toJSON())
-                logger.debug('Saved record from list: %s', record)
+                if record:
+                    logger.debug('Saved record from list: %s', record)
         elif type == 'metrics_records':
             for m in msg.metrics_records:
                 m = Msg(m, None, None)
                 bibcodes.append(m.bibcode)
                 record = app.update_storage(m.bibcode, 'metrics', m.toJSON(including_default_value_fields=True))
-                logger.debug('Saved record from list: %s', record)
+                if record:
+                    logger.debug('Saved record from list: %s', record)
         elif type =='augment':
             bibcodes.append(msg.bibcode)
             record = app.update_storage(msg.bibcode, 'augment',
                                         msg.toJSON(including_default_value_fields=True))
-            logger.debug('Saved augment message: %s', msg)
+            if record:
+                logger.debug('Saved augment message: %s', msg)
 
         else:
             # here when record has a single bibcode
             bibcodes.append(msg.bibcode)
             record = app.update_storage(msg.bibcode, type, msg.toJSON())
-            logger.debug('Saved record: %s', record)
+            if record:
+                logger.debug('Saved record: %s', record)
             if type == 'metadata':
                 # with new bib data we request to augment the affiliation
                 # that pipeline will eventually respond with a msg to task_update_record

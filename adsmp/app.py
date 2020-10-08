@@ -109,8 +109,10 @@ class ADSMasterPipelineCelery(ADSCelery):
 
     def update_storage(self, bibcode, type, payload):
         """Update the document in the database, every time
-        empty the solr/metrics processed timestamps."""
-        
+        empty the solr/metrics processed timestamps.
+
+        returns the sql record as a json object or an error string """
+
         if not isinstance(payload, basestring):
             payload = json.dumps(payload)
 
@@ -150,12 +152,16 @@ class ADSMasterPipelineCelery(ADSCelery):
             else:
                 raise Exception('Unknown type: %s' % type)
             session.add(ChangeLog(key=bibcode, type=type, oldvalue=oldval))
-            
+
             r.updated = now
             out = r.toJSON()
-            session.commit()
-            return out
-
+            try:
+                session.commit()
+                return out
+            except exc.IntegrityError:
+                self.logger.exception('error in app.update_storage while updating database for bibcode {}, type {}'.format(bibcode, type))
+                session.rollback()
+                return None
 
     def delete_by_bibcode(self, bibcode):
         with self.session_scope() as session:
@@ -165,7 +171,6 @@ class ADSMasterPipelineCelery(ADSCelery):
                 session.delete(r)
                 session.commit()
                 return True
-    
 
     def rename_bibcode(self, old_bibcode, new_bibcode):
         assert old_bibcode and new_bibcode

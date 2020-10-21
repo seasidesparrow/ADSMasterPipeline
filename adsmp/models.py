@@ -39,16 +39,15 @@ class KeyValue(Base):
     value = Column(Text)
 
     def toJSON(self):
-        return {'key': self.key, 'value': self.value }
-
+        return {'key': self.key, 'value': self.value}
 
 
 class Records(Base):
     __tablename__ = 'records'
     id = Column(Integer, primary_key=True)
-    bibcode = Column(String(19))
+    bibcode = Column(String(19), index=True, unique=True)
 
-    bib_data = Column(Text) # 'metadata' is reserved by SQLAlchemy
+    bib_data = Column(Text)  # 'metadata' is reserved by SQLAlchemy
     orcid_claims = Column(Text)
     nonbib_data = Column(Text)
     fulltext = Column(Text)

@@ -26,7 +26,7 @@ from adsmp.models import Records
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Delete duplciate bibcodes from records table')
+    parser = argparse.ArgumentParser(description='Delete duplicate bibcodes from records table')
     parser.add_argument('-n',
                         '--filename',
                         dest='filename',

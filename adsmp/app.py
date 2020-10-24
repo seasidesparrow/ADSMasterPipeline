@@ -599,11 +599,10 @@ class ADSMasterPipelineCelery(ADSCelery):
                 in lists of data (to free up memory)
         """
         
-        print('update_timestamps', update_timestamps, self.update_timestamps)
         old_timestamp = self.update_timestamps
         try:
             # disable updating db metadata (crc/timestamps) if necessary
-            self.update_timestamps = False
+            self.update_timestamps = update_timestamps
             self._update_remote_targets(solr=solr, metrics=metrics, links=links,
                 commit_solr=commit_solr, solr_urls=solr_urls)
         finally:

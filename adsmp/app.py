@@ -82,6 +82,9 @@ class ADSMasterPipelineCelery(ADSCelery):
         self.tweak_dir = './tweak_files/'
         self.tweaks = {}  # key=bibcode, value=dict of solr field, value
         self.load_tweak_files()
+        self.update_timestamps = self._config.get('UPDATE_TIMESTAMPS', True)
+        
+
 
     def load_tweak_files(self):
         """load all tweak files from the tweak directory"""
@@ -219,6 +222,8 @@ class ADSMasterPipelineCelery(ADSCelery):
 
 
     def update_processed_timestamp(self, bibcode, type=None):
+        if not self.update_timestamps:
+            return
         with self.session_scope() as session:
             r = session.query(Records).filter_by(bibcode=bibcode).first()
             if r is None:
@@ -349,6 +354,9 @@ class ADSMasterPipelineCelery(ADSCelery):
         with the document).
         
         """
+
+        if not self.update_timestamps:
+            return
         
         # avoid updating whole database (when the set is empty)
         if len(bibcodes) < 1:
@@ -571,7 +579,8 @@ class ADSMasterPipelineCelery(ADSCelery):
     
     
     def update_remote_targets(self, solr=None, metrics=None, links=None,
-                              commit_solr=False, solr_urls=None):
+                              commit_solr=False, solr_urls=None, 
+                              update_timestamps=True):
         """Updates remote databases/solr
             @param batch: list solr documents (already formatted)
             @param metrics: tuple with two lists, the first is a list
@@ -579,6 +588,10 @@ class ADSMasterPipelineCelery(ADSCelery):
                 of metric dicts to be updated
             @param links_data: list of dicts to send to the remote
                 resolver links service
+            @param update_timestamps: bool, whether to update timestamp
+                database columns; default is True - set this to False
+                if you simply want to reindex without touching status
+                (metadata) of the database    
             @return: 
                 (set of processed bibcodes, set of bibcodes that failed)
                 
@@ -586,7 +599,19 @@ class ADSMasterPipelineCelery(ADSCelery):
                 in lists of data (to free up memory)
         """
         
-        
+        print('update_timestamps', update_timestamps, self.update_timestamps)
+        old_timestamp = self.update_timestamps
+        try:
+            # disable updating db metadata (crc/timestamps) if necessary
+            self.update_timestamps = False
+            self._update_remote_targets(solr=solr, metrics=metrics, links=links,
+                commit_solr=commit_solr, solr_urls=solr_urls)
+        finally:
+            self.update_timestamps = old_timestamp
+
+
+    def _update_remote_targets(self, solr=None, metrics=None, links=None,
+                              commit_solr=False, solr_urls=None):
         if metrics and not (isinstance(metrics, tuple) and len(metrics) == 2):
             raise Exception('Wrong data type passed in for metrics')
         
@@ -661,7 +686,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                 self.logger.error('error sending links to %s, error = %s', links_url, r.text)
                 self.mark_processed([x['bibcode'] for x in links_data], type=None, status='links-failed')
                 recs_to_process = recs_to_process - set([x['bibcode'] for x in links_data])
-            
+
         self.mark_processed(recs_to_process, type=None, status='success')
         if len(crcs):
             self._update_checksums(crcs)
@@ -676,6 +701,8 @@ class ADSMasterPipelineCelery(ADSCelery):
         one-by-one for each bibcode we have; but at least
         it touches all checksums for a rec in one go.
         """
+        if not self.update_timestamps:
+            return
         with self.session_scope() as session:
             for bibcode, vals in crcs.items():
                 r = session.query(Records).filter_by(bibcode=bibcode).first()

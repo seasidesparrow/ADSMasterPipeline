@@ -100,18 +100,18 @@ def task_update_record(msg):
 
 @app.task(queue='rebuild-index')
 def task_rebuild_index(bibcodes, force=False, update_solr=True, update_metrics=True, update_links=True, commit=False,
-                       ignore_checksums=False, solr_targets=None):
+                       ignore_checksums=False, solr_targets=None, update_timestamps=True):
     """part of feature that rebuilds the entire solr index from scratch
 
     note that which collection to update is part of the url in solr_targets
     """
     reindex_records(bibcodes, force=force, update_solr=update_solr, update_metrics=update_metrics, update_links=update_links, commit=commit,
-                       ignore_checksums=ignore_checksums, solr_targets=solr_targets)
+                       ignore_checksums=ignore_checksums, solr_targets=solr_targets, update_timestamps=update_timestamps)
 
 
 @app.task(queue='index-records')
 def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=True, update_links=True, commit=False,
-                       ignore_checksums=False, solr_targets=None):
+                       ignore_checksums=False, solr_targets=None, update_timestamps=True):
     """
     This task is (normally) called by the cronjob task
     (that one, quite obviously, is in turn started by cron)
@@ -119,11 +119,11 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
     Use code also called by task_rebuild_index,
     """
     reindex_records(bibcodes, force=force, update_solr=update_solr, update_metrics=update_metrics, update_links=update_links, commit=commit,
-                       ignore_checksums=ignore_checksums, solr_targets=solr_targets)
+                       ignore_checksums=ignore_checksums, solr_targets=solr_targets, update_timestamps=update_timestamps)
 
 
 def reindex_records(bibcodes, force=False, update_solr=True, update_metrics=True, update_links=True, commit=False,
-                       ignore_checksums=False, solr_targets=None):
+                       ignore_checksums=False, solr_targets=None, update_timestamps=True):
     """Receives the bibcode of a document that was updated.
     (note: we could have sent the full record however we don't
     do it because the messages might be delayed and we can have
@@ -240,7 +240,7 @@ def reindex_records(bibcodes, force=False, update_solr=True, update_metrics=True
                              metrics_updated, augments_updated))
     if batch or batch_insert or batch_update or links_data:
         app.update_remote_targets(solr=batch, metrics=(batch_insert, batch_update), links=links_data,
-                                  commit_solr=commit, solr_urls=solr_targets)
+                                  commit_solr=commit, solr_urls=solr_targets, update_timestamps=update_timestamps)
 
 
 

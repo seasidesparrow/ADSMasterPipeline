@@ -247,8 +247,27 @@ def rebuild_collection(collection_name):
     logger.info('Done rebuilding collection %s, sent %s records', (collection_name, sent))
 
 
-if __name__ == '__main__':
+def reindex_failed(app):
+    """from status field in records table we compute what failed"""
+    bibs = []
+    with app.session_scope() as session:
+        for rec in session.query(Records) \
+                          .filter(Records.status.notin_(['success', 'retrying'])) \
+                          .options(load_only(Records.bibcode, Records.status)) \
+                          .yield_per(1000):
+            bibs.append(rec.bibcode)
+            rec.status = 'retrying'
+            if len(bibs) >= 100:
+                tasks.task_index_records.delay(bibs, update_solr=True, update_metrics=True, update_links=True,
+                                               update_timestamps=True, force=True, ignore_checksums=True)
+                bibs = []
+        if bibs:
+            tasks.task_index_records.delay(bibs, update_solr=True, update_metrics=True, update_links=True,
+                                           update_timestamps=True, force=True, ignore_checksums=True)
+            bibs = []
 
+
+if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Process user input.')
 
     parser.add_argument('-d',
@@ -301,6 +320,11 @@ if __name__ == '__main__':
                         help='Sent all updated documents to SOLR/Postgres (you can combine with --since).' +
                         'Default is to update both solr and metrics. You can choose what to update.' +
                         '(s = update solr, m = update metrics, l = update link resolver)')
+
+    parser.add_argument('--index_failed',
+                        dest='index_failed',
+                        action='store_true',
+                        help='reindex bibcodes that failed during previous reindex run, updates solr, metrics and resolver')
 
     parser.add_argument('--delete',
                         dest='delete',
@@ -442,3 +466,7 @@ if __name__ == '__main__':
             reindex(since=args.since, batch_size=args.batch_size, force_indexing=args.force_indexing,
                     update_solr=update_solr, update_metrics=update_metrics,
                     update_links = update_links, force_processing=args.force_processing, ignore_checksums=args.ignore_checksums)
+
+    elif args.reindex_failed:
+        reindex_failed(app)
+

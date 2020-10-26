@@ -24,6 +24,7 @@ from adsmp.models import Records
 #     where a.bibcode=b.bibcode and a.id != b.id
 #     order by a.bibcode asc) to '/tmp/masterDuplicates.txt';
 
+# to run this code one must delete the unique constraint on bibcodes in postgres
 
 def main():
     parser = argparse.ArgumentParser(description='Delete duplicate bibcodes from records table')

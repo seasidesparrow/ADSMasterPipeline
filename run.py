@@ -250,21 +250,28 @@ def rebuild_collection(collection_name):
 def reindex_failed(app):
     """from status field in records table we compute what failed"""
     bibs = []
+    count = 0
     with app.session_scope() as session:
         for rec in session.query(Records) \
                           .filter(Records.status.notin_(['success', 'retrying'])) \
+                          .filter(Records.bib_data.isnot(None)) \
                           .options(load_only(Records.bibcode, Records.status)) \
                           .yield_per(1000):
+            logger.info('Reindexing previously failed bibcode %s, previous status: %s', rec.bibcode, rec.status)
             bibs.append(rec.bibcode)
+            count += 1
             rec.status = 'retrying'
             if len(bibs) >= 100:
+                session.commit()
                 tasks.task_index_records.delay(bibs, update_solr=True, update_metrics=True, update_links=True,
                                                update_timestamps=True, force=True, ignore_checksums=True)
                 bibs = []
         if bibs:
+            session.commit()
             tasks.task_index_records.delay(bibs, update_solr=True, update_metrics=True, update_links=True,
                                            update_timestamps=True, force=True, ignore_checksums=True)
             bibs = []
+        logger.info('Done reindexing %s previously failed bibcodes', count)
 
 
 if __name__ == '__main__':

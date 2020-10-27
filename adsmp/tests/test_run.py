@@ -41,12 +41,13 @@ class TestFixDbDuplicates(unittest.TestCase):
         self.app.close_app()
 
     def test_reindex_failed(self):
-        # init database with 4 records
+        # init database
         with self.app.session_scope() as session:
-            session.add(Records(bibcode='bibcode1', status='success'))
-            session.add(Records(bibcode='bibcode2', status='solr-failed'))
-            session.add(Records(bibcode='bibcode3', status='links-failed'))
-            session.add(Records(bibcode='bibcode4', status='retrying'))
+            session.add(Records(bibcode='bibcode1', status='success', bib_data='{}'))
+            session.add(Records(bibcode='bibcode2', status='solr-failed', bib_data='{}'))
+            session.add(Records(bibcode='bibcode3', status='links-failed', bib_data='{}'))
+            session.add(Records(bibcode='bibcode4', status='retrying', bib_data='{}'))
+            session.add(Records(bibcode='bibcode5', fulltext='foobar'))
 
         # execute reindex_failed from run.py
         with patch('adsmp.tasks.task_index_records.delay', return_value=None) as queue_bibcodes:
@@ -67,4 +68,6 @@ class TestFixDbDuplicates(unittest.TestCase):
             self.assertEqual(rec.status, 'retrying')
             rec = session.query(Records).filter_by(bibcode='bibcode4').first()
             self.assertEqual(rec.status, 'retrying')
+            rec = session.query(Records).filter_by(bibcode='bibcode5').first()
+            self.assertEqual(rec.status, None)
 

@@ -164,7 +164,7 @@ class ADSMasterPipelineCelery(ADSCelery):
             except exc.IntegrityError:
                 self.logger.exception('error in app.update_storage while updating database for bibcode {}, type {}'.format(bibcode, type))
                 session.rollback()
-                return None
+                raise
 
     def delete_by_bibcode(self, bibcode):
         with self.session_scope() as session:

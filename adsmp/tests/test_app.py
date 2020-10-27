@@ -288,8 +288,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
     def test_update_records_db_error(self):
         """test database exception IntegrityError is caught"""
         with mock.patch('sqlalchemy.orm.session.Session.commit', side_effect=[IntegrityError('a', 'b', 'c', 'd'), None]):
-            r = self.app.update_storage('abc', 'nonbib_data', '{}')
-            self.assertIsNone(r)
+            self.assertRaises(IntegrityError, self.app.update_storage, 'abc', 'nonbib_data', '{}')
         
     def test_rename_bibcode(self):
         self.app.update_storage('abc', 'metadata', {'foo': 'bar', 'hey': 1})

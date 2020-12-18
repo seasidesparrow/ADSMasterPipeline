@@ -83,7 +83,7 @@ def print_kvs():
 
 
 def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True, update_metrics=True,
-            update_links=True, force_processing=False, ignore_checksums=False):
+            update_links=True, force_processing=False, ignore_checksums=False, priority=0):
     """
     Initiates routing of the records (everything that was updated)
     since point in time T.
@@ -152,17 +152,17 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
                     batch.append(rec.bibcode)
                     tasks.task_index_records.delay(batch, force=force_indexing, update_solr=update_solr,
                                                    update_metrics=update_metrics, update_links=update_links,
-                                                   ignore_checksums=ignore_checksums)
+                                                   ignore_checksums=ignore_checksums, priority=priority)
                     batch = []
                     last_bibcode = rec.bibcode
 
         if len(batch) > 0:
             tasks.task_index_records.delay(batch, force=force_indexing, update_solr=update_solr, update_metrics=update_metrics,
-                                           commit=force_indexing, ignore_checksums=ignore_checksums)
+                                           commit=force_indexing, ignore_checksums=ignore_checksums, priority=priority)
         elif force_indexing and last_bibcode:
             # issue one extra call with the commit
             tasks.task_index_records.delay([last_bibcode], force=force_indexing, update_solr=update_solr, update_metrics=update_metrics,
-                                           commit=force_indexing, ignore_checksums=ignore_checksums)
+                                           commit=force_indexing, ignore_checksums=ignore_checksums, priority=priority)
 
         logger.info('Done processing %s records', sent)
     except Exception, e:
@@ -376,6 +376,12 @@ if __name__ == '__main__':
                         action='store_true',
                         default=False,
                         help='Will send all solr docs for indexing to another collection; by purpose this task is synchronous. You can send the name of the collection or the full url to the solr instance incl http via --solr-collection')
+    parser.add_argument('--priority',
+                        dest='priority',
+                        action='store',
+                        default=0,
+                        type=int,
+                        help='priority to use in queue, typically cron jobs use a high priority')
 
     args = parser.parse_args()
 
@@ -456,18 +462,21 @@ if __name__ == '__main__':
                     if len(bibs) >= 100:
                         tasks.task_index_records.delay(bibs, force=True,
                                                        update_solr=update_solr, update_metrics=update_metrics,
-                                                       update_links=update_links, ignore_checksums=args.ignore_checksums)
+                                                       update_links=update_links, ignore_checksums=args.ignore_checksums,
+                                                       priority=args.priority)
                         bibs = []
                 if len(bibs) > 0:
                     tasks.task_index_records.delay(bibs, force=True,
                                                    update_solr=update_solr, update_metrics=update_metrics,
-                                                   update_links=update_links, ignore_checksums=args.ignore_checksums)
+                                                   update_links=update_links, ignore_checksums=args.ignore_checksums,
+                                                   priority=args.priority)
                     bibs = []
         else:
             print('sending bibcode since date to the queue for reindexing')
             reindex(since=args.since, batch_size=args.batch_size, force_indexing=args.force_indexing,
                     update_solr=update_solr, update_metrics=update_metrics,
-                    update_links=update_links, force_processing=args.force_processing, ignore_checksums=args.ignore_checksums)
+                    update_links=update_links, force_processing=args.force_processing, ignore_checksums=args.ignore_checksums,
+                    priority=args.priority)
 
     elif args.reindex_failed:
         reindex_failed(app)

@@ -78,7 +78,7 @@ def task_update_record(msg):
                 record = app.update_storage(m.bibcode, 'metrics', m.toJSON(including_default_value_fields=True))
                 if record:
                     logger.debug('Saved record from list: %s', record)
-        elif type =='augment':
+        elif type == 'augment':
             bibcodes.append(msg.bibcode)
             record = app.update_storage(msg.bibcode, 'augment',
                                         msg.toJSON(including_default_value_fields=True))
@@ -129,8 +129,8 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
 
 
 @app.task(queue='index-solr')
-def task_index_solr(solr_records, priority=0, commit=False, solr_targets=None, update_timestamp=True):
-    app.index_solr(solr_records, solr_targets, commit)
+def task_index_solr(solr_records, priority=0, commit=False, solr_targets=None, set_processed_timestamp=True):
+    app.index_solr(solr_records, solr_targets, commit, set_processed_timestamp)
 
 
 @app.task(queue='index-metrics')
@@ -139,8 +139,8 @@ def task_index_metrics(metrics_records, priority=0, update_timestamps=True):
 
 
 @app.task(queue='index-data-links-resolver')
-def task_index_data_links_resolver(data_links_resolver_records, priority=0, update_timestamps=True):
-    app.index_datalinks(data_links_resolver_records, priority=priority, update_timestamps=update_timestamps)
+def task_index_data_links_resolver(data_links_resolver_records, priority=0, set_processed_timestamp=True):
+    app.index_datalinks(data_links_resolver_records, priority=priority, set_processed_timestamp=set_processed_timestamp)
 
 
 def reindex_records(bibcodes, force=False, update_solr=True, update_metrics=True, update_links=True, commit=False,

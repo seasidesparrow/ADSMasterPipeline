@@ -21,6 +21,8 @@ from sqlalchemy.orm.attributes import InstrumentedAttribute
 # ============================= INITIALIZATION ==================================== #
 proj_home = os.path.realpath(os.path.dirname(__file__))
 config = load_config(proj_home=proj_home)
+set_processed_timestamp = config.get('SET_PROCESSED_TIMESTAMP', True)
+
 logger = setup_logging('run.py', proj_home=proj_home,
                        level=config.get('LOGGING_LEVEL', 'INFO'),
                        attach_stdout=config.get('LOG_STDOUT', False))
@@ -193,7 +195,7 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
             )
         elif force_indexing and last_bibcode:
             # issue one extra call with the commit
-             tasks.task_index_records.apply_async(
+            tasks.task_index_records.apply_async(
                 args=([last_bibcode],),
                 kwargs={
                    'force': force_indexing,
@@ -255,8 +257,8 @@ def rebuild_collection(collection_name):
     with app.session_scope() as session:
         # master db only contains valid documents, indexing task will make sure that incomplete docs are rejected
         for rec in session.query(Records) \
-            .options(load_only(Records.bibcode, Records.updated, Records.processed)) \
-            .yield_per(1000):
+                          .options(load_only(Records.bibcode)) \
+                          .yield_per(1000):
 
             sent += 1
             if sent % 1000 == 0:
@@ -270,6 +272,10 @@ def rebuild_collection(collection_name):
 
     if len(batch) > 0:
         t = tasks.task_rebuild_index.delay(batch, solr_targets=solr_urls)
+        t = tasks.task_rebuild_index.delay(batch, force=True, update_solr=True,
+                                           update_metrics=False, update_links=False,
+                                           ignore_checksums=True, solr_targets=solr_urls,
+                                           set_processed_timestamp=False)
         _tasks.append(t)
 
     logger.info('Done queueing bibcodes for rebuilding collection %s', collection_name)

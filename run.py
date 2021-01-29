@@ -21,7 +21,6 @@ from sqlalchemy.orm.attributes import InstrumentedAttribute
 # ============================= INITIALIZATION ==================================== #
 proj_home = os.path.realpath(os.path.dirname(__file__))
 config = load_config(proj_home=proj_home)
-set_processed_timestamp = config.get('SET_PROCESSED_TIMESTAMP', True)
 
 logger = setup_logging('run.py', proj_home=proj_home,
                        level=config.get('LOGGING_LEVEL', 'INFO'),
@@ -272,10 +271,6 @@ def rebuild_collection(collection_name):
 
     if len(batch) > 0:
         t = tasks.task_rebuild_index.delay(batch, solr_targets=solr_urls)
-        t = tasks.task_rebuild_index.delay(batch, force=True, update_solr=True,
-                                           update_metrics=False, update_links=False,
-                                           ignore_checksums=True, solr_targets=solr_urls,
-                                           set_processed_timestamp=False)
         _tasks.append(t)
 
     logger.info('Done queueing bibcodes for rebuilding collection %s', collection_name)

@@ -73,6 +73,8 @@ class ADSMasterPipelineCelery(ADSCelery):
                 'rn_citation_data': getattr(self._metrics_table_upsert.excluded, 'rn_citation_data')}
             self._metrics_table_upsert = self._metrics_table_upsert.on_conflict_do_update(index_elements=['bibcode'], set_=update_columns)
 
+        self.update_timestamps = self._config.get('UPDATE_TIMESTAMPS', True)
+
     def update_storage(self, bibcode, type, payload):
         """Update the document in the database, every time
         empty the solr/metrics processed timestamps.
@@ -182,6 +184,8 @@ class ADSMasterPipelineCelery(ADSCelery):
                 return r.toJSON(load_only=load_only)
 
     def update_processed_timestamp(self, bibcode, type=None):
+        if not self.update_timestamps:
+            return
         with self.session_scope() as session:
             r = session.query(Records).filter_by(bibcode=bibcode).first()
             if r is None:
@@ -272,8 +276,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                 try:
                     self.logger.error('trying individual update_solr %s', doc)
                     solr_updater.update_solr([doc], solr_urls, ignore_errors=False, commit=commit)
-                    if set_processed_timestamp:
-                        self.update_processed_timestamp(doc['bibcode'], type='solr')
+                    self.update_processed_timestamp(doc['bibcode'], type='solr')
                     self.logger.debug('%s success', doc['bibcode'])
                 except Exception as e:
                     # if individual insert fails,
@@ -286,8 +289,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                         tmp_doc.pop('body', None)
                         try:
                             solr_updater.update_solr([tmp_doc], solr_urls, ignore_errors=False, commit=commit)
-                            if set_processed_timestamp:
-                                self.update_processed_timestamp(doc['bibcode'], type='solr')
+                            self.update_processed_timestamp(doc['bibcode'], type='solr')
                             self.logger.debug('%s success without body', doc['bibcode'])
                         except Exception as e:
                             self.logger.error('Failed posting bibcode %s to Solr even without fulltext\nurls: %s, offending payload %s, error is  %s', failed_bibcode, solr_urls, doc, e)
@@ -300,14 +302,14 @@ class ADSMasterPipelineCelery(ADSCelery):
         self.index_complete(solr_docs, failed_bibcodes, 'solr')
         return failed_bibcodes
 
-    def mark_processed(self, bibcodes, type=None, status=None, set_processed_timestamp=True):
+    def mark_processed(self, bibcodes, type=None, status=None, update_timestamps=True):
         """Updates the timesstamp for all documents that match the bibcodes.
         Optionally also sets the status (which says what actually happened
         with the document).
 
         """
 
-        if set_processed_timestamp is False:
+        if not self.update_timestamps or not update_timestamps:
             return
 
         # avoid updating whole database (when the set is empty)
@@ -376,14 +378,15 @@ class ADSMasterPipelineCelery(ADSCelery):
         finally:
             s.close()
 
-    def index_metrics(self, batch, priority=0, set_processed_timestamp=True):
+    def index_metrics(self, batch, priority=0, update_timestamps=True):
+        # todo: need to pass update_timestamps
         success, metrics_exception = self.update_metrics_db(batch)
         bibcodes = [x['bibcode'] for x in batch]
         failed = set(bibcodes) - set(success)
         self.index_complete(batch, failed, 'metrics')
         return failed
 
-    def index_datalinks(self, links_data, priority=0, set_processed_timestamp=True):
+    def index_datalinks(self, links_data, priority=0, update_timestamps=True):
         # todo is failed right?
         links_url = self.conf.get('LINKS_RESOLVER_UPDATE_URL')
         api_token = self.conf.get('ADS_API_TOKEN', '')
@@ -406,6 +409,8 @@ class ADSMasterPipelineCelery(ADSCelery):
         kind is one of: solr, metrics or datalinks
         # consider bulk update https://stackoverflow.com/questions/25694234/bulk-update-in-sqlalchemy-core-using-where
 """
+        if not self.update_timestamps:
+            return
         bibcodes = [x['bibcode'] for x in batch]
         bibcode_to_data = {doc['bibcode']: doc for doc in batch}
         with self.session_scope() as session:
@@ -423,7 +428,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                 setattr(r, kind + '_processed', adsputils.get_date())
                 session.commit()
 
-    def update_metrics_db(self, batch, set_processed_timestamp=True):
+    def update_metrics_db(self, batch, update_timestamps=True):
         """Writes data into the metrics DB.
         :param: batch - list of json objects to upsert into the metrics db
         :return: tupple (list-of-processed-bibcodes, exception)
@@ -431,6 +436,7 @@ class ADSMasterPipelineCelery(ADSCelery):
         It tries hard to avoid raising exceptions; it will return the list
         of bibcodes that were successfully updated. It will also update
         metrics_processed timestamp in the records table for every bibcode that succeeded.
+
         """
         if not self._metrics_session:
             raise Exception('You cant do this! Missing METRICS_SQLALACHEMY_URL?')
@@ -458,7 +464,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                     self.logger.error('DB failure: %s', e)
                     self.mark_processed(out, type='metrics')
                     return out, e
-        self.mark_processed(out, type='metrics', set_processed_timestamp=set_processed_timestamp)
+        self.mark_processed(out, type='metrics', update_timestamps=update_timestamps)
         return out, None
 
     def metrics_delete_by_bibcode(self, bibcode):

@@ -73,7 +73,6 @@ class ADSMasterPipelineCelery(ADSCelery):
                 'rn_citation_data': getattr(self._metrics_table_upsert.excluded, 'rn_citation_data')}
             self._metrics_table_upsert = self._metrics_table_upsert.on_conflict_do_update(index_elements=['bibcode'], set_=update_columns)
 
-
     def update_storage(self, bibcode, type, payload):
         """Update the document in the database, every time
         empty the solr/metrics processed timestamps.
@@ -432,7 +431,6 @@ class ADSMasterPipelineCelery(ADSCelery):
         It tries hard to avoid raising exceptions; it will return the list
         of bibcodes that were successfully updated. It will also update
         metrics_processed timestamp in the records table for every bibcode that succeeded.
-
         """
         if not self._metrics_session:
             raise Exception('You cant do this! Missing METRICS_SQLALACHEMY_URL?')

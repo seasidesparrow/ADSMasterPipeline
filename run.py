@@ -566,7 +566,7 @@ if __name__ == '__main__':
             reindex(since=args.since, batch_size=args.batch_size, force_indexing=args.force_indexing,
                     update_solr=update_solr, update_metrics=update_metrics,
                     update_links=update_links, force_processing=args.force_processing, ignore_checksums=args.ignore_checksums,
-                    solr_targets=solr_urls)
+                    solr_targets=solr_urls, priority=args.priority)
 
     elif args.reindex_failed:
         reindex_failed_bibcodes(app)

@@ -127,6 +127,16 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
                     update_links=update_links, commit=commit, ignore_checksums=ignore_checksums,
                     solr_targets=solr_targets, update_timestamps=update_timestamps, priority=priority)
 
+    
+@app.task(queue='index-solr')
+def task_index_solr(solr_records, priority=0, commit=False, solr_targets=None, set_processed_timestamp=True):
+    app.index_solr(solr_records, solr_targets, commit, set_processed_timestamp)
+
+
+@app.task(queue='index-metrics')
+def task_index_metrics(metrics_records, priority=0, set_processed_timestamps=True):
+    # todo: create insert and update lists before queuing?
+    app.index_metrics(metrics_records)
 
 @app.task(queue='index-solr')
 def task_index_solr(solr_records, priority=0, commit=False, solr_targets=None, set_processed_timestamp=True):
@@ -254,6 +264,7 @@ def reindex_records(bibcodes, force=False, update_solr=True, update_metrics=True
                     if ignore_checksums or r.get('datalinks_checksum', None) != datalinks_checksum:
                         links_data_records.append(datalinks_payload)
                         links_data_records_checksum.append(datalinks_checksum)
+
         else:
             # if forced and we have at least the bib data, index it
             if force is True:

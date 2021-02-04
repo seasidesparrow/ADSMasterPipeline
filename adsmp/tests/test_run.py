@@ -56,7 +56,7 @@ class TestFixDbDuplicates(unittest.TestCase):
             queue_bibcodes.assert_called_with(args=([u'bibcode2', u'bibcode3'],),
                                               kwargs={'force': True, 'ignore_checksums': True,
                                                       'update_links': True, 'update_metrics': True,
-                                                      'update_solr': True, 'update_timestamps': True,
+                                                      'update_solr': True, 'update_processed': True,
                                                       'priority': 0},
                                               priority=0)
 

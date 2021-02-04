@@ -83,7 +83,8 @@ class TestAdsOrcidCelery(unittest.TestCase):
     def test_update_records(self):
         app = self.app
         t1 = test1.copy()
-        app.update_metrics_db([t1])
+        c1 = app.checksum(t1)
+        app.index_metrics([t1], [c1])
         with app.metrics_session_scope() as session:
             r = session.query(models.MetricsModel).filter_by(bibcode='bib1').first()
             self.assertTrue(r.refereed)
@@ -92,8 +93,10 @@ class TestAdsOrcidCelery(unittest.TestCase):
 
         t1['refereed'] = False
         t1['author_num'] = 5
+        c1 = app.checksum(t1)
         t2 = test2.copy()
-        app.update_metrics_db([t1, t2])
+        c2 = app.checksum(t2)
+        app.index_metrics([t1, t2], [c1, c2])
         with app.metrics_session_scope() as session:
             r = session.query(models.MetricsModel).filter_by(bibcode='bib1').first()
             self.assertFalse(r.refereed)
@@ -107,7 +110,8 @@ class TestAdsOrcidCelery(unittest.TestCase):
 
         t2['refereed'] = False
         t2['author_num'] = 4
-        app.update_metrics_db([t2, t1])
+        c2 = app.checksum(t2)
+        app.index_metrics([t2, t1], [c1, c2])
         with app.metrics_session_scope() as session:
             r = session.query(models.MetricsModel).filter_by(bibcode='bib1').first()
             self.assertFalse(r.refereed)
@@ -119,7 +123,9 @@ class TestAdsOrcidCelery(unittest.TestCase):
             self.assertEqual(4, r2.author_num)
 
         t2['author_num'] = 6
-        app.update_metrics_db([t1, t2, test3])
+        c2 = app.checksum(t2)
+        c3 = app.checksum(test3)
+        app.index_metrics([t1, t2, test3], [c1, c2, c3])
         
         with app.metrics_session_scope() as session:
             b1 = session.query(models.MetricsModel).filter_by(bibcode='bib1').first()
@@ -131,36 +137,34 @@ class TestAdsOrcidCelery(unittest.TestCase):
         
     def test_update_default_values(self):
         app = self.app
-        app.update_metrics_db([{
-         "bibcode": "bib9", 
-         }])
-        
-        # test default values
+        t = {"bibcode": "bib9"}
+        c = app.checksum(t)
+        app.index_metrics([t], [c])
+
+        # test default values                                                                                                   
         x = app.get_metrics('bib9')
         self.assertFalse(x['refereed'])
-        
-        app.update_metrics_db([{
-         "bibcode": "bib9",
-         "refereed": True 
-         }])
-        
+
+        t = {"bibcode": "bib9", "refereed": True}
+        c = app.checksum(t)
+        app.index_metrics([t], [c])
+
         x = app.get_metrics('bib9')
         self.assertTrue(x['refereed'])
-        
-        # when updating without the values
-        
-        app.update_metrics_db([{
-         "bibcode": "bib9",
-         }, {"bibcode": "bib10", "refereed": True}])
-        
+
+        # when updating without the values                                                                                      
+        t1 = {"bibcode": "bib9"}
+        c1 = app.checksum(t1)
+        t2 = {"bibcode": "bib10", "refereed": True}
+        c2 = app.checksum(t2)
+        app.index_metrics([t1, t2], [c1, c2])
+                                                                                                                                
         x = app.get_metrics('bib9')
         y = app.get_metrics('bib10')
-        
+                                                                                                                                
         self.assertFalse(x['refereed'])
         self.assertTrue(y['refereed'])
-        
-        print(x)
-        print(y)
+
         
 if __name__ == '__main__':
     unittest.main()

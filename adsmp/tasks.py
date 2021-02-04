@@ -113,52 +113,46 @@ def task_rebuild_index(bibcodes, solr_targets=None):
 
 @app.task(queue='index-records')
 def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=True, update_links=True, commit=False,
-                       ignore_checksums=False, solr_targets=None, update_timestamps=True, priority=0):
+                       ignore_checksums=False, solr_targets=None, update_processed=True, priority=0):
     """
     Sends data to production systems: solr, metrics and resolver links
-
     Only does send if data has changed
     This task is (normally) called by the cronjob task
     (that one, quite obviously, is in turn started by cron)
-
     Use code also called by task_rebuild_index,
     """
-    reindex_records(bibcodes, force=force, update_solr=update_solr, update_metrics=update_metrics,
-                    update_links=update_links, commit=commit, ignore_checksums=ignore_checksums,
-                    solr_targets=solr_targets, update_timestamps=update_timestamps, priority=priority)
+    reindex_records(bibcodes, force=force, update_solr=update_solr, update_metrics=update_metrics, update_links=update_links, commit=commit,
+                    ignore_checksums=ignore_checksums, solr_targets=solr_targets, update_processed=update_processed)
 
 
 @app.task(queue='index-solr')
-def task_index_solr(solr_records, priority=0, commit=False, solr_targets=None, update_timestamp=True):
-    app.index_solr(solr_records, solr_targets, commit)
+def task_index_solr(solr_records, solr_records_checksum, commit=False, solr_targets=None, update_processed=True, priority=0):
+    app.index_solr(solr_records, solr_records_checksum, solr_targets, commit=commit, update_processed=update_processed, priority=priority)
 
 
 @app.task(queue='index-metrics')
-def task_index_metrics(metrics_records, priority=0, update_timestamps=True):
-    app.index_metrics(metrics_records)
+def task_index_metrics(metrics_records, metrics_records_checksum, update_processed=True, priority=0):
+    # todo: create insert and update lists before queuing?
+    app.index_metrics(metrics_records, metrics_records_checksum, priority=priority)
 
 
 @app.task(queue='index-data-links-resolver')
-def task_index_data_links_resolver(data_links_resolver_records, priority=0, update_timestamps=True):
-    app.index_datalinks(data_links_resolver_records, priority=priority, update_timestamps=update_timestamps)
+def task_index_data_links_resolver(links_data_records, links_data_records_checksum, update_processed=True, priority=0):
+    app.index_datalinks(links_data_records, links_data_records_checksum, priority=priority, update_processed=update_processed)
 
 
 def reindex_records(bibcodes, force=False, update_solr=True, update_metrics=True, update_links=True, commit=False,
-                    ignore_checksums=False, solr_targets=None, update_timestamps=True, priority=0):
+                    ignore_checksums=False, solr_targets=None, update_processed=True, priority=0):
     """Receives bibcodes that need production store updated
-
     Receives bibcodes and checks the database if we have all the
     necessary pieces to push to production store. If not, then postpone and
     send later.
-
     we consider a record to be ready for solr if these pieces were updated
     (and were updated later than the last 'processed' timestamp):
-
         - bib_data
         - nonbib_data
         - orcid_claims
     if the force flag is true only bib_data is needed
-
     for solr, 'fulltext' is not considered essential; but updates to fulltext will
     trigger a solr_update (so it might happen that a document will get
     indexed twice; first with only metadata and later on incl fulltext)
@@ -174,17 +168,16 @@ def reindex_records(bibcodes, force=False, update_solr=True, update_metrics=True
     solr_records = []
     metrics_records = []
     links_data_records = []
-    links_url = app.conf.get('LINKS_RESOLVER_UPDATE_URL')
     solr_records_checksum = []
     metrics_records_checksum = []
     links_data_records_checksum = []
-    
+    links_url = app.conf.get('LINKS_RESOLVER_UPDATE_URL')
+
     if update_solr:
         fields = None  # Load all the fields since solr records grab data from almost everywhere
     else:
         # Optimization: load only fields that will be used
-        fields = ['bibcode', 'augments_updated', 'bib_data_updated', 'fulltext_updated', 'metrics_updated',
-                  'nonbib_data_updated', 'orcid_claims_updated', 'processed']
+        fields = ['bibcode', 'augments_updated', 'bib_data_updated', 'fulltext_updated', 'metrics_updated', 'nonbib_data_updated', 'orcid_claims_updated', 'processed']
         if update_metrics:
             fields += ['metrics', 'metrics_checksum']
         if update_links:
@@ -225,7 +218,7 @@ def reindex_records(bibcodes, force=False, update_solr=True, update_metrics=True
                 logger.debug('Forced indexing of: %s (metadata=%s, orcid=%s, nonbib=%s, fulltext=%s, metrics=%s, augments=%s)' %
                              (bibcode, bib_data_updated, orcid_claims_updated, nonbib_data_updated, fulltext_updated,
                               metrics_updated, augments_updated))
-
+            # build the solr record
             if update_solr:
                 solr_payload = solr_updater.transform_json_record(r)
                 logger.debug('Built SOLR: %s', solr_payload)
@@ -236,6 +229,7 @@ def reindex_records(bibcodes, force=False, update_solr=True, update_metrics=True
                 else:
                     logger.debug('Checksum identical, skipping solr update for: %s', bibcode)
 
+            # get data for metrics
             if update_metrics:
                 metrics_payload = r.get('metrics', None)
                 metrics_checksum = app.checksum(metrics_payload)
@@ -262,20 +256,32 @@ def reindex_records(bibcodes, force=False, update_solr=True, update_metrics=True
                 logger.debug('%s not ready for indexing yet (metadata=%s, orcid=%s, nonbib=%s, fulltext=%s, metrics=%s, augments=%s)' %
                              (bibcode, bib_data_updated, orcid_claims_updated, nonbib_data_updated, fulltext_updated,
                               metrics_updated, augments_updated))
-                
     if solr_records:
-        task_index_solr.apply_async(args=(solr_records, solr_records_checksum),
-                                    kwargs={'priority': priority, 'commit': commit,
-                                            'solr_targets': solr_targets, 'update_timestamps': update_timestamps},
-                                    priority=priority)
+        task_index_solr.apply_async(
+            args=(solr_records, solr_records_checksum,),
+            kwargs={
+               'commit': commit,
+               'solr_targets': solr_targets,
+               'update_processed': update_processed
+            },
+            priority=priority
+        )
     if metrics_records:
-        task_index_metrics.apply_async(args=(metrics_records, metrics_records_checksum),
-                                       kwargs={'priority': priority, 'update_timestamps': update_timestamps},
-                                       priority=priority)
+        task_index_metrics.apply_async(
+            args=(metrics_records, metrics_records_checksum,),
+            kwargs={
+               'update_processed': update_processed
+            },
+            priority=priority
+        )
     if links_data_records:
-        task_index_data_links_resolver.apply_async(args=(links_data_records, links_data_records_checksum,),
-                                                   kwargs={'priority': priority, 'update_timestamps': update_timestamps},
-                                                   priority=priority)
+        task_index_data_links_resolver.apply_async(
+            args=(links_data_records, links_data_records_checksum,),
+            kwargs={
+               'update_processed': update_processed
+            },
+            priority=priority
+        )
 
 
 @app.task(queue='delete-records')

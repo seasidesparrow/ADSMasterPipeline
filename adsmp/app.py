@@ -254,7 +254,7 @@ class ADSMasterPipelineCelery(ADSCelery):
         else:
             return 'unknown'
 
-    def index_solr(self, solr_docs, solr_urls, commit=False, priority=0):
+    def index_solr(self, solr_docs, solr_docs_checksum, solr_urls, commit=False, priority=0, update_processed=True):
         """Sends documents to solr. It will update
         the solr_processed timestamp for every document which succeeded.
 
@@ -268,15 +268,17 @@ class ADSMasterPipelineCelery(ADSCelery):
         errs = [x for x in out if x != 200]
 
         if len(errs) == 0:
-            self.mark_processed([x['bibcode'] for x in solr_docs], type='solr')
+            if update_processed:
+                self.mark_processed([x['bibcode'] for x in solr_docs], checksums=solr_docs_checksum, type='solr', status='success')
         else:
             self.logger.error('%s docs failed indexing', len(errs))
             # recover from errors by sending docs one by one
-            for doc in solr_docs:
+            for doc, checksum in zip(solr_docs, solr_docs_checksum):
                 try:
                     self.logger.error('trying individual update_solr %s', doc)
                     solr_updater.update_solr([doc], solr_urls, ignore_errors=False, commit=commit)
-                    self.update_processed_timestamp(doc['bibcode'], type='solr')
+                    if update_processed:
+                        self.mark_processed((doc['bibcode'],), checksums=(checksum,), type='solr', status='success')
                     self.logger.debug('%s success', doc['bibcode'])
                 except Exception as e:
                     # if individual insert fails,
@@ -289,7 +291,8 @@ class ADSMasterPipelineCelery(ADSCelery):
                         tmp_doc.pop('body', None)
                         try:
                             solr_updater.update_solr([tmp_doc], solr_urls, ignore_errors=False, commit=commit)
-                            self.update_processed_timestamp(doc['bibcode'], type='solr')
+                            if update_processed:
+                                self.mark_processed((doc['bibcode'],), checksums=(checksum,), type='solr', status='success')
                             self.logger.debug('%s success without body', doc['bibcode'])
                         except Exception as e:
                             self.logger.error('Failed posting bibcode %s to Solr even without fulltext\nurls: %s, offending payload %s, error is  %s', failed_bibcode, solr_urls, doc, e)
@@ -299,39 +302,51 @@ class ADSMasterPipelineCelery(ADSCelery):
                         self.logger.error('Failed posting individual bibcode %s to Solr\nurls: %s, offending payload %s, error is %s', failed_bibcode, solr_urls, doc, e)
                         failed_bibcodes.append(failed_bibcode)
         # next update postgres record
-        self.index_complete(solr_docs, failed_bibcodes, 'solr')
-        return failed_bibcodes
+        if failed_bibcodes and update_processed:
+                self.mark_processed(failed_bibcodes, checksums=None, type='solr', status='solr-failed')
+        # self.index_complete(solr_docs, failed_bibcodes, 'solr')
+        # return failed_bibcodes
 
-    def mark_processed(self, bibcodes, type=None, status=None, update_timestamps=True):
-        """Updates the timesstamp for all documents that match the bibcodes.
-        Optionally also sets the status (which says what actually happened
-        with the document).
-
+    def mark_processed(self, bibcodes, checksums=None, type=None, status=None):
         """
-
-        if not self.update_timestamps or not update_timestamps:
-            return
+        Updates the timesstamp for all documents that match the bibcodes.
+        Optionally also sets the status (which says what actually happened
+        with the document) and the checksum.
+        Parameters bibcodes and checksums are expected to be lists of equal
+        size with correspondence one to one, except if checksum is None (in
+        this case, checksums are not updated).
+        """
 
         # avoid updating whole database (when the set is empty)
         if len(bibcodes) < 1:
             return
 
         if type == 'solr':
-            column = 'solr_processed'
+            timestamp_column = 'solr_processed'
+            checksum_column = 'solr_checksum'
         elif type == 'metrics':
-            column = 'metrics_processed'
+            timestamp_column = 'metrics_processed'
+            checksum_column = 'metrics_checksum'
         elif type == 'links':
-            column = 'datalinks_processed'
+            timestamp_column = 'datalinks_processed'
+            checksum_column = 'datalinks_checksum'
         else:
-            column = 'processed'
+            timestamp_column = 'processed'
+            checksum_column = None
 
         now = adsputils.get_date()
-        updt = {column: now}
+        updt = {timestamp_column: now}
+        updt['processed'] = now
         if status:
             updt['status'] = status
         self.logger.debug('Marking docs as processed: now=%s, num bibcodes=%s', now, len(bibcodes))
         with self.session_scope() as session:
-            session.query(Records).filter(Records.bibcode.in_(bibcodes)).update(updt, synchronize_session=False)
+            if checksum_column and checksums:
+                for bibcode, checksum in zip(bibcodes, checksums):
+                    updt[checksum_column] = checksum
+                    session.query(Records).filter_by(bibcode=bibcode).update(updt, synchronize_session=False)
+            else:
+                session.query(Records).filter(Records.bibcode.in_(bibcodes)).update(updt, synchronize_session=False)
             session.commit()
 
     def get_metrics(self, bibcode):
@@ -378,30 +393,78 @@ class ADSMasterPipelineCelery(ADSCelery):
         finally:
             s.close()
 
-    def index_metrics(self, batch, priority=0, update_timestamps=True):
-        # todo: need to pass update_timestamps
-        success, metrics_exception = self.update_metrics_db(batch)
-        bibcodes = [x['bibcode'] for x in batch]
-        failed = set(bibcodes) - set(success)
-        self.index_complete(batch, failed, 'metrics')
-        return failed
+    def index_metrics(self, batch, batch_checksum, priority=0, update_processed=True):
+        """Writes data into the metrics DB.
+        :param: batch - list of json objects to upsert into the metrics db
+        :return: tupple (list-of-processed-bibcodes, exception)
+        It tries hard to avoid raising exceptions; it will return the list
+        of bibcodes that were successfully updated. It will also update
+        metrics_processed timestamp in the records table for every bibcode that succeeded.
+        """
+        if not self._metrics_session:
+            raise Exception('You cant do this! Missing METRICS_SQLALACHEMY_URL?')
 
-    def index_datalinks(self, links_data, priority=0, update_timestamps=True):
+        self.logger.debug('Updating metrics db: len(batch)=%s', len(batch))
+        with self.metrics_session_scope() as session:
+            if len(batch):
+                trans = session.begin_nested()
+                try:
+                    # bulk upsert
+                    trans.session.execute(self._metrics_table_upsert, batch)
+                    trans.commit()
+                    if update_processed:
+                        self.mark_processed([x['bibcode'] for x in batch], checksums=batch_checksum, type='metrics', status='success')
+                except exc.SQLAlchemyError as e:
+                    # recover from errors by upserting data one by one
+                    trans.rollback()
+                    self.logger.error('Metrics insert batch failed, will upsert one by one %s recs', len(batch))
+                    failed_bibcodes = []
+                    for x, checksum in zip(batch, batch_checksum):
+                        try:
+                            trans.session.execute(self._metrics_table_upsert, [x])
+                            trans.commit()
+                            # self._metrics_upsert(x, session)
+                            if update_processed:
+                                self.mark_processed((x['bibcode'],), checksums=(checksum,), type='metrics', status='success')
+                        except Exception as e:
+                            failed_bibcode = x['bibcode']
+                            self.logger.exception('Failed posting individual bibcode %s to metrics', failed_bibcode)
+                            failed_bibcodes.append(failed_bibcode)
+                    if failed_bibcodes and update_processed:
+                        self.mark_processed(failed_bibcodes, checksums=None, type='metrics', status='metrics-failed')
+                except Exception as e:
+                    trans.rollback()
+                    self.logger.error('DB failure: %s', e)
+                    if update_processed:
+                        self.mark_processed([x['bibcode'] for x in batch], checksums=None, type='metrics', status='metrics-failed')
+
+    def index_datalinks(self, links_data, links_data_checksum, priority=0, update_processed=True):
         # todo is failed right?
         links_url = self.conf.get('LINKS_RESOLVER_UPDATE_URL')
         api_token = self.conf.get('ADS_API_TOKEN', '')
-        failed = []
         if len(links_data):
+            # bulk put request
             bibcodes = [x['bibcode'] for x in links_data]
             r = requests.put(links_url, data=json.dumps(links_data), headers={'Authorization': 'Bearer {}'.format(api_token)})
             if r.status_code == 200:
                 self.logger.info('sent %s datalinks to %s including %s', len(links_data), links_url, links_data[0])
+                if update_processed:
+                    self.mark_processed(bibcodes, checksums=links_data_checksum, type='links', status='success')
             else:
+                # recover from errors by issuing put requests one by one
                 self.logger.error('error sending links to %s, error = %s', links_url, r.text)
-                failed = bibcodes
-                self.mark_processed([x['bibcode'] for x in links_data], type=None, status='links-failed')
-        self.index_complete(links_data, failed, 'datalinks')
-        return failed
+                failed_bibcodes = []
+                for data, checksum in zip(links_data, links_data_checksum):
+                    r = requests.put(links_url, data=json.dumps([data]), headers={'Authorization': 'Bearer {}'.format(api_token)})
+                    if r.status_code == 200:
+                        self.logger.info('sent 1 datalinks to %s for bibcode %s', links_url, data.get('bibcode'))
+                        if update_processed:
+                            self.mark_processed(bibcodes, checksums=links_data_checksum, type='links', status='success')
+                    else:
+                        self.logger.error('error sending individual links to %s, error = %s', links_url, r.text)
+                        failed_bibcodes.append(data['bibcode'])
+                if failed_bibcodes and update_processed:
+                    self.mark_processed(failed_bibcodes, type='links', status='links-failed')
 
     def index_complete(self, batch, failed, kind):
         """update all state info in records database for last index
@@ -420,52 +483,15 @@ class ADSMasterPipelineCelery(ADSCelery):
                                           .options(_load_only('bibcode', kind + '_checksum',
                                                               kind + '_processed', 'status')) \
                                           .first()
-                setattr(r, kind + '_checksum', c)
+                if bibcode not in failed:
+                    setattr(r, kind + '_checksum', c)
+                    setattr(r, kind + '_processed', adsputils.get_date())
                 if bibcode in failed:
                     setattr(r, 'status', kind + '-failed')
-                elif getattr(r, 'status') == kind + '-failed':
+                    setattr(r, kind + '_checksum', None)
+                elif getattr(r, 'status') is None or getattr(r, 'status') == kind + '-failed':
                     setattr(r, 'status', 'success')
-                setattr(r, kind + '_processed', adsputils.get_date())
                 session.commit()
-
-    def update_metrics_db(self, batch, update_timestamps=True):
-        """Writes data into the metrics DB.
-        :param: batch - list of json objects to upsert into the metrics db
-        :return: tupple (list-of-processed-bibcodes, exception)
-
-        It tries hard to avoid raising exceptions; it will return the list
-        of bibcodes that were successfully updated. It will also update
-        metrics_processed timestamp in the records table for every bibcode that succeeded.
-
-        """
-        if not self._metrics_session:
-            raise Exception('You cant do this! Missing METRICS_SQLALACHEMY_URL?')
-
-        self.logger.debug('Updating metrics db: len(batch)=%s', len(batch))
-        out = []
-        with self.metrics_session_scope() as session:
-            if len(batch):
-                trans = session.begin_nested()
-                try:
-                    trans.session.execute(self._metrics_table_upsert, batch)
-                    trans.commit()
-                    out = [x['bibcode'] for x in batch]
-                except exc.SQLAlchemyError as e:
-                    trans.rollback()
-                    self.logger.error('Metrics insert batch failed, will upsert one by one %s recs', len(batch))
-                    for x in batch:
-                        try:
-                            self._metrics_upsert(x, session)
-                            out.append(x['bibcode'])
-                        except Exception as e:
-                            self.logger.error('Failure while updating single metrics record: %s', e)
-                except Exception as e:
-                    trans.rollback()
-                    self.logger.error('DB failure: %s', e)
-                    self.mark_processed(out, type='metrics')
-                    return out, e
-        self.mark_processed(out, type='metrics', update_timestamps=update_timestamps)
-        return out, None
 
     def metrics_delete_by_bibcode(self, bibcode):
         with self.metrics_session_scope() as session:

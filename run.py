@@ -309,7 +309,7 @@ def reindex_failed_bibcodes(app):
                        'update_metrics': True,
                        'update_links': True,
                        'ignore_checksums': True,
-                       'update_timestamps': True,
+                       'update_processed': True,
                        'priority': 0
                     },
                     priority=0
@@ -325,7 +325,7 @@ def reindex_failed_bibcodes(app):
                    'update_metrics': True,
                    'update_links': True,
                    'ignore_checksums': True,
-                   'update_timestamps': True,
+                   'update_processed': True,
                    'priority': 0
                 },
                 priority=0
@@ -447,6 +447,11 @@ if __name__ == '__main__':
                         default=0,
                         type=int,
                         help='priority to use in queue, typically cron jobs use a high priority.  preferred values are 0 to 10 where 10 is the highest priority (https://docs.celeryproject.org/en/stable/userguide/calling.html#advanced-options)')
+    parser.add_argument('--update-processed',
+                        action='store_true',
+                        default='False',
+                        dest='update_processed',
+                        help='on indexx should we update timestamps and other state info in records table')
 
     args = parser.parse_args()
 
@@ -469,7 +474,7 @@ if __name__ == '__main__':
                   'doctype_facet_hier',
                   'doi', 'eid', 'editor', 'email', 'entry_date', 'esources', 'facility', 'first_author', 'first_author_facet_hier',
                   'first_author_norm', 'fulltext_mtime', 'grant', 'grant_facet_hier', 'id', 'identifier', 'indexstamp',
-                  'isbn', 'issn', 'issue', 'keyword', 'keyword_facet', 'keyword_norm', 'keyword_schema', 'lang',
+                  'ISBN', 'ISSN', 'issue', 'keyword', 'keyword_facet', 'keyword_norm', 'keyword_schema', 'lang',
                   'links_data', 'metadata_mtime', 'metrics_mtime', 'nedid', 'nedtype', 'ned_object_facet_hier',
                   'nonbib_mtime',
                   'origin', 'orcid_mtime', 'orcid', 'orcid_pub', 'orcid_user', 'orcid_other', 'page', 'page_range',
@@ -530,13 +535,14 @@ if __name__ == '__main__':
                         tasks.task_index_records.apply_async(
                             args=(bibs,),
                             kwargs={
-                               'force': True,
-                               'update_solr': update_solr,
-                               'update_metrics': update_metrics,
-                               'update_links': update_links,
-                               'ignore_checksums': args.ignore_checksums,
-                               'solr_targets': solr_urls,
-                               'priority': args.priority
+                                'force': True,
+                                'update_solr': update_solr,
+                                'update_metrics': update_metrics,
+                                'update_links': update_links,
+                                'ignore_checksums': args.ignore_checksums,
+                                'solr_targets': solr_urls,
+                                'priority': args.priority,
+                                'update_processed': args.update_processed
                             },
                             priority=args.priority
                         )
@@ -545,13 +551,14 @@ if __name__ == '__main__':
                     tasks.task_index_records.apply_async(
                         args=(bibs,),
                         kwargs={
-                           'force': True,
-                           'update_solr': update_solr,
-                           'update_metrics': update_metrics,
-                           'update_links': update_links,
-                           'ignore_checksums': args.ignore_checksums,
-                           'solr_targets': solr_urls,
-                           'priority': args.priority
+                            'force': True,
+                            'update_solr': update_solr,
+                            'update_metrics': update_metrics,
+                            'update_links': update_links,
+                            'ignore_checksums': args.ignore_checksums,
+                            'solr_targets': solr_urls,
+                            'priority': args.priority,
+                            'update_processed': args.update_processed
                         },
                         priority=args.priority
                     )

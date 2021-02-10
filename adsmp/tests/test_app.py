@@ -60,7 +60,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
         assert self.app.conf.get('SQLALCHEMY_URL') == 'sqlite:///'
 
     def test_mark_processed(self):
-        self.app.mark_processed(['abc'], type=app.ProductionStores.solr, status='success')
+        self.app.mark_processed(['abc'], checksums=['jkl'], type=app.ProductionStores.solr, status='success')
         r = self.app.get_record('abc')
         self.assertEqual(r, None)
         

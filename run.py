@@ -78,6 +78,7 @@ def diagnostics(bibcodes):
            'update_metrics': True,
            'update_links': True,
            'ignore_checksums': True,
+           'update_processed': False,
            'priority': 0
         },
         priority=0
@@ -94,7 +95,8 @@ def print_kvs():
 
 
 def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True, update_metrics=True,
-            update_links=True, force_processing=False, ignore_checksums=False, solr_targets=None, priority=0):
+            update_links=True, force_processing=False, ignore_checksums=False, solr_targets=None,
+            update_processed=True, priority=0):
     """
     Initiates routing of the records (everything that was updated)
     since point in time T.
@@ -170,6 +172,7 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
                            'update_links': update_links,
                            'ignore_checksums': ignore_checksums,
                            'solr_targets': solr_targets,
+                           'update_processed': update_processed,
                            'priority': priority
                         },
                         priority=priority
@@ -188,6 +191,7 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
                    'commit': force_indexing,
                    'ignore_checksums': ignore_checksums,
                    'solr_targets': solr_targets,
+                   'update_processed': update_processed,
                    'priority': priority
                 },
                 priority=priority
@@ -204,6 +208,7 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
                    'commit': force_indexing,
                    'ignore_checksums': ignore_checksums,
                    'solr_targets': solr_targets,
+                   'update_processed': update_processed,
                    'priority': priority
                 },
                 priority=priority
@@ -285,7 +290,7 @@ def rebuild_collection(collection_name):
     logger.info('Done rebuilding collection %s, sent %s records', collection_name, sent)
 
 
-def reindex_failed_bibcodes(app):
+def reindex_failed_bibcodes(app, update_processed=True):
     """from status field in records table we compute what failed"""
     bibs = []
     count = 0
@@ -309,7 +314,7 @@ def reindex_failed_bibcodes(app):
                        'update_metrics': True,
                        'update_links': True,
                        'ignore_checksums': True,
-                       'update_processed': True,
+                       'update_processed': update_processed,
                        'priority': 0
                     },
                     priority=0
@@ -325,7 +330,7 @@ def reindex_failed_bibcodes(app):
                    'update_metrics': True,
                    'update_links': True,
                    'ignore_checksums': True,
-                   'update_processed': True,
+                   'update_processed': update_processed,
                    'priority': 0
                 },
                 priority=0
@@ -449,9 +454,9 @@ if __name__ == '__main__':
                         help='priority to use in queue, typically cron jobs use a high priority.  preferred values are 0 to 10 where 10 is the highest priority (https://docs.celeryproject.org/en/stable/userguide/calling.html#advanced-options)')
     parser.add_argument('--update-processed',
                         action='store_true',
-                        default='False',
+                        default=False,
                         dest='update_processed',
-                        help='on indexx should we update timestamps and other state info in records table')
+                        help='update processed timestamps and other state info in records table when a record is indexed')
 
     args = parser.parse_args()
 
@@ -568,8 +573,9 @@ if __name__ == '__main__':
             reindex(since=args.since, batch_size=args.batch_size, force_indexing=args.force_indexing,
                     update_solr=update_solr, update_metrics=update_metrics,
                     update_links=update_links, force_processing=args.force_processing, ignore_checksums=args.ignore_checksums,
-                    solr_targets=solr_urls, priority=args.priority)
+                    solr_targets=solr_urls, update_processed=args.update_processed, priority=args.priority)
 
     elif args.reindex_failed:
-        reindex_failed_bibcodes(app)
+        reindex_failed_bibcodes(app, args.update_processed)
+
 

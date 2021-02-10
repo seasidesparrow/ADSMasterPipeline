@@ -146,10 +146,9 @@ def run():
         logger.info('Deleting the lock; congratulations on your new solr collection!')
         os.remove(lockfile)
     except Exception as e:
-        logger.error('Failed; we will keep the process permanently locked: %s' % (e,))
+        logger.exception('Failed; we will keep the process permanently locked')
         data['last-exception'] = str(e)
         write_lockfile(lockfile, data)
-
 
 
 def execute(command, **kwargs):

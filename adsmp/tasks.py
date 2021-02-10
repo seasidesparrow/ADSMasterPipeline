@@ -126,19 +126,19 @@ def task_index_records(bibcodes, force=False, update_solr=True, update_metrics=T
 
 
 @app.task(queue='index-solr')
-def task_index_solr(solr_records, solr_records_checksum, commit=False, solr_targets=None, update_processed=True, priority=0):
-    app.index_solr(solr_records, solr_records_checksum, solr_targets, commit=commit, update_processed=update_processed, priority=priority)
+def task_index_solr(solr_records, solr_records_checksum, commit=False, solr_targets=None, update_processed=True):
+    app.index_solr(solr_records, solr_records_checksum, solr_targets, commit=commit, update_processed=update_processed)
 
 
 @app.task(queue='index-metrics')
-def task_index_metrics(metrics_records, metrics_records_checksum, update_processed=True, priority=0):
+def task_index_metrics(metrics_records, metrics_records_checksum, update_processed=True):
     # todo: create insert and update lists before queuing?
-    app.index_metrics(metrics_records, metrics_records_checksum, priority=priority)
+    app.index_metrics(metrics_records, metrics_records_checksum)
 
 
 @app.task(queue='index-data-links-resolver')
-def task_index_data_links_resolver(links_data_records, links_data_records_checksum, update_processed=True, priority=0):
-    app.index_datalinks(links_data_records, links_data_records_checksum, priority=priority, update_processed=update_processed)
+def task_index_data_links_resolver(links_data_records, links_data_records_checksum, update_processed=True):
+    app.index_datalinks(links_data_records, links_data_records_checksum, update_processed=update_processed)
 
 
 def reindex_records(bibcodes, force=False, update_solr=True, update_metrics=True, update_links=True, commit=False,
@@ -263,24 +263,21 @@ def reindex_records(bibcodes, force=False, update_solr=True, update_metrics=True
                'commit': commit,
                'solr_targets': solr_targets,
                'update_processed': update_processed
-            },
-            priority=priority
+            }
         )
     if metrics_records:
         task_index_metrics.apply_async(
             args=(metrics_records, metrics_records_checksum,),
             kwargs={
                'update_processed': update_processed
-            },
-            priority=priority
+            }
         )
     if links_data_records:
         task_index_data_links_resolver.apply_async(
             args=(links_data_records, links_data_records_checksum,),
             kwargs={
                'update_processed': update_processed
-            },
-            priority=priority
+            }
         )
 
 

@@ -59,40 +59,19 @@ class TestAdsOrcidCelery(unittest.TestCase):
         assert self.app._config.get('SQLALCHEMY_URL') == 'sqlite:///'
         assert self.app.conf.get('SQLALCHEMY_URL') == 'sqlite:///'
 
-    def test_update_processed_timestamp(self):
-        self.app.update_storage('abc', 'bib_data', {'bibcode': 'abc', 'hey': 1})
-        self.app.update_processed_timestamp('abc', 'solr')
-        with self.app.session_scope() as session:
-            r = session.query(models.Records).filter_by(bibcode='abc').first()
-            self.assertFalse(r.processed)
-            self.assertFalse(r.metrics_processed)
-            self.assertTrue(r.solr_processed)
-        self.app.update_processed_timestamp('abc', 'metrics')
-        with self.app.session_scope() as session:
-            r = session.query(models.Records).filter_by(bibcode='abc').first()
-            self.assertFalse(r.processed)
-            self.assertTrue(r.metrics_processed)
-            self.assertTrue(r.solr_processed)
-        self.app.update_processed_timestamp('abc')
-        with self.app.session_scope() as session:
-            r = session.query(models.Records).filter_by(bibcode='abc').first()
-            self.assertTrue(r.processed)
-            self.assertTrue(r.metrics_processed)
-            self.assertTrue(r.solr_processed)
-        
     def test_mark_processed(self):
-        self.app.mark_processed(['abc'], type='solr', status='success')
+        self.app.mark_processed(['abc'], type=app.ProductionStores.solr, status='success')
         r = self.app.get_record('abc')
         self.assertEqual(r, None)
         
         self.app.update_storage('abc', 'bib_data', {'bibcode': 'abc', 'hey': 1})
-        self.app.mark_processed(['abc'], type='solr', status='success')
+        self.app.mark_processed(['abc'], checksums=['jkl'], type=app.ProductionStores.solr, status='success')
         r = self.app.get_record('abc')
         
         self.assertTrue(r['solr_processed'])
         self.assertTrue(r['status'])
 
-        self.app.mark_processed(['abc'], type='solr', status='solr-failed')
+        self.app.mark_processed(['abc'], checksums=['jkl'], type=app.ProductionStores.solr, status='solr-failed')
         r = self.app.get_record('abc')
         self.assertTrue(r['solr_processed'])
         self.assertTrue(r['processed'])
@@ -158,8 +137,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
         # pretend failure and then lots more failure
         # update_solr should try to send two records together and then
         #   each record by itself twice: once as is and once without fulltext
-        with mock.patch('adsmp.solr_updater.update_solr') as us, \
-                mock.patch.object(self.app, 'update_processed_timestamp') as upt:
+        with mock.patch('adsmp.solr_updater.update_solr') as us:
             us.side_effect = [[503, 503],
                               Exception('body failed'), Exception('body failed'),
                               Exception('body failed'), Exception('body failed')]
@@ -168,20 +146,15 @@ class TestAdsOrcidCelery(unittest.TestCase):
                                 ['checksum1', 'checksum2'],
                                 ['http://solr1'])
             self.assertEqual(us.call_count, 5)
-            # self.assertTrue(len(failed) == 2)
-            self.assertEqual(upt.call_count, 0)
 
         # pretend failure and and then failure for a mix of reasons
-        with mock.patch('adsmp.solr_updater.update_solr') as us, \
-                mock.patch.object(self.app, 'update_processed_timestamp') as upt:
+        with mock.patch('adsmp.solr_updater.update_solr') as us:
             us.side_effect = [[503, 503], Exception('body failed'), Exception('failed'), Exception('failed')]
             self.app.index_solr([{'bibcode': 'abc', 'body': 'bad body'},
                                  {'bibcode': 'foo', 'body': 'good body'}],
                                 ['checksum1', 'checksum2'],
                                 ['http://solr1'])
             self.assertEqual(us.call_count, 4)
-            # self.assertTrue(len(failed) == 2)
-            self.assertEqual(upt.call_count, 0)
             if sys.version_info > (3,):
                 call_dict = "{'bibcode': 'foo', 'body': 'good body'}"
             else:
@@ -277,7 +250,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
         self.assertEqual(r['id'], 1)
         self.assertFalse('processed' in r)
         
-        self.app.update_processed_timestamp('abc')
+        self.app.mark_processed(['abc'])
         r = self.app.get_record('abc')
         self.assertTrue(r['processed'] > now)
         

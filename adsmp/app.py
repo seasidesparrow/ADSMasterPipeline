@@ -18,10 +18,10 @@ import zlib
 import requests
 from copy import deepcopy
 import sys
-from enum import Enum
+# from enum import Enum
 from sqlalchemy.dialects.postgresql import insert
 
-ProductionStores = Enum('solr', 'metrics', 'links')
+# ProductionStores = Enum('solr', 'metrics', 'links')
 
 
 class ADSMasterPipelineCelery(ADSCelery):
@@ -253,7 +253,7 @@ class ADSMasterPipelineCelery(ADSCelery):
 
         if len(errs) == 0:
             if update_processed:
-                self.mark_processed([x['bibcode'] for x in solr_docs], checksums=solr_docs_checksum, type=ProductionStores.solr, status='success')
+                self.mark_processed([x['bibcode'] for x in solr_docs], checksums=solr_docs_checksum, type='solr', status='success')
         else:
             self.logger.error('%s docs failed indexing', len(errs))
             failed_bibcodes = []
@@ -263,7 +263,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                     self.logger.error('trying individual update_solr %s', doc)
                     solr_updater.update_solr([doc], solr_urls, ignore_errors=False, commit=commit)
                     if update_processed:
-                        self.mark_processed((doc['bibcode'],), checksums=(checksum,), type=ProductionStores.solr, status='success')
+                        self.mark_processed((doc['bibcode'],), checksums=(checksum,), type='solr', status='success')
                     self.logger.debug('%s success', doc['bibcode'])
                 except Exception as e:
                     # if individual insert fails,
@@ -277,7 +277,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                         try:
                             solr_updater.update_solr([tmp_doc], solr_urls, ignore_errors=False, commit=commit)
                             if update_processed:
-                                self.mark_processed((doc['bibcode'],), checksums=(checksum,), type=ProductionStores.solr, status='success')
+                                self.mark_processed((doc['bibcode'],), checksums=(checksum,), type='solr', status='success')
                             self.logger.debug('%s success without body', doc['bibcode'])
                         except Exception as e:
                             self.logger.exception('Failed posting bibcode %s to Solr even without fulltext (urls: %s)', failed_bibcode, solr_urls)
@@ -288,7 +288,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                         failed_bibcodes.append(failed_bibcode)
             # finally update postgres record
             if failed_bibcodes and update_processed:
-                self.mark_processed(failed_bibcodes, checksums=None, type=ProductionStores.solr, status='solr-failed')
+                self.mark_processed(failed_bibcodes, checksums=None, type='solr', status='solr-failed')
 
     def mark_processed(self, bibcodes, checksums=None, type=None, status=None):
         """
@@ -316,13 +316,13 @@ class ADSMasterPipelineCelery(ADSCelery):
                 session.query(Records).filter(Records.bibcode.in_(bibcodes)).update(updt, synchronize_session=False)
             session.commit()
         else:
-            if type == ProductionStores.solr:
+            if type == 'solr':
                 timestamp_column = 'solr_processed'
                 checksum_column = 'solr_checksum'
-            elif type == ProductionStores.metrics:
+            elif type == 'metrics':
                 timestamp_column = 'metrics_processed'
                 checksum_column = 'metrics_checksum'
-            elif type == ProductionStores.links:
+            elif type == 'links':
                 timestamp_column = 'datalinks_processed'
                 checksum_column = 'datalinks_checksum'
             updt[timestamp_column] = now
@@ -397,7 +397,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                     trans.session.execute(self._metrics_table_upsert, batch)
                     trans.commit()
                     if update_processed:
-                        self.mark_processed([x['bibcode'] for x in batch], checksums=batch_checksum, type=ProductionStores.metrics, status='success')
+                        self.mark_processed([x['bibcode'] for x in batch], checksums=batch_checksum, type='metrics', status='success')
                 except exc.SQLAlchemyError as e:
                     # recover from errors by upserting data one by one
                     trans.rollback()
@@ -408,18 +408,18 @@ class ADSMasterPipelineCelery(ADSCelery):
                             trans.session.execute(self._metrics_table_upsert, [x])
                             trans.commit()
                             if update_processed:
-                                self.mark_processed((x['bibcode'],), checksums=(checksum,), type=ProductionStores.metrics, status='success')
+                                self.mark_processed((x['bibcode'],), checksums=(checksum,), type='metrics', status='success')
                         except Exception as e:
                             failed_bibcode = x['bibcode']
                             self.logger.exception('Failed posting individual bibcode %s to metrics', failed_bibcode)
                             failed_bibcodes.append(failed_bibcode)
                     if failed_bibcodes and update_processed:
-                        self.mark_processed(failed_bibcodes, checksums=None, type=ProductionStores.metrics, status='metrics-failed')
+                        self.mark_processed(failed_bibcodes, checksums=None, type='metrics', status='metrics-failed')
                 except Exception as e:
                     trans.rollback()
                     self.logger.error('DB failure: %s', e)
                     if update_processed:
-                        self.mark_processed([x['bibcode'] for x in batch], checksums=None, type=ProductionStores.metrics, status='metrics-failed')
+                        self.mark_processed([x['bibcode'] for x in batch], checksums=None, type='metrics', status='metrics-failed')
 
     def index_datalinks(self, links_data, links_data_checksum, update_processed=True):
         # todo is failed right?
@@ -432,7 +432,7 @@ class ADSMasterPipelineCelery(ADSCelery):
             if r.status_code == 200:
                 self.logger.info('sent %s datalinks to %s including %s', len(links_data), links_url, links_data[0])
                 if update_processed:
-                    self.mark_processed(bibcodes, checksums=links_data_checksum, type=ProductionStores.links, status='success')
+                    self.mark_processed(bibcodes, checksums=links_data_checksum, type='links', status='success')
             else:
                 # recover from errors by issuing put requests one by one
                 self.logger.error('error sending links to %s, error = %s', links_url, r.text)
@@ -442,12 +442,12 @@ class ADSMasterPipelineCelery(ADSCelery):
                     if r.status_code == 200:
                         self.logger.info('sent 1 datalinks to %s for bibcode %s', links_url, data.get('bibcode'))
                         if update_processed:
-                            self.mark_processed(bibcodes, checksums=links_data_checksum, type=ProductionStores.links, status='success')
+                            self.mark_processed(bibcodes, checksums=links_data_checksum, type='links', status='success')
                     else:
                         self.logger.error('error sending individual links to %s, error = %s', links_url, r.text)
                         failed_bibcodes.append(data['bibcode'])
                 if failed_bibcodes and update_processed:
-                    self.mark_processed(failed_bibcodes, type=ProductionStores.links, status='links-failed')
+                    self.mark_processed(failed_bibcodes, type='links', status='links-failed')
 
     def metrics_delete_by_bibcode(self, bibcode):
         with self.metrics_session_scope() as session:

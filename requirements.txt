@@ -1,6 +1,5 @@
 adsputils==1.2.8
 alembic==0.9.1
-enum==0.4.7
 portalocker==1.7.1
 psycopg2==2.8.6
 pyrabbit==1.1.0

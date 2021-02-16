@@ -18,10 +18,7 @@ import zlib
 import requests
 from copy import deepcopy
 import sys
-# from enum import Enum
 from sqlalchemy.dialects.postgresql import insert
-
-# ProductionStores = Enum('solr', 'metrics', 'links')
 
 
 class ADSMasterPipelineCelery(ADSCelery):

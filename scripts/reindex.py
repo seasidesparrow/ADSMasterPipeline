@@ -65,7 +65,7 @@ def run():
         logger.info('We are starting the indexing into collection2; once finished; we will automatically activate the new core')
 
         logger.info('First, we will delete all documents from collection2')
-        r = requests.get(update_url + '?commit=true&stream.body=%3Cdelete%3E%3Cquery%3E*%3A*%3C/query%3E%3C/delete%3E&waitSearcher=true', timeout=60*60)
+        r = r = requests.post(update_url, data={'commit': 'true', "delete":{"query":"*:*"}, 'waitSearcher': 'true'}, timeout=60*60)
         r.raise_for_status()
         logger.info('Done deleting all docs from collection2')
 
@@ -110,7 +110,7 @@ def run():
                 beans = r.json()[u'solr-mbeans']
                 for bean in beans:
                     if type(bean) is dict and 'searcher' in bean:
-                        t = str_to_datetime(bean['searcher']['stats']['registeredAt'])
+                        t = str_to_datetime(bean['searcher']['stats']['SEARCHER.searcher.registeredAt'])
                         logger.info('waiting for solr commit to complete, commit_time: %s, searcher registeredAt: %s' % (commit_time, t,))
                         if t > commit_time:
                             finished = True
@@ -138,9 +138,9 @@ def run():
         time.sleep(5)
 
         # verify the new core is loaded
-        # new_cores = requests.get(cores_url + '?wt=json').json()
-        # assert cores['status']['collection2']['dataDir'] == new_cores['status']['collection1']['dataDir']
-        # logger.info('Verified the new collection is in place')
+        new_cores = requests.get(cores_url + '?wt=json').json()
+        assert cores['status']['collection2']['dataDir'] == new_cores['status']['collection1']['dataDir']
+        logger.info('Verified the new collection is in place')
 
 
         logger.info('Deleting the lock; congratulations on your new solr collection!')
@@ -169,7 +169,7 @@ def write_lockfile(lockfile, data):
 
 
 def verify_collection2_size(data):
-    if data['index'].get('numDocs', 0) <= 14150713:
+    if data['index'].get('numDocs', 0) <= 15117785:
         raise Exception('Too few documents in the new index: %s' % data['index'].get('numDocs', 0))
     if data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0) <= 146.0: # index size at least 146GB
         raise Exception('The index is suspiciously small: %s' % (data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0),))

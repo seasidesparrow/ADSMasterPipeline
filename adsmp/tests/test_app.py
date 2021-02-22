@@ -60,18 +60,18 @@ class TestAdsOrcidCelery(unittest.TestCase):
         assert self.app.conf.get('SQLALCHEMY_URL') == 'sqlite:///'
 
     def test_mark_processed(self):
-        self.app.mark_processed(['abc'], checksums=['jkl'], type='solr', status='success')
+        self.app.mark_processed(['abc'], 'solr', checksums=['jkl'], status='success')
         r = self.app.get_record('abc')
         self.assertEqual(r, None)
         
         self.app.update_storage('abc', 'bib_data', {'bibcode': 'abc', 'hey': 1})
-        self.app.mark_processed(['abc'], checksums=['jkl'], type='solr', status='success')
+        self.app.mark_processed(['abc'], 'solr', checksums=['jkl'], status='success')
         r = self.app.get_record('abc')
         
         self.assertTrue(r['solr_processed'])
         self.assertTrue(r['status'])
 
-        self.app.mark_processed(['abc'], checksums=['jkl'], type='solr', status='solr-failed')
+        self.app.mark_processed(['abc'], 'solr', checksums=['jkl'], status='solr-failed')
         r = self.app.get_record('abc')
         self.assertTrue(r['solr_processed'])
         self.assertTrue(r['processed'])
@@ -249,10 +249,10 @@ class TestAdsOrcidCelery(unittest.TestCase):
         r = self.app.get_record('abc', load_only=['id'])
         self.assertEqual(r['id'], 1)
         self.assertFalse('processed' in r)
-        
-        self.app.mark_processed(['abc'])
-        r = self.app.get_record('abc')
-        self.assertTrue(r['processed'] > now)
+
+        with self.assertRaises(ValueError) as e:
+            self.app.mark_processed(['abc'], 'foobar')
+            self.assertTrue('foobar' in e.exception)
         
         # now delete it
         self.app.delete_by_bibcode('abc')

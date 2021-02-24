@@ -5,7 +5,7 @@ import unittest
 import json
 
 from scripts import reindex
-
+import scripts
 
 class TestReindex(unittest.TestCase):
 
@@ -29,7 +29,7 @@ class TestReindex(unittest.TestCase):
         with patch('scripts.reindex.execute', return_value=(0, None, None)):
             with patch('os.path.exists', return_value=False):
                 with patch('requests.get', solr_responses):
-                    with patch('scripts.reindex.datetime', return_value=commit_time):
+                    with patch('scripts.reindex.utc', return_value=commit_time):
                         with patch('time.sleep', return_value=None):
                             x = reindex.run()
                             # reindex raises exceptions on errors

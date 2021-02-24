@@ -92,7 +92,7 @@ def run():
         monitor_solr_writes()
 
         # issue commit
-        commit_time = datetime.datetime.utcnow()
+        commit_time = utc()
         r = requests.get(update_url + '?commit=true&waitSearcher=false')
         r.raise_for_status()
         logger.info('Issued async commit to SOLR')
@@ -114,7 +114,7 @@ def run():
                         logger.info('waiting for solr commit to complete, commit_time: %s, searcher registeredAt: %s' % (commit_time, t,))
                         if t > commit_time:
                             finished = True
-                        time_waiting = datetime.datetime.utcnow() - commit_time
+                        time_waiting = utc() - commit_time
                         if (time_waiting.seconds > 3600):
                             logger.warn('Solr commit running for over an hour, aborting')
                             raise
@@ -150,6 +150,11 @@ def run():
         data['last-exception'] = str(e)
         write_lockfile(lockfile, data)
         sys.exit(1)
+
+
+def utc():
+    # code is in a separte function for easy mocking
+    return datetime.datetime.utcnow()
 
 
 def execute(command, **kwargs):

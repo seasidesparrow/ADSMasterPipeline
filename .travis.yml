@@ -20,8 +20,7 @@ after_success:
   - "coveralls"
 
 after_failure:
-  - echo == in travis after_failure ==
-  - cat logs/*.log && sleep 10
+  - cat logs/rebuild.log && sleep 10
   - cat rebuild.locked && sleep 10
 
 notifications:
@@ -34,8 +33,3 @@ addons:
 
 before_script:
   - psql -c 'create database metrics;' -U postgres
-
-after_acript:
-  - echo = after script =
-  - cat logs/rebuild.log & sleep 5
-  - cat rebuild.locked & sleep 10

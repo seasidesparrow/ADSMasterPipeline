@@ -19,6 +19,10 @@ script:
 after_success:
   - "coveralls"
 
+after_failure:
+  - "cat logs/*.log"
+  - "cat rebuild.locked"
+
 notifications:
   email: false
 

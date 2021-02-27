@@ -135,7 +135,7 @@ def run():
         logger.info('Swapped collection1 with collection2')
 
         logger.info('Going to sleep for few secs...')
-        time.sleep(5)
+        time.sleep(30)
 
         # verify the new core is loaded
         new_cores = requests.get(cores_url + '?wt=json').json()
@@ -149,7 +149,7 @@ def run():
         logger.error('Failed; we will keep the process permanently locked: %s' % (e,))
         data['last-exception'] = str(e)
         write_lockfile(lockfile, data)
-
+        raise
 
 
 def execute(command, **kwargs):

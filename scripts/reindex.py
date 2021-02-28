@@ -64,6 +64,7 @@ def run():
         logger.info('We are starting the indexing into collection2; once finished; we will automatically activate the new core')
 
         logger.info('First, we will delete all documents from collection2')
+
         r = requests.post(update_url, data={'commit': 'true', "delete":{"query":"*:*"}, 'waitSearcher': 'true'}, timeout=60*60)
         r.raise_for_status()
         logger.info('Done deleting all docs from collection2')
@@ -134,7 +135,7 @@ def run():
         logger.info('Swapped collection1 with collection2')
 
         logger.info('Going to sleep for few secs...')
-        time.sleep(5)
+        time.sleep(30)
 
         # verify the new core is loaded
         new_cores = requests.get(cores_url + '?wt=json').json()

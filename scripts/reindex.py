@@ -41,6 +41,11 @@ cores_url = get_solr_url('/admin/cores')
 update_url = get_solr_url('/collection2/update')
 mbean_url = get_solr_url('/collection2/admin/mbeans?stats=true&wt=json')
 
+def assert_different(dirname1, dirname2):
+    assert dirname1 != dirname2
+
+def assert_same(dirname1, dirname2):
+    assert dirname1 == dirname2
 
 def run():
     # it is important that we do not run multiple times
@@ -60,7 +65,7 @@ def run():
         if set(cores['status'].keys()) != set(['collection1', 'collection2']):
             raise Exception('we dont have both cores available')
 
-        assert cores['status']['collection2']['dataDir'] != cores['status']['collection1']['dataDir']
+        assert_different(cores['status']['collection2']['dataDir'], cores['status']['collection1']['dataDir'])
 
         logger.info('We are starting the indexing into collection2; once finished; we will automatically activate the new core')
 
@@ -139,7 +144,7 @@ def run():
 
         # verify the new core is loaded
         new_cores = requests.get(cores_url + '?wt=json').json()
-        assert cores['status']['collection2']['dataDir'] == new_cores['status']['collection1']['dataDir']
+        assert_same(cores['status']['collection2']['dataDir'], new_cores['status']['collection1']['dataDir'])
         logger.info('Verified the new collection is in place')
 
 

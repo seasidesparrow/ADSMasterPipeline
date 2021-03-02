@@ -33,10 +33,9 @@ class TestReindex(unittest.TestCase):
                         with patch('scripts.reindex.datetime', return_value=commit_time):
                             with patch('time.sleep', return_value=None):
                                 with patch('scripts.reindex.assert_same', return_value=None):
-                                    with patch('scripts.reindex.assert_different', return_value=None):
-                                        # https://github.com/adsabs/ADSMasterPipeline/pull/153
-                                        x = reindex.run()
-                                        # reindex raises exceptions on errors
+                                    # https://github.com/adsabs/ADSMasterPipeline/pull/153
+                                    x = reindex.run()
+                                    # reindex raises exceptions on errors
 
     def test_date(self):
         # we have seen dates from solr with and without milliseconds

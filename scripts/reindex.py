@@ -65,7 +65,7 @@ def run():
         logger.info('We are starting the indexing into collection2; once finished; we will automatically activate the new core')
 
         logger.info('First, we will delete all documents from collection2')
-        r = r = requests.post(update_url, data={'commit': 'true', "delete":{"query":"*:*"}, 'waitSearcher': 'true'}, timeout=60*60)
+        r = requests.post(update_url, data={'commit': 'true', "delete":{"query":"*:*"}, 'waitSearcher': 'true'}, timeout=60*60)
         r.raise_for_status()
         logger.info('Done deleting all docs from collection2')
 
@@ -146,10 +146,10 @@ def run():
         logger.info('Deleting the lock; congratulations on your new solr collection!')
         os.remove(lockfile)
     except Exception as e:
-        logger.error('Failed; we will keep the process permanently locked: %s' % (e,))
+        logger.exception('Failed; we will keep the process permanently locked')
         data['last-exception'] = str(e)
         write_lockfile(lockfile, data)
-        raise
+        sys.exit(1)
 
 
 def execute(command, **kwargs):
@@ -208,7 +208,7 @@ def monitor_solr_writes():
             beans = r.json()[u'solr-mbeans']
             for bean in beans:
                 if type(bean) is dict and 'updateHandler' in bean:
-                    current_docs_pending = bean['updateHandler']['stats']['docsPending']
+                    current_docs_pending = bean['updateHandler']['stats']['UPDATE.updateHandler.docsPending']
             if current_docs_pending == previous_docs_pending:
                 consecutive_match_count += 1
             else:

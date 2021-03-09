@@ -70,7 +70,7 @@ def run():
         logger.info('We are starting the indexing into collection2; once finished; we will automatically activate the new core')
 
         logger.info('First, we will delete all documents from collection2')
-        r = requests.post(update_url, data={'commit': 'true', "delete":{"query":"*:*"}, 'waitSearcher': 'true'}, timeout=60*60)
+        r = requests.post(update_url + '?commit=true&waitSearcher=true', data='<delete><query>*:*</query></delete>', headers={'Content-Type': 'text/xml'}, timeout=60*60)
         r.raise_for_status()
         logger.info('Done deleting all docs from collection2')
 

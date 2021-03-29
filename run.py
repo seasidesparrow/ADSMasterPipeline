@@ -440,7 +440,7 @@ if __name__ == '__main__':
                         dest='solr_collection',
                         default='collection2',
                         action='store',
-                        help='name of solr collection, currently only used by rebuild collection')
+                        help='name of solr collection, defaults to collection2, set to collection1 when processing bibcodes from the command line')
     parser.add_argument('-x',
                         '--rebuild-collection',
                         action='store_true',

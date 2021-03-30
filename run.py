@@ -279,14 +279,24 @@ def rebuild_collection(collection_name):
         _tasks.append(t)
 
     logger.info('Done queueing bibcodes for rebuilding collection %s', collection_name)
-    # now wait for queue to empty
+    # now wait for rebuild-index queue to empty
     queue_length = 1
     while queue_length > 0:
         queue_length = rabbitmq.get_queue_depth('master_pipeline', 'rebuild-index')
         stime = queue_length * 0.1
-        logger.info('Waiting %s for rebuild-collection tasks to finish, queue_length %s, sent %s' % (stime, queue_length, sent))
+        logger.info('Waiting %s for rebuild-index queue to empty, queue_length %s, sent %s' % (stime, queue_length, sent))
         time.sleep(stime)
+    logger.info('Completed waiting %s for rebuild-index queue to empty, queue_length %s, sent %s' % (stime, queue_length, sent))
 
+    # now wait for index-solr queue to empty
+    queue_length = 1
+    while queue_length > 0:
+        queue_length = rabbitmq.get_queue_depth('master_pipeline', 'index-solr')
+        stime = queue_length * 0.1
+        logger.info('Waiting %s for index-solr queue to empty, queue_length %s, sent %s' % (stime, queue_length, sent))
+        time.sleep(stime)
+    logger.info('Completed waiting %s for index-solr queue to empty, queue_length %s, sent %s' % (stime, queue_length, sent))
+    
     logger.info('Done rebuilding collection %s, sent %s records', collection_name, sent)
 
 

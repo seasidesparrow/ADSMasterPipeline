@@ -217,7 +217,7 @@ def monitor_solr_writes():
             if current_docs_pending == previous_docs_pending:
                 consecutive_match_count += 1
             else:
-                consecutive_match_count += 0
+                consecutive_match_count = 0
             previous_docs_pending = current_docs_pending
             if consecutive_match_count > 4:
                 finshed = True

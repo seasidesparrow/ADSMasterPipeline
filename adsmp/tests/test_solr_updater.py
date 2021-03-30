@@ -307,7 +307,7 @@ class TestSolrUpdater(unittest.TestCase):
         x = solr_updater.transform_json_record(rec)
         # self.assertFalse('aff' in x)  #  virtual field should not be in solr output
         self.assertTrue('aff' in x)  #  aff is no longer a virtual field
-        self.assertEqual(x['aff_raw'], rec['augments']['aff'])  # solr record should prioritize aff data from augment
+        self.assertEqual(x['aff'], rec['augments']['aff'])  # solr record should prioritize aff data from augment
         self.assertEqual(x['aff_abbrev'], rec['augments']['aff_abbrev'])  # solr record should include augment data
         
 

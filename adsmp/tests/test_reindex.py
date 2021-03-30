@@ -25,12 +25,12 @@ class TestReindex(unittest.TestCase):
         all_solr_responses.extend([solr_success, solr_mbeans, solr_cores, solr_success, solr_cores, solr_cores])
         solr_responses = Mock()
         solr_responses.side_effect = all_solr_responses
-        commit_time = datetime.datetime(2020, 3, 19, 13, 10, 0)
+        commit_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=60)
         with patch('scripts.reindex.execute', return_value=(0, None, None)):
             with patch('os.path.exists', return_value=False):
                 with patch('requests.get', solr_responses):
                     with patch('requests.post', solr_responses):
-                        with patch('scripts.reindex.datetime', return_value=commit_time):
+                        with patch('scripts.reindex.str_to_datetime', return_value=commit_time):
                             with patch('time.sleep', return_value=None):
                                 with patch('scripts.reindex.assert_same', return_value=None):
                                     # https://github.com/adsabs/ADSMasterPipeline/pull/153

@@ -214,6 +214,7 @@ def monitor_solr_writes():
             for bean in beans:
                 if type(bean) is dict and 'updateHandler' in bean:
                     current_docs_pending = bean['updateHandler']['stats']['UPDATE.updateHandler.docsPending']
+                    
             if current_docs_pending == previous_docs_pending:
                 consecutive_match_count += 1
             else:
@@ -222,9 +223,10 @@ def monitor_solr_writes():
             if consecutive_match_count > 4:
                 finshed = True
             else:
+                logger.info('monitoring docsPending with current_docs_pending {}, previous_docs_pending {}, consecutive_match_count {}'.format(current_docs_pending, previous_docs_pending, consecutive_match_count))
                 time.sleep(30)
-    logger.info('completed monitoring of docsPending on solr')
-
+    logger.info('completed monitoring of docsPending on solr with current_docs_pending {}, previous_docs_pending {}, consecutive_match_count {}'.format(current_docs_pending, previous_docs_pending, consecutive_match_count))
+    
 
 if __name__ == '__main__':
     run()

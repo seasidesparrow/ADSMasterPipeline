@@ -98,7 +98,7 @@ def run():
 
         # issue commit
         commit_time = datetime.datetime.utcnow()
-        r = requests.get(update_url + '?commit=true&waitSearcher=false')
+        r = requests.get(update_url + '?commit=true&waitSearcher=true')
         r.raise_for_status()
         logger.info('Issued async commit to SOLR')
 

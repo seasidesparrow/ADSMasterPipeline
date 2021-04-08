@@ -245,7 +245,7 @@ def rebuild_collection(collection_name):
     queue_length = 1
     while queue_length > 0:
         queue_length = rabbitmq.get_queue_depth('master_pipeline', 'rebuild-index')
-        stime = queue_length * 0.1
+        stime = max(queue_length * 0.1, 10.0)
         logger.info('Waiting %s for rebuild-collection tasks to finish, queue_length %s, sent %s' % (stime, queue_length, sent))
         time.sleep(stime)
 

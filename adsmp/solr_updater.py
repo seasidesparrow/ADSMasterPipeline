@@ -92,24 +92,13 @@ def extract_augments_pipeline(db_augments, solrdoc):
     aff is a solr virtual field so it should never be set"""
     if db_augments is None or len(db_augments) == 0:
         return {}
-    return {'aff': db_augments.get('aff_raw', None),
+    return {'aff': db_augments.get('aff_raw', db_augments.get('aff', solrdoc.get('aff', None))),
             'aff_abbrev': db_augments.get('aff_abbrev', None),
             'aff_canonical': db_augments.get('aff_canonical', None),
             'aff_facet': db_augments.get('aff_facet', None),
             'aff_facet_hier': db_augments.get('aff_facet_hier', None),
             'aff_id': db_augments.get('aff_id', None),
-            'aff_raw': db_augments.get('aff_raw', None),
             'institution': db_augments.get('institution', None)}
-
-
-def modify_affiliations(data, solrdoc):
-    """Make sure that preference is given to affiliations extracted
-    by augment pipeline
-    """
-    # if solrdoc.get('aff_raw', None):
-    #    solrdoc.pop('aff', None)
-    if solrdoc.get('aff', None):
-        solrdoc['aff_raw'] = solrdoc.get('aff', None)
 
 
 def extract_fulltext(data, solrdoc):
@@ -235,7 +224,6 @@ DB_COLUMN_DESTINATIONS = [
     ('fulltext', extract_fulltext),
     ('#timestamps', get_timestamps),  # use 'id' to be always called
     ('augments', extract_augments_pipeline),  # over aff field, adds aff_*
-    ('#affiliations', modify_affiliations)
     ]
 
 

@@ -174,9 +174,9 @@ class TestSolrUpdater(unittest.TestCase):
         rec = self.app.get_record('bibcode')
         x = solr_updater.transform_json_record(rec)
         # self.assertFalse('aff' in x, 'virtual field should not be in solr output')
-        self.assertTrue('aff' in x)  # temporarily populating both aff and aff_raw
-        self.assertTrue(x['aff_raw'] == rec['bib_data']['aff'],
-                          'solr record should include aff from bib data when augment is not available')
+
+        self.assertTrue(x['aff'] == rec['bib_data']['aff'],
+                        'solr record should include aff from bib data when augment is not available')
         self.assertFalse('aff_abbrev' in x,
                          'augment field should not be in solr record when augment is not available')
         
@@ -187,7 +187,6 @@ class TestSolrUpdater(unittest.TestCase):
                                  u'aff_facet': [u'-', u'-', u'-', u'-'],
                                  u'aff_facet_hier': [u'-', u'-', u'-', u'-'],
                                  u'aff_id': [u'-', u'-', u'-', u'-'],
-                                 u'aff_raw': [u'augment pipeline aff', u'-', u'-', u'-'],
                                  u'institution': [u'-', u'-', u'-', u'-']})
 
         rec = self.app.get_record('bibcode')
@@ -305,11 +304,10 @@ class TestSolrUpdater(unittest.TestCase):
 
         rec = self.app.get_record('bibcode')
         x = solr_updater.transform_json_record(rec)
-        # self.assertFalse('aff' in x)  #  virtual field should not be in solr output
-        self.assertTrue('aff' in x)  #  aff is no longer a virtual field
-        self.assertEqual(x['aff_raw'], rec['augments']['aff'])  # solr record should prioritize aff data from augment
+
+        self.assertTrue('aff' in x)  # aff is no longer a virtual field
+        self.assertEqual(x['aff'], rec['augments']['aff'])  # solr record should prioritize aff data from augment
         self.assertEqual(x['aff_abbrev'], rec['augments']['aff_abbrev'])  # solr record should include augment data
-        
 
     def test_links_data_merge(self):
         # links_data only from bib

@@ -94,7 +94,7 @@ def task_update_record(msg):
             if type == 'metadata':
                 # with new bib data we request to augment the affiliation
                 # that pipeline will eventually respond with a msg to task_update_record
-                logger.info('requesting affilation augmentation for %s', msg.bibcode)
+                logger.debug('requesting affilation augmentation for %s', msg.bibcode)
                 app.request_aff_augment(msg.bibcode)
 
     else:

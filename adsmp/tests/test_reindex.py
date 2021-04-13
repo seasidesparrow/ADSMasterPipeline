@@ -12,7 +12,7 @@ class TestReindex(unittest.TestCase):
     # need to mock call checking on the number of cores
     def test_reindex(self):
         """very white box text using real, canned solr responses"""
-        
+
         solr_cores = Mock()
         solr_cores.json.return_value = json.loads(cores_response)
         solr_success = Mock()
@@ -25,7 +25,7 @@ class TestReindex(unittest.TestCase):
         all_solr_responses.extend([solr_success, solr_mbeans, solr_cores, solr_success, solr_cores, solr_cores])
         solr_responses = Mock()
         solr_responses.side_effect = all_solr_responses
-        commit_time = commit_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=60)
+        commit_time = datetime.datetime.utcnow() + datetime.timedelta(seconds=60)
         with patch('scripts.reindex.execute', return_value=(0, None, None)):
             with patch('os.path.exists', return_value=False):
                 with patch('requests.get', solr_responses):
@@ -75,7 +75,7 @@ class TestReindex(unittest.TestCase):
     def test_monitor_solr_writes(self):
         """test code that waits for docsPending to not change for a while"""
         # create changing then static docPending using sample mbean_respone
-        
+
         solr_responses = Mock()
         solr_responses.side_effect = self.create_solr_monitor_side_effect()
         with patch('requests.get', solr_responses):

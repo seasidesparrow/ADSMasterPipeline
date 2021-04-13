@@ -92,6 +92,8 @@ def extract_augments_pipeline(db_augments, solrdoc):
     aff is a solr virtual field so it should never be set"""
     if db_augments is None or len(db_augments) == 0:
         return {}
+
+    # Make sure that preference is given to affiliations extracted by augment pipeline
     return {'aff': db_augments.get('aff_raw', db_augments.get('aff', solrdoc.get('aff', None))),
             'aff_abbrev': db_augments.get('aff_abbrev', None),
             'aff_canonical': db_augments.get('aff_canonical', None),

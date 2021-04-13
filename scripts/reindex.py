@@ -214,7 +214,6 @@ def monitor_solr_writes():
             for bean in beans:
                 if type(bean) is dict and 'updateHandler' in bean:
                     current_docs_pending = bean['updateHandler']['stats']['UPDATE.updateHandler.docsPending']
-                    
             if current_docs_pending == previous_docs_pending:
                 consecutive_match_count += 1
             else:

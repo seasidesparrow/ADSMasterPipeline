@@ -232,14 +232,14 @@ def reindex_records(bibcodes, force=False, update_solr=True, update_metrics=True
             # get data for metrics
             if update_metrics:
                 metrics_payload = r.get('metrics', None)
-                metrics_checksum = app.checksum(metrics_payload)
+                metrics_checksum = app.checksum(metrics_payload or '')
                 if (metrics_payload and ignore_checksums) or (metrics_payload and r.get('metrics_checksum', None) != metrics_checksum):
                     metrics_payload['bibcode'] = bibcode
                     logger.debug('Got metrics: %s', metrics_payload)
                     metrics_records.append(metrics_payload)
                     metrics_records_checksum.append(metrics_checksum)
                 else:
-                    logger.debug('Checksum identical, skipping metrics update for: %s', bibcode)
+                    logger.debug('Checksum identical or no metrics data available, skipping metrics update for: %s', bibcode)
 
             if update_links and links_url:
                 datalinks_payload = app.generate_links_for_resolver(r)

@@ -236,7 +236,7 @@ def collection_to_urls(collection_name):
     return solr_urls
 
 
-def rebuild_collection(collection_name):
+def rebuild_collection(collection_name, batch_size):
     """
     Will grab all recs from the database and send them to solr
     """
@@ -262,14 +262,14 @@ def rebuild_collection(collection_name):
         # master db only contains valid documents, indexing task will make sure that incomplete docs are rejected
         for rec in session.query(Records) \
                           .options(load_only(Records.bibcode)) \
-                          .yield_per(1000):
+                          .yield_per(batch_size):
 
             sent += 1
             if sent % 1000 == 0:
                 logger.debug('Sending %s records', sent)
 
             batch.append(rec.bibcode)
-            if len(batch) > 1000:
+            if len(batch) > batch_size:
                 t = tasks.task_rebuild_index.delay(batch, solr_targets=solr_urls)
                 _tasks.append(t)
                 batch = []
@@ -530,7 +530,7 @@ if __name__ == '__main__':
                         app.request_aff_augment(bibcode)
 
     elif args.rebuild_collection:
-        rebuild_collection(args.solr_collection)
+        rebuild_collection(args.solr_collection, args.batch_size)
     elif args.reindex:
         update_solr = 's' in args.reindex.lower()
         update_metrics = 'm' in args.reindex.lower()

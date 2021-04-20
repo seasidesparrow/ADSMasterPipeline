@@ -82,7 +82,7 @@ def run():
         data['start'] = now
         write_lockfile(lockfile, data)
 
-        command = 'python2 run.py --rebuild-collection --solr-collection collection2 >> %s/logs/reindex.log' % (proj_home,)
+        command = 'python2 run.py --rebuild-collection --solr-collection collection2 --batch_size 1000 >> %s/logs/reindex.log' % (proj_home,)
         retcode, stdout, stderr = execute(command, cwd=proj_home)
 
         if retcode != 0:

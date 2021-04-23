@@ -736,7 +736,7 @@ class ADSMasterPipelineCelery(ADSCelery):
             self.forward_message(message)
             self.logger.debug('sent augment affiliation request for bibcode {}'.format(bibcode))
         else:
-            self.logger.warning('request_aff_augment called but bibcode {} has no aff data'.format(bibcode))
+            self.logger.debug('request_aff_augment called but bibcode {} has no aff data'.format(bibcode))
 
     def generate_links_for_resolver(self, record):
         """use nonbib or bib elements of database record and return links for resolver and checksum"""

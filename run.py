@@ -214,7 +214,7 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
                 priority=priority
             )
         logger.info('Done processing %s records', sent)
-    except Exception, e:
+    except Exception as e:
         if previous_since:
             logger.error('Failed while submitting data to pipeline, resetting timestamp back to: %s', previous_since)
             with app.session_scope() as session:

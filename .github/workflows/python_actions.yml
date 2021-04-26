@@ -51,8 +51,5 @@ jobs:
         py.test
 
     - name: Coveralls
-<<<<<<< HEAD
       run: coveralls
-=======
-      run: coveralls
->>>>>>> upstream/master
+      env: GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

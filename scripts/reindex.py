@@ -61,7 +61,6 @@ def run():
     try:
         # verify both cores are there
         cores = requests.get(cores_url + '?wt=json').json()
-
         if set(cores['status'].keys()) != set(['collection1', 'collection2']):
             raise Exception('we dont have both cores available')
 
@@ -98,7 +97,7 @@ def run():
 
         # issue commit
         commit_time = datetime.datetime.utcnow()
-        r = requests.get(update_url + '?commit=true&waitSearcher=true')
+        r = requests.get(update_url + '?commit=true&waitSearcher=false')
         r.raise_for_status()
         logger.info('Issued async commit to SOLR')
 
@@ -120,7 +119,7 @@ def run():
                         if t > commit_time:
                             finished = True
                         time_waiting = datetime.datetime.utcnow() - commit_time
-                        if (time_waiting.seconds > (3600 * 2)):
+                        if (time_waiting.seconds > 3600):
                             logger.warn('Solr commit running for over two  hours, aborting')
                             raise
             if not finished:
@@ -147,11 +146,10 @@ def run():
         assert_same(cores['status']['collection2']['dataDir'], new_cores['status']['collection1']['dataDir'])
         logger.info('Verified the new collection is in place')
 
-
         logger.info('Deleting the lock; congratulations on your new solr collection!')
         os.remove(lockfile)
     except Exception as e:
-        logger.exception('Failed; we will keep the process permanently locked')
+        logger.exception('Failed: we will keep the process permanently locked')
         data['last-exception'] = str(e)
         write_lockfile(lockfile, data)
         sys.exit(1)
@@ -176,7 +174,7 @@ def write_lockfile(lockfile, data):
 def verify_collection2_size(data):
     if data['index'].get('numDocs', 0) <= 15117785:
         raise Exception('Too few documents in the new index: %s' % data['index'].get('numDocs', 0))
-    if data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0) <= 146.0: # index size at least 146GB
+    if data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0) <= 146.0:  # index size at least 146GB
         raise Exception('The index is suspiciously small: %s' % (data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0),))
 
 

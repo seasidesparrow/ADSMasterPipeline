@@ -41,6 +41,11 @@ cores_url = get_solr_url('/admin/cores')
 update_url = get_solr_url('/collection2/update')
 mbean_url = get_solr_url('/collection2/admin/mbeans?stats=true&wt=json')
 
+def assert_different(dirname1, dirname2):
+    assert dirname1 != dirname2
+
+def assert_same(dirname1, dirname2):
+    assert dirname1 == dirname2
 
 def run():
     # it is important that we do not run multiple times
@@ -56,16 +61,16 @@ def run():
     try:
         # verify both cores are there
         cores = requests.get(cores_url + '?wt=json').json()
+
         if set(cores['status'].keys()) != set(['collection1', 'collection2']):
             raise Exception('we dont have both cores available')
 
-        assert cores['status']['collection2']['dataDir'] != cores['status']['collection1']['dataDir']
+        assert_different(cores['status']['collection2']['dataDir'], cores['status']['collection1']['dataDir'])
 
         logger.info('We are starting the indexing into collection2; once finished; we will automatically activate the new core')
 
         logger.info('First, we will delete all documents from collection2')
-
-        r = requests.post(update_url, data={'commit': 'true', "delete":{"query":"*:*"}, 'waitSearcher': 'true'}, timeout=60*60)
+        r = requests.post(update_url + '?commit=true&waitSearcher=true', data='<delete><query>*:*</query></delete>', headers={'Content-Type': 'text/xml'}, timeout=60*60)
         r.raise_for_status()
         logger.info('Done deleting all docs from collection2')
 
@@ -77,7 +82,7 @@ def run():
         data['start'] = now
         write_lockfile(lockfile, data)
 
-        command = 'python2 run.py --rebuild-collection --solr-collection collection2 >> %s/logs/reindex.log' % (proj_home,)
+        command = 'python2 run.py --rebuild-collection --solr-collection collection2 --batch_size 1000 >> %s/logs/reindex.log' % (proj_home,)
         retcode, stdout, stderr = execute(command, cwd=proj_home)
 
         if retcode != 0:
@@ -92,8 +97,8 @@ def run():
         monitor_solr_writes()
 
         # issue commit
-        commit_time = utc()
-        r = requests.get(update_url + '?commit=true&waitSearcher=false')
+        commit_time = datetime.datetime.utcnow()
+        r = requests.get(update_url + '?commit=true&waitSearcher=true')
         r.raise_for_status()
         logger.info('Issued async commit to SOLR')
 
@@ -114,9 +119,9 @@ def run():
                         logger.info('waiting for solr commit to complete, commit_time: %s, searcher registeredAt: %s' % (commit_time, t,))
                         if t > commit_time:
                             finished = True
-                        time_waiting = utc() - commit_time
-                        if (time_waiting.seconds > 3600):
-                            logger.warn('Solr commit running for over an hour, aborting')
+                        time_waiting = datetime.datetime.utcnow() - commit_time
+                        if (time_waiting.seconds > (3600 * 2)):
+                            logger.warn('Solr commit running for over two  hours, aborting')
                             raise
             if not finished:
                 time.sleep(30)
@@ -139,21 +144,17 @@ def run():
 
         # verify the new core is loaded
         new_cores = requests.get(cores_url + '?wt=json').json()
-        assert cores['status']['collection2']['dataDir'] != new_cores['status']['collection1']['dataDir']
+        assert_same(cores['status']['collection2']['dataDir'], new_cores['status']['collection1']['dataDir'])
         logger.info('Verified the new collection is in place')
+
 
         logger.info('Deleting the lock; congratulations on your new solr collection!')
         os.remove(lockfile)
     except Exception as e:
-        logger.exception('Failed: we will keep the process permanently locked')
+        logger.exception('Failed; we will keep the process permanently locked')
         data['last-exception'] = str(e)
         write_lockfile(lockfile, data)
         sys.exit(1)
-
-
-def utc():
-    # code is in a separte function for easy mocking
-    return datetime.datetime.utcnow()
 
 
 def execute(command, **kwargs):
@@ -175,7 +176,7 @@ def write_lockfile(lockfile, data):
 def verify_collection2_size(data):
     if data['index'].get('numDocs', 0) <= 15117785:
         raise Exception('Too few documents in the new index: %s' % data['index'].get('numDocs', 0))
-    if data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0) <= 146.0:  # index size at least 146GB
+    if data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0) <= 146.0: # index size at least 146GB
         raise Exception('The index is suspiciously small: %s' % (data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0),))
 
 
@@ -212,18 +213,19 @@ def monitor_solr_writes():
             beans = r.json()[u'solr-mbeans']
             for bean in beans:
                 if type(bean) is dict and 'updateHandler' in bean:
-                    current_docs_pending = bean['updateHandler']['stats']['docsPending']
+                    current_docs_pending = bean['updateHandler']['stats']['UPDATE.updateHandler.docsPending']
             if current_docs_pending == previous_docs_pending:
                 consecutive_match_count += 1
             else:
-                consecutive_match_count += 0
+                consecutive_match_count = 0
             previous_docs_pending = current_docs_pending
             if consecutive_match_count > 4:
                 finshed = True
             else:
+                logger.info('monitoring docsPending with current_docs_pending {}, previous_docs_pending {}, consecutive_match_count {}'.format(current_docs_pending, previous_docs_pending, consecutive_match_count))
                 time.sleep(30)
-    logger.info('completed monitoring of docsPending on solr')
-
+    logger.info('completed monitoring of docsPending on solr with current_docs_pending {}, previous_docs_pending {}, consecutive_match_count {}'.format(current_docs_pending, previous_docs_pending, consecutive_match_count))
+    
 
 if __name__ == '__main__':
     run()

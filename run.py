@@ -214,7 +214,7 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
                 priority=priority
             )
         logger.info('Done processing %s records', sent)
-    except Exception, e:
+    except Exception as e:
         if previous_since:
             logger.error('Failed while submitting data to pipeline, resetting timestamp back to: %s', previous_since)
             with app.session_scope() as session:
@@ -236,7 +236,7 @@ def collection_to_urls(collection_name):
     return solr_urls
 
 
-def rebuild_collection(collection_name):
+def rebuild_collection(collection_name, batch_size):
     """
     Will grab all recs from the database and send them to solr
     """
@@ -262,14 +262,14 @@ def rebuild_collection(collection_name):
         # master db only contains valid documents, indexing task will make sure that incomplete docs are rejected
         for rec in session.query(Records) \
                           .options(load_only(Records.bibcode)) \
-                          .yield_per(1000):
+                          .yield_per(batch_size):
 
             sent += 1
             if sent % 1000 == 0:
                 logger.debug('Sending %s records', sent)
 
             batch.append(rec.bibcode)
-            if len(batch) > 1000:
+            if len(batch) > batch_size:
                 t = tasks.task_rebuild_index.delay(batch, solr_targets=solr_urls)
                 _tasks.append(t)
                 batch = []
@@ -279,14 +279,24 @@ def rebuild_collection(collection_name):
         _tasks.append(t)
 
     logger.info('Done queueing bibcodes for rebuilding collection %s', collection_name)
-    # now wait for queue to empty
+    # now wait for rebuild-index queue to empty
     queue_length = 1
     while queue_length > 0:
         queue_length = rabbitmq.get_queue_depth('master_pipeline', 'rebuild-index')
-        stime = queue_length * 0.1
-        logger.info('Waiting %s for rebuild-collection tasks to finish, queue_length %s, sent %s' % (stime, queue_length, sent))
+        stime = max(queue_length * 0.1, 10.0)
+        logger.info('Waiting %s for rebuild-index queue to empty, queue_length %s, sent %s' % (stime, queue_length, sent))
         time.sleep(stime)
+    logger.info('Completed waiting %s for rebuild-index queue to empty, queue_length %s, sent %s' % (stime, queue_length, sent))
 
+    # now wait for index-solr queue to empty
+    queue_length = 1
+    while queue_length > 0:
+        queue_length = rabbitmq.get_queue_depth('master_pipeline', 'index-solr')
+        stime = queue_length * 0.1
+        logger.info('Waiting %s for index-solr queue to empty, queue_length %s, sent %s' % (stime, queue_length, sent))
+        time.sleep(stime)
+    logger.info('Completed waiting %s for index-solr queue to empty, queue_length %s, sent %s' % (stime, queue_length, sent))
+    
     logger.info('Done rebuilding collection %s, sent %s records', collection_name, sent)
 
 
@@ -440,7 +450,7 @@ if __name__ == '__main__':
                         dest='solr_collection',
                         default='collection2',
                         action='store',
-                        help='name of solr collection, currently only used by rebuild collection')
+                        help='name of solr collection, defaults to collection2, set to collection1 when processing bibcodes from the command line')
     parser.add_argument('-x',
                         '--rebuild-collection',
                         action='store_true',
@@ -520,7 +530,7 @@ if __name__ == '__main__':
                         app.request_aff_augment(bibcode)
 
     elif args.rebuild_collection:
-        rebuild_collection(args.solr_collection)
+        rebuild_collection(args.solr_collection, args.batch_size)
     elif args.reindex:
         update_solr = 's' in args.reindex.lower()
         update_metrics = 'm' in args.reindex.lower()

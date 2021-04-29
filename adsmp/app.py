@@ -506,7 +506,7 @@ class ADSMasterPipelineCelery(ADSCelery):
         if data and data['aff']:
             message = AugmentAffiliationRequestRecord(**data)
             self.forward_message(message)
-            self.logger.info('sent augment affiliation request for bibcode {}'.format(bibcode))
+            self.logger.debug('sent augment affiliation request for bibcode {}'.format(bibcode))
         else:
             self.logger.warning('request_aff_augment called but bibcode {} has no aff data'.format(bibcode))
 

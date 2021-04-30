@@ -19,10 +19,6 @@ script:
 after_success:
   - "coveralls"
 
-after_failure:
-  - cat logs/rebuild.log && sleep 10
-  - cat rebuild.locked && sleep 10
-
 notifications:
   email: false
 

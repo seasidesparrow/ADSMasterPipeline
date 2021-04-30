@@ -70,7 +70,7 @@ class TestReindex(unittest.TestCase):
         m5 = Mock()
         m5.status_code = 200
         m5.json.return_value = c5
-        return [m1, m2, m3, m4, m5, m5, m5, m5, m5]
+        return [m1, m2, m3, m4, m5, m5, m5, m5, m5, m5]
 
     def test_monitor_solr_writes(self):
         """test code that waits for docsPending to not change for a while"""
@@ -81,7 +81,7 @@ class TestReindex(unittest.TestCase):
         with patch('requests.get', solr_responses):
             with patch('time.sleep', return_value=None):
                 reindex.monitor_solr_writes()
-                self.assertEqual(9, solr_responses.call_count)
+                self.assertEqual(10, solr_responses.call_count)
 
 
 

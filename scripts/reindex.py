@@ -61,7 +61,6 @@ def run():
     try:
         # verify both cores are there
         cores = requests.get(cores_url + '?wt=json').json()
-
         if set(cores['status'].keys()) != set(['collection1', 'collection2']):
             raise Exception('we dont have both cores available')
 
@@ -82,7 +81,7 @@ def run():
         data['start'] = now
         write_lockfile(lockfile, data)
 
-        command = 'python2 run.py --rebuild-collection --solr-collection collection2 >> %s/logs/reindex.log' % (proj_home,)
+        command = 'python2 run.py --rebuild-collection --solr-collection collection2 --batch_size 1000 >> %s/logs/reindex.log' % (proj_home,)
         retcode, stdout, stderr = execute(command, cwd=proj_home)
 
         if retcode != 0:
@@ -121,7 +120,7 @@ def run():
                             finished = True
                         time_waiting = datetime.datetime.utcnow() - commit_time
                         if (time_waiting.seconds > 3600):
-                            logger.warn('Solr commit running for over an hour, aborting')
+                            logger.warn('Solr commit running for over two  hours, aborting')
                             raise
             if not finished:
                 time.sleep(30)
@@ -147,11 +146,10 @@ def run():
         assert_same(cores['status']['collection2']['dataDir'], new_cores['status']['collection1']['dataDir'])
         logger.info('Verified the new collection is in place')
 
-
         logger.info('Deleting the lock; congratulations on your new solr collection!')
         os.remove(lockfile)
     except Exception as e:
-        logger.exception('Failed; we will keep the process permanently locked')
+        logger.exception('Failed: we will keep the process permanently locked')
         data['last-exception'] = str(e)
         write_lockfile(lockfile, data)
         sys.exit(1)
@@ -176,7 +174,7 @@ def write_lockfile(lockfile, data):
 def verify_collection2_size(data):
     if data['index'].get('numDocs', 0) <= 15117785:
         raise Exception('Too few documents in the new index: %s' % data['index'].get('numDocs', 0))
-    if data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0) <= 146.0: # index size at least 146GB
+    if data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0) <= 146.0:  # index size at least 146GB
         raise Exception('The index is suspiciously small: %s' % (data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0),))
 
 
@@ -217,14 +215,15 @@ def monitor_solr_writes():
             if current_docs_pending == previous_docs_pending:
                 consecutive_match_count += 1
             else:
-                consecutive_match_count += 0
+                consecutive_match_count = 0
             previous_docs_pending = current_docs_pending
             if consecutive_match_count > 4:
                 finshed = True
             else:
+                logger.info('monitoring docsPending with current_docs_pending {}, previous_docs_pending {}, consecutive_match_count {}'.format(current_docs_pending, previous_docs_pending, consecutive_match_count))
                 time.sleep(30)
-    logger.info('completed monitoring of docsPending on solr')
-
+    logger.info('completed monitoring of docsPending on solr with current_docs_pending {}, previous_docs_pending {}, consecutive_match_count {}'.format(current_docs_pending, previous_docs_pending, consecutive_match_count))
+    
 
 if __name__ == '__main__':
     run()

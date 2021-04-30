@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import os
+import sys
 import adsputils
 import argparse
 import warnings
@@ -8,44 +9,43 @@ import json
 from requests.packages.urllib3 import exceptions
 warnings.simplefilter('ignore', exceptions.InsecurePlatformWarning)
 import time
-import requests
-from difflib import SequenceMatcher
 from pyrabbit.api import Client as PyRabbitClient
 from urlparse import urlparse
 
-from adsputils import setup_logging, get_date
+from adsputils import setup_logging, get_date, load_config
 from adsmp.models import KeyValue, Records
 from adsmp import tasks, solr_updater, validate
 from sqlalchemy.orm import load_only
 from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 # ============================= INITIALIZATION ==================================== #
-
-from adsputils import setup_logging, load_config
 proj_home = os.path.realpath(os.path.dirname(__file__))
 config = load_config(proj_home=proj_home)
+
 logger = setup_logging('run.py', proj_home=proj_home,
-                        level=config.get('LOGGING_LEVEL', 'INFO'),
-                        attach_stdout=config.get('LOG_STDOUT', False))
+                       level=config.get('LOGGING_LEVEL', 'INFO'),
+                       attach_stdout=config.get('LOG_STDOUT', False))
 
 app = tasks.app
 
 # =============================== FUNCTIONS ======================================= #
 
+
 def _print_record(bibcode):
     with app.session_scope() as session:
-        print 'stored by us:', bibcode
+        print('stored by us:', bibcode)
         r = session.query(Records).filter_by(bibcode=bibcode).first()
         if r:
-            print json.dumps(r.toJSON(), indent=2, default=str, sort_keys=True)
+            print(json.dumps(r.toJSON(), indent=2, default=str, sort_keys=True))
         else:
-            print 'None'
-        print '-' * 80
+            print('None')
+        print('-' * 80)
 
-        print 'as seen by SOLR'
+        print('as seen by SOLR')
         solr_doc = solr_updater.transform_json_record(r.toJSON())
-        print json.dumps(solr_doc, indent=2, default=str, sort_keys=True)
-        print '=' * 80
+        print(json.dumps(solr_doc, indent=2, default=str, sort_keys=True))
+        print('=' * 80)
+
 
 def diagnostics(bibcodes):
     """
@@ -55,7 +55,7 @@ def diagnostics(bibcodes):
     """
 
     if not bibcodes:
-        print 'Printing 3 randomly selected records (if any)'
+        print('Printing 3 randomly selected records (if any)')
         bibcodes = []
         with app.session_scope() as session:
             for r in session.query(Records).limit(3).all():
@@ -64,29 +64,39 @@ def diagnostics(bibcodes):
     for b in bibcodes:
         _print_record(b)
 
-
     with app.session_scope() as session:
         for x in dir(Records):
             if isinstance(getattr(Records, x), InstrumentedAttribute):
-                print '# of %s' % x, session.query(Records).filter(getattr(Records, x) != None).count()
+                print('# of %s' % x, session.query(Records).filter(getattr(Records, x) != None).count())
 
-    print 'sending test bibcodes to the queue for reindexing'
-    tasks.task_index_records.delay(bibcodes, force=True, update_solr=True, update_metrics=True, update_links=True,
-                                   ignore_checksums=True)
-
+    print('sending test bibcodes to the queue for reindexing')
+    tasks.task_index_records.apply_async(
+        args=(bibcodes,),
+        kwargs={
+           'force': True,
+           'update_solr': True,
+           'update_metrics': True,
+           'update_links': True,
+           'ignore_checksums': True,
+           'update_processed': False,
+           'priority': 0
+        },
+        priority=0
+    )
 
 
 def print_kvs():
     """Prints the values stored in the KeyValue table."""
-    print 'Key, Value from the storage:'
-    print '-' * 80
+    print('Key, Value from the storage:')
+    print('-' * 80)
     with app.session_scope() as session:
         for kv in session.query(KeyValue).order_by('key').yield_per(100):
-            print kv.key, kv.value
+            print(kv.key, kv.value)
 
 
 def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True, update_metrics=True,
-            update_links=True, force_processing=False, ignore_checksums=False, solr_targets=None):
+            update_links=True, force_processing=False, ignore_checksums=False, solr_targets=None,
+            update_processed=True, priority=0):
     """
     Initiates routing of the records (everything that was updated)
     since point in time T.
@@ -97,12 +107,11 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
         key = 'last.reindex.normal'
 
     if update_solr and update_metrics:
-        pass # default
+        pass  # default
     elif update_solr:
         key = key + '.solr-only'
     else:
         key = key + '.metrics-only'
-
 
     previous_since = None
     now = get_date()
@@ -120,7 +129,6 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
             session.commit()
     else:
         since = get_date(since)
-
 
     logger.info('Sending records changed since: %s', since.isoformat())
     sent = 0
@@ -143,7 +151,7 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
                 updated = get_date(rec.updated)
 
                 if not force_processing and processed > updated:
-                    continue # skip records that were already processed
+                    continue  # skip records that were already processed
 
                 sent += 1
                 if sent % 1000 == 0:
@@ -155,22 +163,58 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
                     batch.append(rec.bibcode)
                 else:
                     batch.append(rec.bibcode)
-                    tasks.task_index_records.delay(batch, force=force_indexing, update_solr=update_solr,
-                                                   update_metrics=update_metrics, update_links=update_links,
-                                                   ignore_checksums=ignore_checksums, solr_targets=solr_targets)
+                    tasks.task_index_records.apply_async(
+                        args=(batch,),
+                        kwargs={
+                           'force': force_indexing,
+                           'update_solr': update_solr,
+                           'update_metrics': update_metrics,
+                           'update_links': update_links,
+                           'ignore_checksums': ignore_checksums,
+                           'solr_targets': solr_targets,
+                           'update_processed': update_processed,
+                           'priority': priority
+                        },
+                        priority=priority
+                    )
                     batch = []
                     last_bibcode = rec.bibcode
 
         if len(batch) > 0:
-            tasks.task_index_records.delay(batch, force=force_indexing, update_solr=update_solr, update_metrics=update_metrics,
-                                           commit=force_indexing, ignore_checksums=ignore_checksums, solr_targets=solr_targets)
+            tasks.task_index_records.apply_async(
+                args=(batch,),
+                kwargs={
+                   'force': force_indexing,
+                   'update_solr': update_solr,
+                   'update_metrics': update_metrics,
+                   'update_links': update_links,
+                   'commit': force_indexing,
+                   'ignore_checksums': ignore_checksums,
+                   'solr_targets': solr_targets,
+                   'update_processed': update_processed,
+                   'priority': priority
+                },
+                priority=priority
+            )
         elif force_indexing and last_bibcode:
             # issue one extra call with the commit
-            tasks.task_index_records.delay([last_bibcode], force=force_indexing, update_solr=update_solr, update_metrics=update_metrics,
-                                           commit=force_indexing, ignore_checksums=ignore_checksums, solr_targets=solr_targets)
-
+            tasks.task_index_records.apply_async(
+                args=([last_bibcode],),
+                kwargs={
+                   'force': force_indexing,
+                   'update_solr': update_solr,
+                   'update_metrics': update_metrics,
+                   'update_links': update_links,
+                   'commit': force_indexing,
+                   'ignore_checksums': ignore_checksums,
+                   'solr_targets': solr_targets,
+                   'update_processed': update_processed,
+                   'priority': priority
+                },
+                priority=priority
+            )
         logger.info('Done processing %s records', sent)
-    except Exception, e:
+    except Exception as e:
         if previous_since:
             logger.error('Failed while submitting data to pipeline, resetting timestamp back to: %s', previous_since)
             with app.session_scope() as session:
@@ -192,7 +236,7 @@ def collection_to_urls(collection_name):
     return solr_urls
 
 
-def rebuild_collection(collection_name):
+def rebuild_collection(collection_name, batch_size):
     """
     Will grab all recs from the database and send them to solr
     """
@@ -217,42 +261,46 @@ def rebuild_collection(collection_name):
     with app.session_scope() as session:
         # master db only contains valid documents, indexing task will make sure that incomplete docs are rejected
         for rec in session.query(Records) \
-            .options(load_only(Records.bibcode, Records.updated, Records.processed)) \
-            .yield_per(1000):
+                          .options(load_only(Records.bibcode)) \
+                          .yield_per(batch_size):
 
             sent += 1
             if sent % 1000 == 0:
                 logger.debug('Sending %s records', sent)
 
             batch.append(rec.bibcode)
-            if len(batch) > 1000:
-                t = tasks.task_rebuild_index.delay(batch, force=True, update_solr=True,
-                                           update_metrics=False, update_links=False,
-                                           ignore_checksums=True, solr_targets=solr_urls,
-                                           update_timestamps=False)
+            if len(batch) > batch_size:
+                t = tasks.task_rebuild_index.delay(batch, solr_targets=solr_urls)
                 _tasks.append(t)
                 batch = []
 
     if len(batch) > 0:
-        t = tasks.task_rebuild_index.delay(batch, force=True, update_solr=True,
-                                           update_metrics=False, update_links=False,
-                                           ignore_checksums=True, solr_targets=solr_urls,
-                                           update_timestamps=False)
+        t = tasks.task_rebuild_index.delay(batch, solr_targets=solr_urls)
         _tasks.append(t)
 
     logger.info('Done queueing bibcodes for rebuilding collection %s', collection_name)
-    # now wait for queue to empty
+    # now wait for rebuild-index queue to empty
     queue_length = 1
     while queue_length > 0:
         queue_length = rabbitmq.get_queue_depth('master_pipeline', 'rebuild-index')
         stime = max(queue_length * 0.1, 10.0)
-        logger.info('Waiting %s for rebuild-collection tasks to finish, queue_length %s, sent %s' % (stime, queue_length, sent))
+        logger.info('Waiting %s for rebuild-index queue to empty, queue_length %s, sent %s' % (stime, queue_length, sent))
         time.sleep(stime)
+    logger.info('Completed waiting %s for rebuild-index queue to empty, queue_length %s, sent %s' % (stime, queue_length, sent))
 
+    # now wait for index-solr queue to empty
+    queue_length = 1
+    while queue_length > 0:
+        queue_length = rabbitmq.get_queue_depth('master_pipeline', 'index-solr')
+        stime = queue_length * 0.1
+        logger.info('Waiting %s for index-solr queue to empty, queue_length %s, sent %s' % (stime, queue_length, sent))
+        time.sleep(stime)
+    logger.info('Completed waiting %s for index-solr queue to empty, queue_length %s, sent %s' % (stime, queue_length, sent))
+    
     logger.info('Done rebuilding collection %s, sent %s records', collection_name, sent)
 
 
-def reindex_failed(app):
+def reindex_failed_bibcodes(app, update_processed=True):
     """from status field in records table we compute what failed"""
     bibs = []
     count = 0
@@ -268,13 +316,35 @@ def reindex_failed(app):
             rec.status = 'retrying'
             if len(bibs) >= 100:
                 session.commit()
-                tasks.task_index_records.delay(bibs, update_solr=True, update_metrics=True, update_links=True,
-                                               update_timestamps=True, force=True, ignore_checksums=True)
+                tasks.task_index_records.apply_async(
+                    args=(bibs,),
+                    kwargs={
+                       'force': True,
+                       'update_solr': True,
+                       'update_metrics': True,
+                       'update_links': True,
+                       'ignore_checksums': True,
+                       'update_processed': update_processed,
+                       'priority': 0
+                    },
+                    priority=0
+                )
                 bibs = []
         if bibs:
             session.commit()
-            tasks.task_index_records.delay(bibs, update_solr=True, update_metrics=True, update_links=True,
-                                           update_timestamps=True, force=True, ignore_checksums=True)
+            tasks.task_index_records.apply_async(
+                args=(bibs,),
+                kwargs={
+                   'force': True,
+                   'update_solr': True,
+                   'update_metrics': True,
+                   'update_links': True,
+                   'ignore_checksums': True,
+                   'update_processed': update_processed,
+                   'priority': 0
+                },
+                priority=0
+            )
             bibs = []
         logger.info('Done reindexing %s previously failed bibcodes', count)
 
@@ -327,7 +397,7 @@ if __name__ == '__main__':
                         nargs='?',
                         dest='reindex',
                         action='store',
-                        const = 'sml',
+                        const='sml',
                         default='sml',
                         help='Sent all updated documents to SOLR/Postgres (you can combine with --since).' +
                         'Default is to update both solr and metrics. You can choose what to update.' +
@@ -377,15 +447,26 @@ if __name__ == '__main__':
                         default=False,
                         help='sends bibcodes to augment affilation pipeline, works with --filename')
     parser.add_argument('--solr-collection',
-                       dest='solr_collection',
-                       default='collection1',
-                       action='store',
-                       help='name of solr collection, currently only used by rebuild collection')
+                        dest='solr_collection',
+                        default='collection2',
+                        action='store',
+                        help='name of solr collection, defaults to collection2, set to collection1 when processing bibcodes from the command line')
     parser.add_argument('-x',
                         '--rebuild-collection',
                         action='store_true',
                         default=False,
                         help='Will send all solr docs for indexing to another collection; by purpose this task is synchronous. You can send the name of the collection or the full url to the solr instance incl http via --solr-collection')
+    parser.add_argument('--priority',
+                        dest='priority',
+                        action='store',
+                        default=0,
+                        type=int,
+                        help='priority to use in queue, typically cron jobs use a high priority.  preferred values are 0 to 10 where 10 is the highest priority (https://docs.celeryproject.org/en/stable/userguide/calling.html#advanced-options)')
+    parser.add_argument('--update-processed',
+                        action='store_true',
+                        default=False,
+                        dest='update_processed',
+                        help='update processed timestamps and other state info in records table when a record is indexed')
 
     args = parser.parse_args()
 
@@ -408,7 +489,7 @@ if __name__ == '__main__':
                   'doctype_facet_hier',
                   'doi', 'eid', 'editor', 'email', 'entry_date', 'esources', 'facility', 'first_author', 'first_author_facet_hier',
                   'first_author_norm', 'fulltext_mtime', 'grant', 'grant_facet_hier', 'id', 'identifier', 'indexstamp',
-                  'isbn', 'issn', 'issue', 'keyword', 'keyword_facet', 'keyword_norm', 'keyword_schema', 'lang',
+                  'ISBN', 'ISSN', 'issue', 'keyword', 'keyword_facet', 'keyword_norm', 'keyword_schema', 'lang',
                   'links_data', 'metadata_mtime', 'metrics_mtime', 'nedid', 'nedtype', 'ned_object_facet_hier',
                   'nonbib_mtime',
                   'origin', 'orcid_mtime', 'orcid', 'orcid_pub', 'orcid_user', 'orcid_other', 'page', 'page_range',
@@ -423,11 +504,11 @@ if __name__ == '__main__':
                       'page_count', 'page_range')
 
         d = validate.Validate(fields, ignore_fields, new_fields)
-        d.compare_solr(bibcodelist=args.bibcodes,filename=args.filename)
+        d.compare_solr(bibcodelist=args.bibcodes, filename=args.filename)
 
     elif args.delete:
         if args.filename:
-            print 'deleting bibcodes from file via queue'
+            print('deleting bibcodes from file via queue')
             bibs = []
             with open(args.filename, 'r') as f:
                 for line in f:
@@ -435,7 +516,7 @@ if __name__ == '__main__':
                     if bibcode:
                         tasks.task_delete_documents(bibcode)
         else:
-            print 'please provide a file of bibcodes to delete via -n'
+            print('please provide a file of bibcodes to delete via -n')
 
     elif args.augment:
         if args.filename:
@@ -449,16 +530,16 @@ if __name__ == '__main__':
                         app.request_aff_augment(bibcode)
 
     elif args.rebuild_collection:
-        rebuild_collection(args.solr_collection)
+        rebuild_collection(args.solr_collection, args.batch_size)
     elif args.reindex:
         update_solr = 's' in args.reindex.lower()
         update_metrics = 'm' in args.reindex.lower()
         update_links = 'l' in args.reindex.lower()
         solr_urls = collection_to_urls(args.solr_collection)
-        print 'reindexing to solr url ' + str(solr_urls)
+        print('reindexing to solr url ' + str(solr_urls))
 
         if args.filename:
-            print 'sending bibcodes from file to the queue for reindexing'
+            print('sending bibcodes from file to the queue for reindexing')
             bibs = []
             with open(args.filename) as f:
                 for line in f:
@@ -466,24 +547,45 @@ if __name__ == '__main__':
                     if bibcode:
                         bibs.append(bibcode)
                     if len(bibs) >= 100:
-                        tasks.task_index_records.delay(bibs, force=True,
-                                                       update_solr=update_solr, update_metrics=update_metrics,
-                                                       update_links = update_links, ignore_checksums=args.ignore_checksums,
-                                                       solr_targets=solr_urls)
+                        tasks.task_index_records.apply_async(
+                            args=(bibs,),
+                            kwargs={
+                                'force': True,
+                                'update_solr': update_solr,
+                                'update_metrics': update_metrics,
+                                'update_links': update_links,
+                                'ignore_checksums': args.ignore_checksums,
+                                'solr_targets': solr_urls,
+                                'priority': args.priority,
+                                'update_processed': args.update_processed
+                            },
+                            priority=args.priority
+                        )
                         bibs = []
                 if len(bibs) > 0:
-                    tasks.task_index_records.delay(bibs, force=True,
-                                                   update_solr=update_solr, update_metrics=update_metrics,
-                                                   update_links = update_links, ignore_checksums=args.ignore_checksums,
-                                                   solr_targets=solr_urls)
+                    tasks.task_index_records.apply_async(
+                        args=(bibs,),
+                        kwargs={
+                            'force': True,
+                            'update_solr': update_solr,
+                            'update_metrics': update_metrics,
+                            'update_links': update_links,
+                            'ignore_checksums': args.ignore_checksums,
+                            'solr_targets': solr_urls,
+                            'priority': args.priority,
+                            'update_processed': args.update_processed
+                        },
+                        priority=args.priority
+                    )
                     bibs = []
         else:
-            print 'sending bibcode since date to the queue for reindexing'
+            print('sending bibcode since date to the queue for reindexing')
             reindex(since=args.since, batch_size=args.batch_size, force_indexing=args.force_indexing,
                     update_solr=update_solr, update_metrics=update_metrics,
-                    update_links = update_links, force_processing=args.force_processing, ignore_checksums=args.ignore_checksums,
-                    solr_targets=solr_urls)
+                    update_links=update_links, force_processing=args.force_processing, ignore_checksums=args.ignore_checksums,
+                    solr_targets=solr_urls, update_processed=args.update_processed, priority=args.priority)
 
     elif args.reindex_failed:
-        reindex_failed(app)
+        reindex_failed_bibcodes(app, args.update_processed)
+
 

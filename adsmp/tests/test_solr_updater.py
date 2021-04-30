@@ -176,7 +176,7 @@ class TestSolrUpdater(unittest.TestCase):
         # self.assertFalse('aff' in x, 'virtual field should not be in solr output')
         
         self.assertTrue(x['aff'] == rec['bib_data']['aff'],
-                          'solr record should include aff from bib data when augment is not available')
+                        'solr record should include aff from bib data when augment is not available')
         self.assertFalse('aff_abbrev' in x,
                          'augment field should not be in solr record when augment is not available')
         
@@ -304,11 +304,10 @@ class TestSolrUpdater(unittest.TestCase):
 
         rec = self.app.get_record('bibcode')
         x = solr_updater.transform_json_record(rec)
-        
-        self.assertTrue('aff' in x)  #  aff is no longer a virtual field
+
+        self.assertTrue('aff' in x)  # aff is no longer a virtual field
         self.assertEqual(x['aff'], rec['augments']['aff'])  # solr record should prioritize aff data from augment
         self.assertEqual(x['aff_abbrev'], rec['augments']['aff_abbrev'])  # solr record should include augment data
-        
 
     def test_links_data_merge(self):
         # links_data only from bib

@@ -6,7 +6,7 @@ import testing.postgresql
 
 from adsmp import app
 from adsmp.models import Base, Records
-from run import reindex_failed
+from run import reindex_failed_bibcodes
 
 
 class TestFixDbDuplicates(unittest.TestCase):
@@ -40,7 +40,7 @@ class TestFixDbDuplicates(unittest.TestCase):
         Base.metadata.drop_all()
         self.app.close_app()
 
-    def test_reindex_failed(self):
+    def test_reindex_failed_bibcodes(self):
         # init database
         with self.app.session_scope() as session:
             session.add(Records(bibcode='bibcode1', status='success', bib_data='{}'))
@@ -49,14 +49,16 @@ class TestFixDbDuplicates(unittest.TestCase):
             session.add(Records(bibcode='bibcode4', status='retrying', bib_data='{}'))
             session.add(Records(bibcode='bibcode5', fulltext='foobar'))
 
-        # execute reindex_failed from run.py
-        with patch('adsmp.tasks.task_index_records.delay', return_value=None) as queue_bibcodes:
-            reindex_failed(self.app)
+        # execute reindex_failed_bibcodes from run.py
+        with patch('adsmp.tasks.task_index_records.apply_async', return_value=None) as queue_bibcodes:
+            reindex_failed_bibcodes(self.app)
             self.assertEqual(1, queue_bibcodes.call_count)
-            queue_bibcodes.assert_called_with([u'bibcode2', u'bibcode3'],
-                                              force=True, ignore_checksums=True,
-                                              update_links=True, update_metrics=True,
-                                              update_solr=True, update_timestamps=True)
+            queue_bibcodes.assert_called_with(args=([u'bibcode2', u'bibcode3'],),
+                                              kwargs={'force': True, 'ignore_checksums': True,
+                                                      'update_links': True, 'update_metrics': True,
+                                                      'update_solr': True, 'update_processed': True,
+                                                      'priority': 0},
+                                              priority=0)
 
         # verify database was updated propery
         with self.app.session_scope() as session:

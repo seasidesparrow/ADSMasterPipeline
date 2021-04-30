@@ -1,19 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from mock import patch
-from mock import mock_open
 import mock
 import unittest
 import os
-import json
 import sys
+import copy
+import json
 
 import adsputils
 from adsmp import app, models
 from adsmp.models import Base, MetricsBase
+from adsputils import get_date
 import testing.postgresql
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+
 
 class TestAdsOrcidCelery(unittest.TestCase):
     """
@@ -48,135 +49,112 @@ class TestAdsOrcidCelery(unittest.TestCase):
         MetricsBase.metadata.bind = self.app._metrics_engine
         MetricsBase.metadata.create_all()
 
-    
     def tearDown(self):
         unittest.TestCase.tearDown(self)
         Base.metadata.drop_all()
         MetricsBase.metadata.drop_all()
         self.app.close_app()
 
-    
     def test_app(self):
         assert self.app._config.get('SQLALCHEMY_URL') == 'sqlite:///'
         assert self.app.conf.get('SQLALCHEMY_URL') == 'sqlite:///'
 
-
-    def test_update_processed_timestamp(self):
-        self.app.update_storage('abc', 'bib_data', {'bibcode': 'abc', 'hey': 1})
-        self.app.update_processed_timestamp('abc', 'solr')
-        with self.app.session_scope() as session:
-            r = session.query(models.Records).filter_by(bibcode='abc').first()
-            self.assertFalse(r.processed)
-            self.assertFalse(r.metrics_processed)
-            self.assertTrue(r.solr_processed)
-        self.app.update_processed_timestamp('abc', 'metrics')
-        with self.app.session_scope() as session:
-            r = session.query(models.Records).filter_by(bibcode='abc').first()
-            self.assertFalse(r.processed)
-            self.assertTrue(r.metrics_processed)
-            self.assertTrue(r.solr_processed)
-        self.app.update_processed_timestamp('abc')
-        with self.app.session_scope() as session:
-            r = session.query(models.Records).filter_by(bibcode='abc').first()
-            self.assertTrue(r.processed)
-            self.assertTrue(r.metrics_processed)
-            self.assertTrue(r.solr_processed)
-        
     def test_mark_processed(self):
-        self.app.mark_processed(['abc'], 'solr')
+        self.app.mark_processed(['abc'], 'solr', checksums=['jkl'], status='success')
         r = self.app.get_record('abc')
         self.assertEqual(r, None)
         
         self.app.update_storage('abc', 'bib_data', {'bibcode': 'abc', 'hey': 1})
-        self.app.mark_processed(['abc'], 'solr')
+        self.app.mark_processed(['abc'], 'solr', checksums=['jkl'], status='success')
         r = self.app.get_record('abc')
         
         self.assertTrue(r['solr_processed'])
-        self.assertFalse(r['status'])
+        self.assertTrue(r['status'])
 
-        self.app.mark_processed(['abc'], None, status='solr-failed')
+        self.app.mark_processed(['abc'], 'solr', checksums=['jkl'], status='solr-failed')
         r = self.app.get_record('abc')
         self.assertTrue(r['solr_processed'])
         self.assertTrue(r['processed'])
         self.assertEqual(r['status'], 'solr-failed')
 
-
-    def test_reindex(self):
+    def test_index_solr(self):
         self.app.update_storage('abc', 'bib_data', {'bibcode': 'abc', 'hey': 1})
         self.app.update_storage('foo', 'bib_data', {'bibcode': 'foo', 'hey': 1})
         
         with mock.patch('adsmp.solr_updater.update_solr', return_value=[200]):
-            failed = self.app.reindex([{'bibcode': 'abc'}, 
-                                       {'bibcode': 'foo'}], 
-                                      ['http://solr1'])
-            self.assertTrue(len(failed) == 0)
+            self.app.index_solr([{'bibcode': 'abc'},
+                                 {'bibcode': 'foo'}],
+                                ['checksum1', 'checksum2'],
+                                         ['http://solr1'])
             with self.app.session_scope() as session:
                 for x in ['abc', 'foo']:
                     r = session.query(models.Records).filter_by(bibcode=x).first()
-                    self.assertFalse(r.processed)
+                    self.assertTrue(r.processed)
                     self.assertFalse(r.metrics_processed)
                     self.assertTrue(r.solr_processed)
                     
         # pretend group failure and then success when records sent individually
         with mock.patch('adsmp.solr_updater.update_solr') as us, \
-                mock.patch.object(self.app, 'update_processed_timestamp') as upt:
+                mock.patch.object(self.app, 'mark_processed') as mp:
             us.side_effect = [[503], [200], [200]]
-            failed = self.app.reindex([{'bibcode': 'abc'}, 
-                                       {'bibcode': 'foo'}], 
-                                      ['http://solr1'])
-            self.assertTrue(len(failed) == 0)
-            if sys.version_info > (3,):
-                solr_str = "'solr'"
-            else:
-                solr_str = "u'solr'"
-            self.assertEqual(str(upt.call_args_list), "[call('abc', type=%s), call('foo', type=%s)]" % (solr_str, solr_str))
+            self.app.index_solr([{'bibcode': 'abc'},
+                                 {'bibcode': 'foo'}],
+                                ['checksum1', 'checksum2'],
+                                ['http://solr1'])
+            # self.assertTrue(len(failed) == 0)
+            x = str(mp.call_args_list[0])
+            self.assertTrue('abc' in x)
+            self.assertTrue('success' in x)
+            self.assertTrue('solr' in x)
             self.assertEqual(us.call_count, 3)
-            self.assertEqual(str(us.call_args_list[-1]), "call([{'bibcode': 'foo'}], ['http://solr1'], commit=False, ignore_errors=False)") 
+            x = str(mp.call_args_list[1])
+            self.assertTrue('foo' in x)
+            self.assertTrue('success' in x)
+            self.assertTrue('solr' in x)
 
         # pretend failure and success without body
         # update_solr should try to send two records together and then
         #   each record by itself twice: once as is and once without fulltext
         with mock.patch('adsmp.solr_updater.update_solr') as us, \
-                mock.patch.object(self.app, 'update_processed_timestamp') as upt:
+                mock.patch.object(self.app, 'mark_processed') as mp:
             us.side_effect = [[503, 503], Exception('body failed'), 200, Exception('body failed'), 200]
-            failed = self.app.reindex([{'bibcode': 'abc', 'body': 'bad body'}, 
-                                       {'bibcode': 'foo', 'body': 'bad body'}], 
-                                      ['http://solr1'])
+            self.app.index_solr([{'bibcode': 'abc', 'body': 'BAD BODY'},
+                                 {'bibcode': 'foo', 'body': 'BAD BODY'}],
+                                ['checksum1', 'checksum2'],
+                                ['http://solr1'])
             self.assertEqual(us.call_count, 5)
-            self.assertTrue(len(failed) == 0)
-            self.assertEqual(upt.call_count, 2)
-            if sys.version_info > (3,):
-                call_dict = "{'bibcode': 'foo', 'body': 'bad body'}"
-            else:
-                call_dict = "{'body': 'bad body', 'bibcode': 'foo'}"
-            self.assertEqual(str(us.call_args_list[-2]), "call([%s], ['http://solr1'], commit=False, ignore_errors=False)" % call_dict)
-            self.assertEqual(str(us.call_args_list[-1]), "call([{'bibcode': 'foo'}], ['http://solr1'], commit=False, ignore_errors=False)")
+            # self.assertTrue(len(failed) == 0)
+            self.assertEqual(mp.call_count, 2)
+            x = str(us.call_args_list[-2])
+            self.assertTrue('http://solr1' in x)
+            self.assertTrue('foo' in x)
+            self.assertTrue('body' in x)
+            self.assertTrue('BAD BODY' in x)
+            x = str(us.call_args_list[-1])
+            self.assertTrue('http://solr1' in x)
+            self.assertTrue('foo' in x)
 
         # pretend failure and then lots more failure
         # update_solr should try to send two records together and then
         #   each record by itself twice: once as is and once without fulltext
-        with mock.patch('adsmp.solr_updater.update_solr') as us, \
-                mock.patch.object(self.app, 'update_processed_timestamp') as upt:
-            us.side_effect = [[503, 503], 
-                              Exception('body failed'), Exception('body failed'), 
+        with mock.patch('adsmp.solr_updater.update_solr') as us:
+            us.side_effect = [[503, 503],
+                              Exception('body failed'), Exception('body failed'),
                               Exception('body failed'), Exception('body failed')]
-            failed = self.app.reindex([{'bibcode': 'abc', 'body': 'bad body'}, 
-                                       {'bibcode': 'foo', 'body': 'bad body'}], 
-                                      ['http://solr1'])
+            self.app.index_solr([{'bibcode': 'abc', 'body': 'bad body'},
+                                 {'bibcode': 'foo', 'body': 'bad body'}],
+                                ['checksum1', 'checksum2'],
+                                ['http://solr1'])
             self.assertEqual(us.call_count, 5)
-            self.assertTrue(len(failed) == 2)
-            self.assertEqual(upt.call_count, 0)
 
         # pretend failure and and then failure for a mix of reasons
-        with mock.patch('adsmp.solr_updater.update_solr') as us, \
-                mock.patch.object(self.app, 'update_processed_timestamp') as upt:
+        with mock.patch('adsmp.solr_updater.update_solr') as us:
             us.side_effect = [[503, 503], Exception('body failed'), Exception('failed'), Exception('failed')]
-            failed = self.app.reindex([{'bibcode': 'abc', 'body': 'bad body'}, 
-                                       {'bibcode': 'foo', 'body': 'good body'}], 
-                                      ['http://solr1'])
+            self.app.index_solr([{'bibcode': 'abc', 'body': 'bad body'},
+                                 {'bibcode': 'foo', 'body': 'good body'}],
+                                ['checksum1', 'checksum2'],
+                                ['http://solr1'])
             self.assertEqual(us.call_count, 4)
-            self.assertTrue(len(failed) == 2)
-            self.assertEqual(upt.call_count, 0)
             if sys.version_info > (3,):
                 call_dict = "{'bibcode': 'foo', 'body': 'good body'}"
             else:
@@ -185,20 +163,20 @@ class TestAdsOrcidCelery(unittest.TestCase):
 
         # pretend failure and and then a mix of failure and success
         with mock.patch('adsmp.solr_updater.update_solr') as us, \
-                mock.patch.object(self.app, 'update_processed_timestamp') as upt:
+                mock.patch.object(self.app, 'mark_processed') as mp:
             us.side_effect = [[503, 503], Exception('body failed'), [200]]
-            failed = self.app.reindex([{'bibcode': 'abc', 'body': 'bad body'}, 
-                                       {'bibcode': 'foo', 'body': 'good body'}], 
-                                      ['http://solr1'])
+            self.app.index_solr([{'bibcode': 'abc', 'body': 'bad body'},
+                                 {'bibcode': 'foo', 'body': 'good body'}],
+                                ['checksum1', 'checksum2'],
+                                         ['http://solr1'])
             self.assertEqual(us.call_count, 4)
-            self.assertTrue(len(failed) == 1)
-            self.assertEqual(upt.call_count, 1)
-            if sys.version_info > (3,):
-                call_dict = "{'bibcode': 'foo', 'body': 'good body'}"
-            else:
-                call_dict = "{'body': 'good body', 'bibcode': 'foo'}"
-            self.assertEqual(str(us.call_args_list[-1]), "call([%s], ['http://solr1'], commit=False, ignore_errors=False)" % call_dict)
-
+            # self.assertTrue(len(failed) == 1)
+            self.assertEqual(us.call_count, 4)
+            self.assertEqual(mp.call_count, 2)
+            x = str(us.call_args_list[-1])
+            self.assertTrue('foo' in x)
+            self.assertTrue('good body' in x)
+            self.assertTrue('http://solr1' in x)
 
     def test_update_metrics(self):
         self.app.update_storage('abc', 'metrics', {
@@ -206,22 +184,21 @@ class TestAdsOrcidCelery(unittest.TestCase):
                      'bibcode': 'abc',
                     })
         self.app.update_storage('foo', 'metrics', {
-                    'bibcode': 'foo', 
-                    'citation_num': 6
+                    'bibcode': 'foo',
+                    'citation_num': 6,
+                    'author_num': 3,
                     })
         
-        batch_insert = [self.app.get_record('abc')['metrics']]
-        batch_update = [self.app.get_record('foo')['metrics']]
-        
-        bibc, errs = self.app.update_metrics_db(batch_insert, batch_update)
-        self.assertEqual(bibc, ['abc', 'foo'])
+        batch_metrics = [self.app.get_record('abc')['metrics'], self.app.get_record('foo')['metrics']]
+        batch_checksum = ['checksum1', 'checksum2']
+        self.app.index_metrics(batch_metrics, batch_checksum)
         
         for x in ['abc', 'foo']:
             r = self.app.get_record(x)
-            self.assertFalse(r['processed'])
+            self.assertTrue(r['processed'])
             self.assertTrue(r['metrics_processed'])
             self.assertFalse(r['solr_processed'])
-
+            
     def test_delete_metrics(self):
         """Makes sure we can delete a metrics record by bibcode"""
         self.app.update_storage('abc', 'metrics', {
@@ -229,7 +206,7 @@ class TestAdsOrcidCelery(unittest.TestCase):
                      'bibcode': 'abc',
                     })
         r = self.app.get_record('abc')
-        self.app.update_metrics_db([r], [])
+        self.app.index_metrics([r], ['checksum'])
         m = self.app.get_metrics('abc')
         self.assertTrue(m, 'intialized metrics data')
         self.app.metrics_delete_by_bibcode('abc')
@@ -272,10 +249,10 @@ class TestAdsOrcidCelery(unittest.TestCase):
         r = self.app.get_record('abc', load_only=['id'])
         self.assertEqual(r['id'], 1)
         self.assertFalse('processed' in r)
-        
-        self.app.update_processed_timestamp('abc')
-        r = self.app.get_record('abc')
-        self.assertTrue(r['processed'] > now)
+
+        with self.assertRaises(ValueError) as e:
+            self.app.mark_processed(['abc'], 'foobar')
+            self.assertTrue('foobar' in e.exception)
         
         # now delete it
         self.app.delete_by_bibcode('abc')
@@ -284,6 +261,128 @@ class TestAdsOrcidCelery(unittest.TestCase):
         with self.app.session_scope() as session:
             r = session.query(models.ChangeLog).filter_by(key='bibcode:abc').first()
             self.assertTrue(r.key, 'abc')
+
+    def test_index_metrics_database_failure(self):
+        """
+           verify handles failure from database
+           send one bibcode, verify there are two commits
+        """
+        self.app.update_storage('abc', 'metrics', {
+            'author_num': 1,
+            'bibcode': 'abc',
+        })
+
+        trans = mock.Mock()
+        trans.commit.side_effect = SQLAlchemyError('test')
+        m = mock.Mock()
+        m.begin_nested.return_value = trans
+        m.__exit__ = mock.Mock()
+        m.__enter__ = mock.Mock()
+        m.__enter__.return_value = mock.Mock()
+        m.__enter__.return_value.begin_nested.return_value = trans
+        # init database so timestamps and checksum can be updated
+        with mock.patch('adsmp.app.ADSMasterPipelineCelery.metrics_session_scope', return_value=m) as p:
+            metrics_payload = {'bibcode': 'abc', 'author_num': 1}
+            checksum = 'checksum'
+            self.app.index_metrics([metrics_payload], [checksum])
+            self.assertEqual(trans.commit.call_count, 2)
+
+    def test_index_datalinks_success(self):
+        """verify passed data sent to resolver service
+           verify handles success from service
+           verify records table updated with processed, status and checksum
+        """
+        m = mock.Mock()
+        m.status_code = 200
+        # init database so timestamps and checksum can be updated
+        nonbib_data = {'data_links_rows': [{'baz': 0}]}
+        self.app.update_storage('linkstest', 'nonbib_data', nonbib_data)
+        with mock.patch('requests.put', return_value=m) as p:
+            datalinks_payload = {u'bibcode': u'linkstest', u'data_links_rows': [{u'baz': 0}]}
+            checksum = 'thechecksum'
+            self.app.index_datalinks([datalinks_payload], [checksum])
+            p.assert_called_with('http://localhost:8080/update',
+                                 data=json.dumps([{'bibcode': 'linkstest', 'data_links_rows': [{'baz': 0}]}]),
+                                 headers={'Authorization': 'Bearer fixme'})
+            self.assertEqual(p.call_count, 1)
+            # verify database updated
+            rec = self.app.get_record(bibcode='linkstest')
+            self.assertEqual(rec['datalinks_checksum'], 'thechecksum')
+            self.assertEqual(rec['solr_checksum'], None)
+            self.assertEqual(rec['metrics_checksum'], None)
+            self.assertEqual(rec['status'], 'success')
+            self.assertTrue(rec['datalinks_processed'])
+
+    def test_index_datalinks_service_failure(self):
+        """
+           verify handles failure from service
+        """
+        m = mock.Mock()
+        m.status_code = 500
+        # init database so timestamps and checksum can be updated
+        nonbib_data = {'data_links_rows': [{'baz': 0}]}
+        self.app.update_storage('linkstest', 'nonbib_data', nonbib_data)
+        with mock.patch('requests.put', return_value=m) as p:
+            datalinks_payload = {u'bibcode': u'linkstest', u'data_links_rows': [{u'baz': 0}]}
+            checksum = 'thechecksum'
+            self.app.index_datalinks([datalinks_payload], [checksum])
+            p.assert_called_with('http://localhost:8080/update',
+                                 data=json.dumps([{'bibcode': 'linkstest', 'data_links_rows': [{'baz': 0}]}]),
+                                 headers={'Authorization': 'Bearer fixme'})
+
+            rec = self.app.get_record(bibcode='linkstest')
+            self.assertEqual(p.call_count, 2)
+            self.assertEqual(rec['datalinks_checksum'], None)
+            self.assertEqual(rec['solr_checksum'], None)
+            self.assertEqual(rec['metrics_checksum'], None)
+            self.assertEqual(rec['status'], 'links-failed')
+            self.assertTrue(rec['datalinks_processed'])
+
+    def test_index_datalinks_service_only_batch_failure(self):
+        # init database so timestamps and checksum can be updated
+        nonbib_data = {'data_links_rows': [{'baz': 0}]}
+        self.app.update_storage('linkstest', 'nonbib_data', nonbib_data)
+        with mock.patch('requests.put') as p:
+            bad = mock.Mock()
+            bad.status_code = 500
+            good = mock.Mock()
+            good.status_code = 200
+            p.side_effect = [bad, good]
+            datalinks_payload = {u'bibcode': u'linkstest', u'data_links_rows': [{u'baz': 0}]}
+            checksum = 'thechecksum'
+            self.app.index_datalinks([datalinks_payload], [checksum])
+            p.assert_called_with('http://localhost:8080/update',
+                                 data=json.dumps([{'bibcode': 'linkstest', 'data_links_rows': [{'baz': 0}]}]),
+                                 headers={'Authorization': 'Bearer fixme'})
+            self.assertEqual(p.call_count, 2)
+            # verify database updated
+            rec = self.app.get_record(bibcode='linkstest')
+            self.assertEqual(rec['datalinks_checksum'], 'thechecksum')
+            self.assertEqual(rec['solr_checksum'], None)
+            self.assertEqual(rec['metrics_checksum'], None)
+            self.assertEqual(rec['status'], 'success')
+            self.assertTrue(rec['datalinks_processed'])
+
+    def test_index_datalinks_update_processed_false(self):
+        m = mock.Mock()
+        m.status_code = 200
+        # init database so timestamps and checksum can be updated
+        nonbib_data = {'data_links_rows': [{'baz': 0}]}
+        self.app.update_storage('linkstest', 'nonbib_data', nonbib_data)
+        with mock.patch('requests.put', return_value=m) as p:
+            datalinks_payload = {u'bibcode': u'linkstest', u'data_links_rows': [{u'baz': 0}]}
+            checksum = 'thechecksum'
+            self.app.index_datalinks([datalinks_payload], [checksum], update_processed=False)
+            p.assert_called_with('http://localhost:8080/update',
+                                 data=json.dumps([{'bibcode': 'linkstest', 'data_links_rows': [{'baz': 0}]}]),
+                                 headers={'Authorization': 'Bearer fixme'})
+            # verify database updated
+            rec = self.app.get_record(bibcode='linkstest')
+            self.assertEqual(rec['datalinks_checksum'], None)
+            self.assertEqual(rec['solr_checksum'], None)
+            self.assertEqual(rec['metrics_checksum'], None)
+            self.assertEqual(rec['status'], None)
+            self.assertEqual(rec['datalinks_processed'], None)
 
     def test_update_records_db_error(self):
         """test database exception IntegrityError is caught"""
@@ -301,75 +400,6 @@ class TestAdsOrcidCelery(unittest.TestCase):
             self.assertTrue(ref.target, 'def')
             
         self.assertTrue(self.app.get_changelog('abc'), [{'target': u'def', 'key': u'abc'}])
-
-    def test_solr_tweak(self):
-        """use hard coded string to verify app.tweaks is set from file"""
-        test_tweak = {
-            "docs": [
-                {
-                    "aff": [
-                        "Purdue University (United States)",
-                        "Purdue University (United States)",
-                        "Purdue University (United States)"
-                    ],
-                    "aff_abbrev": [
-                        "NA",
-                        "NA",
-                        "NA"
-                    ],
-                    "aff_canonical": [
-                        "Not Matched",
-                        "Not Matched",
-                        "Not Matched"
-                    ],
-                    "aff_facet_hier": [],
-                    "author": [
-                        "Mikhail, E. M.",
-                        "Kurtz, M. K.",
-                        "Stevenson, W. H."
-                    ],
-                    "bibcode": "1971SPIE...26..187M",
-                    "title": [
-                        "Metric Characteristics Of Holographic Imagery"
-                    ]
-                }
-                ]
-            }
-        if sys.version_info > (3,):
-            open_func = 'builtins.open'
-        else:
-            open_func = '__builtin__.open'
-        with patch(open_func,
-                   mock_open(read_data=json.dumps(test_tweak))):
-            self.app.load_tweak_file('foo')
-            self.assertTrue("1971SPIE...26..187M" in self.app.tweaks)
-            v = test_tweak['docs'][0]
-            v.pop('bibcode')
-            self.assertEqual(v,
-                             self.app.tweaks['1971SPIE...26..187M'])
-
-        # verify tweaks are merged into solr record
-        # reindex changed the passed dict
-        with mock.patch('adsmp.solr_updater.update_solr', return_value=[200]):
-            doc = {'bibcode': '1971SPIE...26..187M',
-                   'abstract': 'test abstract'}
-            failed = self.app.reindex([doc], ['http://solr1'])
-            self.assertTrue(len(failed) == 0)
-            self.assertTrue('abstract' in doc)
-            self.assertTrue('aff' in doc)
-            self.assertTrue('aff_abbrev' in doc)
-            self.assertTrue('aff_canonical' in doc)
-            self.assertTrue('aff_facet_hier' in doc)
-            self.assertTrue('title' in doc)
-            self.assertEqual('1971SPIE...26..187M', doc['bibcode'])
-
-    def test_read_tweak_files(self):
-        """validates code that processes directory of tweak files"""
-        with mock.patch('os.path.isdir', return_value=True), \
-             mock.patch('os.listdir', return_value=['foo.json', 'bar.txt']), \
-             mock.patch('adsmp.app.ADSMasterPipelineCelery.load_tweak_file') as m:
-            self.app.load_tweak_files()
-            m.assert_called_once_with('foo.json')
 
     def test_generate_links_for_resolver(self):
         only_nonbib = {'bibcode': 'asdf',

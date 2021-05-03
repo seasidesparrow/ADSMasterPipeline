@@ -119,7 +119,7 @@ def run():
                         if t > commit_time:
                             finished = True
                         time_waiting = datetime.datetime.utcnow() - commit_time
-                        if (time_waiting.seconds > 3600):
+                        if (time_waiting.seconds > (3600 * 2)):
                             logger.warn('Solr commit running for over two  hours, aborting')
                             raise
             if not finished:

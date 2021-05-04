@@ -71,8 +71,8 @@ class TestSolrUpdater(unittest.TestCase):
               u'Rots, A',
               u'Winkelman, S'],
              u'bibcode': u'2003ASPC..295..283B',
-             u'bibgroup': [u'CXC', u'CfA'],
-             u'bibgroup_facet': [u'CXC', u'CfA'],
+             u'bibgroup': [u'bibCXC', u'CfA'],
+             u'bibgroup_facet': [u'bibCXC', u'CfA'],
              u'bibstem': [u'ASPC', u'ASPC..295'],
              u'bibstem_facet': u'ASPC',
              u'database': [u'astronomy'],
@@ -118,7 +118,9 @@ class TestSolrUpdater(unittest.TestCase):
               u'Fuerst, J',
               u'Henseler, D',
               u'Doehler, G'],
-             u'bibcode': u'2007JAP...101d4501Z',
+              u'bibcode': u'2007JAP...101d4501Z',
+              u'bibgroup': [u'CXC', u'CfA'],
+              u'bibgroup_facet': [u'CXC', u'CfA'],
              u'boost': 0.1899999976158142,
              u'data': [u'MAST:3', u'SIMBAD:1'],
              u'property': [u'OPENACCESS', u'ADS_OPENACCESS', u'ARTICLE', u'NOT REFEREED'],
@@ -308,6 +310,8 @@ class TestSolrUpdater(unittest.TestCase):
         self.assertTrue('aff' in x)  # aff is no longer a virtual field
         self.assertEqual(x['aff'], rec['augments']['aff'])  # solr record should prioritize aff data from augment
         self.assertEqual(x['aff_abbrev'], rec['augments']['aff_abbrev'])  # solr record should include augment data
+        self.assertEqual(x['bibgroup'], rec['nonbib_data']['bibgroup'])
+        self.assertEqual(x['bibgroup_facet'], rec['nonbib_data']['bibgroup_facet'])
 
     def test_links_data_merge(self):
         # links_data only from bib

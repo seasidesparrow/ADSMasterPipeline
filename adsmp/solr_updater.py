@@ -323,6 +323,12 @@ def transform_json_record(db_record):
         # use nonbib data even if it is older
         out['links_data'] = db_record['nonbib_data']['links_data']
 
+    # override temporal priority for bibgroup and bibgroup_facet, prefer nonbib
+    if 'nonbib_data' in db_record and 'bibgroup' in db_record['nonbib_data']:
+        out['bibgroup'] = db_record['nonbib_data']['bibgroup']
+    if 'nonbib_data' in db_record and 'bibgroup_facet' in db_record['nonbib_data']:
+        out['bibgroup_facet'] = db_record['nonbib_data']['bibgroup_facet']
+    
     # if only bib data is available, use it to compute property
     if db_record.get('nonbib_data', None) is None and db_record.get('bib_data', None):
         links_data = db_record['bib_data'].get('links_data', None)

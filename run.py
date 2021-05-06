@@ -10,7 +10,10 @@ from requests.packages.urllib3 import exceptions
 warnings.simplefilter('ignore', exceptions.InsecurePlatformWarning)
 import time
 from pyrabbit.api import Client as PyRabbitClient
-from urlparse import urlparse
+try:
+    from urllib.parse import urlparse
+except ImportError:
+    from urlparse import urlparse  
 
 from adsputils import setup_logging, get_date, load_config
 from adsmp.models import KeyValue, Records

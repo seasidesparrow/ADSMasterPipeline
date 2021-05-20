@@ -436,7 +436,7 @@ class ADSMasterPipelineCelery(ADSCelery):
                         if update_processed:
                             self.mark_processed(bibcodes, 'links', checksums=links_data_checksum, status='success')
                     else:
-                        self.logger.error('error sending individual links to %s, error = %s', links_url, r.text)
+                        self.logger.error('error sending individual links to %s for bibcode %s, error = %s', links_url, data.get('bibcode'), r.text)
                         failed_bibcodes.append(data['bibcode'])
                 if failed_bibcodes and update_processed:
                     self.mark_processed(failed_bibcodes, 'links', status='links-failed')

@@ -232,11 +232,22 @@ def reindex(since=None, batch_size=None, force_indexing=False, update_solr=True,
 def collection_to_urls(collection_name):
     solr_urls = []
     urls = app.conf['SOLR_URLS']
-    for u in urls:
-        parts = u.split('/')
-        parts[-2] = collection_name
-        solr_urls.append('/'.join(parts))
-    return solr_urls
+    if collection_name:
+        for u in urls:
+            parts = u.split('/')
+            parts[-2] = collection_name
+            solr_urls.append('/'.join(parts))
+    else:
+        solr_urls = urls[:]
+    
+    # if collection is named without full URL
+    # and config listed two SOLR targets (on the same server)
+    # we'll end up with duplicates and be sending the same
+    # data to same collection N times; to avoid that
+    # we'll unique the list of targets
+    
+    return list(set(solr_urls))
+    
 
 
 def rebuild_collection(collection_name, batch_size):
@@ -451,9 +462,9 @@ if __name__ == '__main__':
                         help='sends bibcodes to augment affilation pipeline, works with --filename')
     parser.add_argument('--solr-collection',
                         dest='solr_collection',
-                        default='collection2',
+                        default=None,
                         action='store',
-                        help='name of solr collection, defaults to collection2, set to collection1 when processing bibcodes from the command line')
+                        help='name of solr collection, defaults to None (which means the pipeline will send data to whatever is set in config); set to collectionX if you want to multiplex data to all SOLR_URL targets (assuming they are different servers) and all of them to receive data into collectionX; set with full URL i.e. http://server/collection1/update if you want to force sending data to a specific machine')
     parser.add_argument('-x',
                         '--rebuild-collection',
                         action='store_true',

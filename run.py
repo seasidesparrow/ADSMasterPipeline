@@ -233,6 +233,9 @@ def collection_to_urls(collection_name):
     solr_urls = []
     urls = app.conf['SOLR_URLS']
     if collection_name:
+        if collection_name.startswith('http'):
+            solr_urls = [collection_name]
+
         for u in urls:
             parts = u.split('/')
             parts[-2] = collection_name
@@ -262,10 +265,7 @@ def rebuild_collection(collection_name, batch_size):
         sys.exit(1)
 
     now = get_date()
-    if collection_name.startswith('http'):
-        solr_urls = [collection_name]
-    else:
-        solr_urls = collection_to_urls(collection_name)
+    solr_urls = collection_to_urls(collection_name)
 
     logger.info('Sending all records to: %s', ';'.join(solr_urls))
     sent = 0

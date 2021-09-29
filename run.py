@@ -234,7 +234,7 @@ def collection_to_urls(collection_name):
     urls = app.conf['SOLR_URLS']
     if collection_name:
         if collection_name.startswith('http'):
-            solr_urls = [collection_name]
+            return [collection_name]
 
         for u in urls:
             parts = u.split('/')

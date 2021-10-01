@@ -13,7 +13,7 @@ from pyrabbit.api import Client as PyRabbitClient
 try:
     from urllib.parse import urlparse
 except ImportError:
-    from urlparse import urlparse  
+    from urlparse import urlparse
 
 from adsputils import setup_logging, get_date, load_config
 from adsmp.models import KeyValue, Records
@@ -242,15 +242,15 @@ def collection_to_urls(collection_name):
             solr_urls.append('/'.join(parts))
     else:
         solr_urls = urls[:]
-    
+
     # if collection is named without full URL
     # and config listed two SOLR targets (on the same server)
     # we'll end up with duplicates and be sending the same
     # data to same collection N times; to avoid that
     # we'll unique the list of targets
-    
+
     return list(set(solr_urls))
-    
+
 
 
 def rebuild_collection(collection_name, batch_size):
@@ -310,7 +310,7 @@ def rebuild_collection(collection_name, batch_size):
         logger.info('Waiting %s for index-solr queue to empty, queue_length %s, sent %s' % (stime, queue_length, sent))
         time.sleep(stime)
     logger.info('Completed waiting %s for index-solr queue to empty, queue_length %s, sent %s' % (stime, queue_length, sent))
-    
+
     logger.info('Done rebuilding collection %s, sent %s records', collection_name, sent)
 
 
@@ -545,6 +545,8 @@ if __name__ == '__main__':
 
     elif args.rebuild_collection:
         rebuild_collection(args.solr_collection, args.batch_size)
+    elif args.index_failed:
+        reindex_failed_bibcodes(app, args.update_processed)
     elif args.reindex:
         update_solr = 's' in args.reindex.lower()
         update_metrics = 'm' in args.reindex.lower()
@@ -599,7 +601,5 @@ if __name__ == '__main__':
                     update_links=update_links, force_processing=args.force_processing, ignore_checksums=args.ignore_checksums,
                     solr_targets=solr_urls, update_processed=args.update_processed, priority=args.priority)
 
-    elif args.reindex_failed:
-        reindex_failed_bibcodes(app, args.update_processed)
 
 

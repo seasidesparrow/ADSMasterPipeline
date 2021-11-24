@@ -97,7 +97,7 @@ def run():
 
         # issue commit
         commit_time = datetime.datetime.utcnow()
-        r = requests.get(update_url + '?commit=true&waitSearcher=true')
+        r = requests.get(update_url + '?commit=true')
         r.raise_for_status()
         logger.info('Issued async commit to SOLR')
 
@@ -127,7 +127,7 @@ def run():
         logger.info('Solr has registered a new searcher')
 
         # all went well, verify the numDocs is similar to the previous collection
-        time.sleep(60*30)
+        time.sleep(30)
         cores = requests.get(cores_url + '?wt=json').json()
         logger.info('core info is: {}'.format(cores))
         verify_collection2_size(cores['status']['collection2'])

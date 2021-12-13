@@ -252,6 +252,43 @@ def collection_to_urls(collection_name):
     return list(set(solr_urls))
 
 
+def delete_obsolete_records(older_than, batch_size=1000):
+    """
+    Will delete records without bib_data that are in the db
+    and that are older than `older_than` timestamp
+    """
+
+    if not older_than:
+        raise Exception('This operation requires a valid timestamp')
+
+    old = get_date(older_than)
+    logger.info('Going to delete records without bib_data older than: %s', old.isoformat())
+
+    deleted = 0
+    bibcodes = []
+
+    # because delete_by_bibcode issues commit (which expires session)
+    # we must harvest them before (and close our session); it's not
+    # very fast, but we don't mind
+    with app.session_scope() as session:
+        for rec in session.query(Records) \
+                          .options(load_only(Records.bibcode)) \
+                          .filter(Records.updated <= old) \
+                          .filter(Records.bib_data.is_(None)) \
+                          .yield_per(batch_size):
+
+            bibcodes.append(rec.bibcode)
+
+    while bibcodes:
+        bibcode = bibcodes.pop()
+        if app.delete_by_bibcode(bibcode):
+            logger.debug("Deleted record: %s", bibcode)
+            deleted += 1
+        else:
+            logger.warn("Failed to delete: %s (this only happens if the rec cannot be found)", bibcode)
+    
+    logger.info("Deleted {} obsolete records".format(deleted))
+
 
 def rebuild_collection(collection_name, batch_size):
     """
@@ -397,7 +434,7 @@ if __name__ == '__main__':
                         dest='since',
                         action='store',
                         default=None,
-                        help='Starting date for reindexing')
+                        help='Datestamp used in indexing and other operations')
 
     parser.add_argument('-k',
                         '--kv',
@@ -492,8 +529,12 @@ if __name__ == '__main__':
 
     logger.info('Executing run.py: %s', args)
 
+    # uff: this whole block needs refactoring (as is written, it only allows for single operation)
     if args.diagnostics:
         diagnostics(args.bibcodes)
+
+    elif args.delete_obsolete:
+        delete_obsolete_records(args.since, batch_size=args.batch_size)
 
     elif args.validate:
         fields = ('abstract', 'ack', 'aff', 'alternate_bibcode', 'alternate_title', 'arxiv_class', 'author',

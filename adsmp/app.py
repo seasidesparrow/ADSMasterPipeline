@@ -3,7 +3,7 @@ from __future__ import absolute_import, unicode_literals
 from past.builtins import basestring
 from . import exceptions
 from adsmp.models import ChangeLog, IdentifierMapping, MetricsBase, MetricsModel, Records
-from adsmsg import OrcidClaims, DenormalizedRecord, FulltextUpdate, MetricsRecord, NonBibRecord, NonBibRecordList, MetricsRecordList, AugmentAffiliationResponseRecord, AugmentAffiliationRequestRecord
+from adsmsg import OrcidClaims, DenormalizedRecord, FulltextUpdate, MetricsRecord, NonBibRecord, NonBibRecordList, MetricsRecordList, AugmentAffiliationResponseRecord, AugmentAffiliationResponseRecordList, AugmentAffiliationRequestRecord, AugmentAffiliationRequestRecordList
 from adsmsg.msg import Msg
 from adsputils import ADSCelery, create_engine, sessionmaker, scoped_session, contextmanager
 from sqlalchemy.orm import load_only as _load_only
@@ -216,6 +216,8 @@ class ADSMasterPipelineCelery(ADSCelery):
             return 'metrics_records'
         elif isinstance(msg, AugmentAffiliationResponseRecord):
             return 'augment'
+        elif isinstance(msg, AugmentAffiliationResponseRecordList):
+            return 'augment_records'
 
         else:
             raise exceptions.IgnorableException('Unkwnown type {0} submitted for update'.format(repr(msg)))

@@ -63,7 +63,7 @@ class TestWorkers(unittest.TestCase):
             tasks.task_update_record(DenormalizedRecord(bibcode='2015ApJ...815..133S'))
             self.assertFalse(next_task.called)
             self.assertTrue(augment.called)
-        
+
         with patch('adsmp.solr_updater.delete_by_bibcodes', return_value=[('2015ApJ...815..133S'), ()]) as solr_delete, \
              patch('adsmp.app.ADSMasterPipelineCelery.request_aff_augment') as augment, \
              patch.object(self.app, 'metrics_delete_by_bibcode', return_value=True) as metrics_delete:
@@ -71,7 +71,7 @@ class TestWorkers(unittest.TestCase):
             self.assertTrue(solr_delete.called)
             self.assertTrue(metrics_delete.called)
             self.assertFalse(augment.called)
-            
+
     def test_task_update_record_delete(self):
         for x, cls in (('fulltext', FulltextUpdate), ('orcid_claims', OrcidClaims)):
             self.app.update_storage('bibcode', x, {'foo': 'bar'})
@@ -80,14 +80,14 @@ class TestWorkers(unittest.TestCase):
                 tasks.task_update_record(cls(bibcode='bibcode', status='deleted'))
                 self.assertEqual(self.app.get_record('bibcode')[x], None)
                 self.assertTrue(self.app.get_record('bibcode'))
-        
+
         recs = NonBibRecordList()
         recs.nonbib_records.extend([NonBibRecord(bibcode='bibcode', status='deleted').data])
         with patch('adsmp.tasks.task_index_records.apply_async') as next_task:
             tasks.task_update_record(recs)
             self.assertEqual(self.app.get_record('bibcode')['metrics'], None)
             self.assertTrue(self.app.get_record('bibcode'))
-            
+
         with patch('adsmp.tasks.task_delete_documents') as next_task:
             tasks.task_update_record(DenormalizedRecord(bibcode='bibcode', status='deleted'))
             self.assertTrue(next_task.called)
@@ -123,15 +123,15 @@ class TestWorkers(unittest.TestCase):
                     u"Purdue University (United States)",
                     u"Purdue University (United States)",
                     u"Purdue University (United States)"
-                ], 
+                ],
                 u"aff_abbrev": [
                     u"NA",
                     u"NA",
                     u"NA"
-                ], 
+                ],
                 u"aff_canonical": [
-                    u"-", 
-                    u"-", 
+                    u"-",
+                    u"-",
                     u"-"
                 ],
                 u"aff_facet": [],
@@ -142,7 +142,7 @@ class TestWorkers(unittest.TestCase):
                     u"Mikhail, E. M.",
                     u"Kurtz, M. K.",
                     u"Stevenson, W. H."
-                ], 
+                ],
                 u"bibcode": u"1971SPIE...26..187M",
                 u"institution": []
             }
@@ -191,7 +191,7 @@ class TestWorkers(unittest.TestCase):
             r.metrics_checksum = None
             r.datalinks_checksum = None
             session.commit()
-    
+
     def _check_checksum(self, bibcode, solr=None, metrics=None, datalinks=None):
         with self.app.session_scope() as session:
             r = session.query(Records).filter_by(bibcode=bibcode).first()
@@ -211,7 +211,7 @@ class TestWorkers(unittest.TestCase):
     def test_task_update_solr(self):
         # just make sure we have the entry in a database
         self._reset_checksum('foobar')
-        
+
         with patch.object(self.app, 'mark_processed', return_value=None) as mp,\
             patch('adsmp.solr_updater.update_solr', return_value=[200]) as update_solr, \
             patch('adsmp.tasks.task_index_solr.apply_async', wraps=unwind_task_index_solr_apply_async), \
@@ -249,7 +249,7 @@ class TestWorkers(unittest.TestCase):
             tasks.task_index_records('2015ApJ...815..133S')
             self.assertFalse(update_solr.called)
 
-            
+
         self._check_checksum('foobar', solr=None)
         self._reset_checksum('foobar')
 
@@ -270,7 +270,7 @@ class TestWorkers(unittest.TestCase):
             tasks.task_index_records('2015ApJ...815..133S', force=True)
             self.assertTrue(update_solr.called)
             self.assertTrue(mp.called)
-            
+
         # self._check_checksum('foobar', solr=True)
         self._reset_checksum('foobar')
 
@@ -287,7 +287,7 @@ class TestWorkers(unittest.TestCase):
             self.assertFalse(update_solr.called)
             tasks.task_index_records('2015ApJ...815..133S')
             self.assertFalse(update_solr.called)
-        
+
         self._check_checksum('foobar', solr=None)
         self._reset_checksum('foobar')
 
@@ -309,7 +309,7 @@ class TestWorkers(unittest.TestCase):
             self.assertTrue(update_solr.called)
             self.assertTrue(mp.called)
             self.assertFalse(task_index_records.called)
-            
+
         with patch('adsmp.solr_updater.update_solr', return_value=[200]) as update_solr, \
             patch('adsmp.tasks.task_index_solr.apply_async', wraps=unwind_task_index_solr_apply_async), \
             patch.object(self.app, 'get_record', return_value={'bibcode': 'foobar',
@@ -348,7 +348,7 @@ class TestWorkers(unittest.TestCase):
 
     def test_task_index_records_no_such_bibcode(self):
         self.assertRaises(Exception, lambda: tasks.task_index_records(['foo', 'bar'], update_solr=False, update_metrics=False, update_links=False))
-            
+
         with patch.object(tasks.logger, 'error', return_value=None) as logger:
             tasks.task_index_records(['non-existent'])
             logger.assert_called_with(u"The bibcode %s doesn't exist!", 'non-existent')
@@ -357,10 +357,10 @@ class TestWorkers(unittest.TestCase):
         """verify data is sent to links microservice update endpoint"""
         r = Mock()
         r.status_code = 200
-            
+
         # just make sure we have the entry in a database
         tasks.task_update_record(DenormalizedRecord(bibcode='linkstest'))
-        
+
         n = datetime.now()
         future_year = n.year + 1
         with patch.object(self.app, 'get_record', return_value={'bibcode': 'linkstest',
@@ -374,7 +374,7 @@ class TestWorkers(unittest.TestCase):
             p.assert_called_with('http://localhost:8080/update',
                                  data=json.dumps([{'bibcode': 'linkstest', 'data_links_rows': [{'baz': 0}]}]),
                                  headers={'Authorization': 'Bearer api_token'})
-            
+
         rec = self.app.get_record(bibcode='linkstest')
         self.assertEqual(rec['datalinks_checksum'], '0x80e85169')
         self.assertEqual(rec['solr_checksum'], None)
@@ -395,7 +395,7 @@ class TestWorkers(unittest.TestCase):
             p.assert_not_called()
 
     def test_avoid_duplicates(self):
-        
+
         # just make sure we have the entry in a database
         self._reset_checksum('foo')
         self._reset_checksum('bar')
@@ -403,18 +403,18 @@ class TestWorkers(unittest.TestCase):
         with patch.object(self.app, 'get_record') as getter, \
             patch('adsmp.solr_updater.update_solr', return_value=[200]) as update_solr, \
             patch('adsmp.tasks.task_index_solr.apply_async', wraps=unwind_task_index_solr_apply_async):
-            
+
             getter.return_value = {'bibcode': 'foo', 'bib_data_updated': get_date('1972-04-01'), 'metrics': {}}
             tasks.task_index_records(['foo'], force=True)
-            
+
             self.assertEqual(update_solr.call_count, 1)
-            self._check_checksum('foo', solr='0xf2708ee8')
-            
+            self._check_checksum('foo', solr='0x76452254')
+
             # now change metrics (solr shouldn't be called)
             getter.return_value = {'bibcode': 'foo', 'metrics_updated': get_date('1972-04-02'),
                                    'bib_data_updated': get_date('1972-04-01'),
                                    'metrics': {},
-                                   'solr_checksum': '0xf2708ee8'}
+                                   'solr_checksum': '0x76452254'}
             tasks.task_index_records(['foo'], force=True)
             self.assertEqual(update_solr.call_count, 1)
 
@@ -426,7 +426,7 @@ class TestWorkers(unittest.TestCase):
              patch('adsmp.tasks.task_index_solr.apply_async', wraps=unwind_task_index_solr_apply_async):
             getter.return_value = {'bibcode': 'foo', 'metrics_updated': get_date('1972-04-02'),
                                    'bib_data_updated': get_date('1972-04-01'),
-                                   'solr_checksum': '0xf2708ee8'}
+                                   'solr_checksum': '0x76452254'}
 
             # update with matching checksum and then update and ignore checksums
             tasks.task_index_records(['foo'], force=True, update_metrics=False, update_links=False, ignore_checksums=False)
@@ -435,7 +435,7 @@ class TestWorkers(unittest.TestCase):
             self.assertEqual(update_solr.call_count, 1)
 
     def test_ignore_checksums_datalinks(self):
-        """verify ingore_checksums works with datalinks updates"""        
+        """verify ingore_checksums works with datalinks updates"""
         self._reset_checksum('linkstest')  # put bibcode in database
         r = Mock()
         r.status_code = 200

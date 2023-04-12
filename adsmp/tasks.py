@@ -221,6 +221,11 @@ def reindex_records(bibcodes, force=False, update_solr=True, update_metrics=True
             # build the solr record
             if update_solr:
                 solr_payload = solr_updater.transform_json_record(r)
+                # ADS microservices assume the identifier field exists and contains the canonical bibcode:
+                if 'identifier' not in solr_payload:
+                    solr_payload['identifier'] = []
+                if 'bibcode' in solr_payload and solr_payload['bibcode'] not in solr_payload['identifier']:
+                    solr_payload['identifier'].append(solr_payload['bibcode'])
                 logger.debug('Built SOLR: %s', solr_payload)
                 solr_checksum = app.checksum(solr_payload)
                 if ignore_checksums or r.get('solr_checksum', None) != solr_checksum:

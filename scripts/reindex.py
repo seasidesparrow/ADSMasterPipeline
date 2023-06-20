@@ -10,6 +10,7 @@ import sys
 import pickle
 import requests
 import time
+import json
 
 proj_home = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if proj_home not in sys.path:
@@ -126,12 +127,20 @@ def run():
                 time.sleep(30)
         logger.info('Solr has registered a new searcher')
 
+        logger.info('Waiting for the new collection to have a minimum number of commited documents')
         # all went well, verify the numDocs is similar to the previous collection
-        time.sleep(30)
-        cores = requests.get(cores_url + '?wt=json').json()
-        logger.info('core info is: {}'.format(cores))
-        verify_collection2_size(cores['status']['collection2'])
-        logger.info('Successfully verified the collection')
+        min_committed_docs = os.environ.get('MIN_COMMITTED_DOCS', 17500000)
+        min_index_size = os.environ.get('MIN_COMMITTED_DOCS', 200) # GB
+        for _ in range(24): # Check every 5 minutes for 2 hours max
+            time.sleep(300)
+            verified, verified_msg = verify_collection2_size(cores_url, min_committed_docs, min_index_size)
+            if verified:
+                break
+        if verified:
+            logger.info(verified_msg)
+        else:
+            raise Exception(verified_msg)
+
 
         # all is well; swap the cores!
         r = requests.get(cores_url + '?action=SWAP&core=collection2&other=collection1&wt=json')
@@ -171,11 +180,25 @@ def write_lockfile(lockfile, data):
         pickle.dump(data, f)
 
 
-def verify_collection2_size(data):
-    if data['index'].get('numDocs', 0) <= 15117785:
-        raise Exception('Too few documents in the new index: %s' % data['index'].get('numDocs', 0))
-    if data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0) <= 146.0:  # index size at least 146GB
-        raise Exception('The index is suspiciously small: %s' % (data['index'].get('sizeInBytes', 0) / (1024*1024*1024.0),))
+def verify_collection2_size(cores_url, min_committed_docs, min_index_size):
+    # Try to get info from solr
+    try:
+        response = requests.get(cores_url + '?wt=json')
+        #response.raise_for_status()  # Raise an exception for non-2xx status codes
+        cores = response.json()
+    except (requests.exceptions.RequestException, json.decoder.JSONDecodeError, ValueError, TypeError) as e:
+        return (False, str(e))
+    # Extract key values
+    data = cores.get('status', {}).get('collection2', {})
+    num_docs = data.get('index', {}).get('numDocs', 0)
+    index_size = data.get('index', {}).get('sizeInBytes', 0) / (1024*1024*1024.0) # GB
+    #
+    logger.info('New collection has {} committed entries and the index size is {:.2f} GB'.format(num_docs, index_size))
+    if num_docs <= min_committed_docs:
+        return (False, 'Too few committed documents in the new index: {}'.format(num_docs))
+    if index_size <= min_index_size:
+        return (False, 'The new index is suspiciously small: {:.2f} GB'.format(index_size))
+    return (True, 'Successfully verified the new collection')
 
 
 def str_to_datetime(s):

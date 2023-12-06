@@ -34,6 +34,31 @@ def extract_data_pipeline(data, solrdoc):
         grant.append(grant_no)
         grant_facet_hier.extend(generate_hier_facet(agency, grant_no))
 
+    gpn = []
+    gpn_id = []
+    gpn_facet_hier_2level = []
+    gpn_facet_hier_3level = []
+
+    featurelist = [
+        "albedo feature",
+        "crater",
+        "eruptive center",
+        "landing site name",
+        "large ringed feature",
+        "lobus",
+        "plume",
+        "satellite feature",
+    ]
+
+    for x in data.get("gpn", []):
+        planet, feature, feature_name, id_no = x.split("/", 3)
+        gpn.append("/".join([planet, feature, feature_name]))
+        gpn_id.append(id_no)
+        gpn_facet_hier_3level.extend(generate_hier_facet(planet, feature, feature_name))
+        if feature.lower() in featurelist:
+            feature_name = " ".join([feature, feature_name])
+        gpn_facet_hier_2level.extend(generate_hier_facet(planet, feature_name))
+
     simbid = []
     simbtype = []
     simbad_object_facet_hier = []
@@ -82,6 +107,10 @@ def extract_data_pipeline(data, solrdoc):
         data_facet=[x.split(":")[0] for x in data.get("data", [])],
         esources=data.get("esource", []),
         property=data.get("property", []),
+        gpn=gpn,
+        gpn_id=gpn_id,
+        gpn_facet_hier_2level=gpn_facet_hier_2level,
+        gpn_facet_hier_3level=gpn_facet_hier_3level,
         grant=grant,
         grant_facet_hier=grant_facet_hier,
         simbid=simbid,

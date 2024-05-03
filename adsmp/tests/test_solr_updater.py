@@ -663,6 +663,145 @@ class TestSolrUpdater(unittest.TestCase):
             d["ned_object_facet_hier"],
         )
 
+        # Test simple gpn
+        nonbib = {"gpn": ["Moon/Crater/Langrenus/3273"]}
+        d = solr_updater.extract_data_pipeline(nonbib, None)
+        self.assertEqual(["Moon/Crater/Langrenus"], d["gpn"])
+        self.assertEqual(["3273"], d["gpn_id"])
+        self.assertEqual(
+            ["0/Moon", "1/Moon/Crater", "2/Moon/Crater/Langrenus"],
+            d["gpn_facet_hier_3level"],
+        )
+        self.assertEqual(
+            ["0/Moon", "1/Moon/Crater Langrenus"],
+            d["gpn_facet_hier_2level"],
+        )
+
+        # Test gpn with space in feature name
+        nonbib = {"gpn": ["Mars/Terra/Terra Cimmeria/5930"]}
+        d = solr_updater.extract_data_pipeline(nonbib, None)
+        self.assertEqual(["Mars/Terra/Terra Cimmeria"], d["gpn"])
+        self.assertEqual(["5930"], d["gpn_id"])
+        self.assertEqual(
+            ["0/Mars", "1/Mars/Terra", "2/Mars/Terra/Terra Cimmeria"],
+            d["gpn_facet_hier_3level"],
+        )
+        self.assertEqual(
+            ["0/Mars", "1/Mars/Terra Cimmeria"],
+            d["gpn_facet_hier_2level"],
+        )
+
+        # Test one bibcode with multiple gpns assigned
+        nonbib = {
+            "gpn": [
+                "Moon/Mare/Mare Imbrium/3678",
+                "Moon/Crater/Alder/171",
+                "Moon/Crater/Finsen/1959",
+                "Moon/Crater/Leibnitz/3335",
+            ]
+        }
+        d = solr_updater.extract_data_pipeline(nonbib, None)
+        self.assertEqual(
+            [
+                "Moon/Mare/Mare Imbrium",
+                "Moon/Crater/Alder",
+                "Moon/Crater/Finsen",
+                "Moon/Crater/Leibnitz",
+            ],
+            d["gpn"],
+        )
+        self.assertEqual(["3678", "171", "1959", "3335"], d["gpn_id"])
+        self.assertEqual(
+            [
+                "0/Moon",
+                "1/Moon/Mare",
+                "2/Moon/Mare/Mare Imbrium",
+                "0/Moon",
+                "1/Moon/Crater",
+                "2/Moon/Crater/Alder",
+                "0/Moon",
+                "1/Moon/Crater",
+                "2/Moon/Crater/Finsen",
+                "0/Moon",
+                "1/Moon/Crater",
+                "2/Moon/Crater/Leibnitz",
+            ],
+            d["gpn_facet_hier_3level"],
+        )
+        self.assertEqual(
+            [
+                "0/Moon",
+                "1/Moon/Mare Imbrium",
+                "0/Moon",
+                "1/Moon/Crater Alder",
+                "0/Moon",
+                "1/Moon/Crater Finsen",
+                "0/Moon",
+                "1/Moon/Crater Leibnitz",
+            ],
+            d["gpn_facet_hier_2level"],
+        )
+
+        # Test uat
+        nonbib = {
+            "uat": [
+                "cosmology/origin of the universe/early universe/recombination (cosmology)/cosmic background radiation/cosmic microwave background radiation/322",
+                "cosmology/origin of the universe/big bang theory/recombination (cosmology)/cosmic background radiation/cosmic microwave background radiation/322",
+                "observational astronomy/astronomical methods/radio astronomy/cosmic noise/cosmic background radiation/cosmic microwave background radiation/322",
+                "cosmology/astronomical radiation sources/radio sources/radio continuum emission/5",
+                "interstellar medium/interstellar emissions/radio continuum emission/5",
+                "stellar astronomy/stellar types/stellar evolutionary types/evolved stars/subgiant stars/1646",
+            ]
+        }
+        d = solr_updater.extract_data_pipeline(nonbib, None)
+        self.assertEqual(
+            [
+                "cosmology/origin of the universe/early universe/recombination (cosmology)/cosmic background radiation/cosmic microwave background radiation",
+                "cosmology/origin of the universe/big bang theory/recombination (cosmology)/cosmic background radiation/cosmic microwave background radiation",
+                "observational astronomy/astronomical methods/radio astronomy/cosmic noise/cosmic background radiation/cosmic microwave background radiation",
+                "cosmology/astronomical radiation sources/radio sources/radio continuum emission",
+                "interstellar medium/interstellar emissions/radio continuum emission",
+                "stellar astronomy/stellar types/stellar evolutionary types/evolved stars/subgiant stars",
+            ],
+            d["uat"],
+        )
+        self.assertEqual(["322", "322", "322", "5", "5", "1646"], d["uat_id"])
+        self.assertEqual(
+            [
+                "0/cosmology",
+                "1/cosmology/origin of the universe",
+                "2/cosmology/origin of the universe/early universe",
+                "3/cosmology/origin of the universe/early universe/recombination (cosmology)",
+                "4/cosmology/origin of the universe/early universe/recombination (cosmology)/cosmic background radiation",
+                "5/cosmology/origin of the universe/early universe/recombination (cosmology)/cosmic background radiation/cosmic microwave background radiation",
+                "0/cosmology",
+                "1/cosmology/origin of the universe",
+                "2/cosmology/origin of the universe/big bang theory",
+                "3/cosmology/origin of the universe/big bang theory/recombination (cosmology)",
+                "4/cosmology/origin of the universe/big bang theory/recombination (cosmology)/cosmic background radiation",
+                "5/cosmology/origin of the universe/big bang theory/recombination (cosmology)/cosmic background radiation/cosmic microwave background radiation",
+                "0/observational astronomy",
+                "1/observational astronomy/astronomical methods",
+                "2/observational astronomy/astronomical methods/radio astronomy",
+                "3/observational astronomy/astronomical methods/radio astronomy/cosmic noise",
+                "4/observational astronomy/astronomical methods/radio astronomy/cosmic noise/cosmic background radiation",
+                "5/observational astronomy/astronomical methods/radio astronomy/cosmic noise/cosmic background radiation/cosmic microwave background radiation",
+                "0/cosmology",
+                "1/cosmology/astronomical radiation sources",
+                "2/cosmology/astronomical radiation sources/radio sources",
+                "3/cosmology/astronomical radiation sources/radio sources/radio continuum emission",
+                "0/interstellar medium",
+                "1/interstellar medium/interstellar emissions",
+                "2/interstellar medium/interstellar emissions/radio continuum emission",
+                "0/stellar astronomy",
+                "1/stellar astronomy/stellar types",
+                "2/stellar astronomy/stellar types/stellar evolutionary types",
+                "3/stellar astronomy/stellar types/stellar evolutionary types/evolved stars",
+                "4/stellar astronomy/stellar types/stellar evolutionary types/evolved stars/subgiant stars",
+            ],
+            d["uat_facet_hier"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

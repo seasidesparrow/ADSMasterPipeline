@@ -34,6 +34,43 @@ def extract_data_pipeline(data, solrdoc):
         grant.append(grant_no)
         grant_facet_hier.extend(generate_hier_facet(agency, grant_no))
 
+    gpn = []
+    gpn_id = []
+    gpn_facet_hier_2level = []
+    gpn_facet_hier_3level = []
+
+    featurelist = [
+        "albedo feature",
+        "crater",
+        "eruptive center",
+        "landing site name",
+        "large ringed feature",
+        "lobus",
+        "plume",
+        "satellite feature",
+    ]
+
+    for x in data.get("gpn", []):
+        planet, feature, feature_name, id_no = x.split("/", 3)
+        gpn.append("/".join([planet, feature, feature_name]))
+        gpn_id.append(id_no)
+        gpn_facet_hier_3level.extend(generate_hier_facet(planet, feature, feature_name))
+        if feature.lower() in featurelist:
+            feature_name = " ".join([feature, feature_name])
+        gpn_facet_hier_2level.extend(generate_hier_facet(planet, feature_name))
+
+    uat = []
+    uat_id = []
+    uat_facet_hier = []
+
+    for x in data.get("uat", []):
+        uat_info = x.split("/")
+        uat_keywords = uat_info[:-1]
+        uat_no = uat_info[-1]
+        uat.append("/".join(uat_keywords))
+        uat_id.append(uat_no)
+        uat_facet_hier.extend(generate_hier_facet(*uat_keywords))
+
     simbid = []
     simbtype = []
     simbad_object_facet_hier = []
@@ -82,6 +119,13 @@ def extract_data_pipeline(data, solrdoc):
         data_facet=[x.split(":")[0] for x in data.get("data", [])],
         esources=data.get("esource", []),
         property=data.get("property", []),
+        gpn=gpn,
+        gpn_id=gpn_id,
+        gpn_facet_hier_2level=gpn_facet_hier_2level,
+        gpn_facet_hier_3level=gpn_facet_hier_3level,
+        uat=uat,
+        uat_id=uat_id,
+        uat_facet_hier=uat_facet_hier,
         grant=grant,
         grant_facet_hier=grant_facet_hier,
         simbid=simbid,
@@ -422,28 +466,28 @@ def transform_json_record(db_record):
                         db_record["bibcode"], type(links_data), links_data
                     )
                 )
+    if config.get("ENABLE_HAS", False):
+        # Read-in names of fields to check for solr "has:" field
+        hasfields = sorted(config.get("HAS_FIELDS", []))
 
-    # Read-in names of fields to check for solr "has:" field
-    hasfields = sorted(config.get("HAS_FIELDS", []))
+        # populate "has:" field with fields that exist for a particular record
+        has = []
+        for field in hasfields:
+            if out.get(field, ""):
+                # if field is not empty, check if at least one character is alphanumeric
+                # this is done to not count fields where blank entries can be ['-',...]
 
-    # populate "has:" field with fields that exist for a particular record
-    has = []
-    for field in hasfields:
-        if out.get(field, ""):
-            # if field is not empty, check if at least one character is alphanumeric
-            # this is done to not count fields where blank entries can be ['-',...]
+                # if field does not have a string or list, make it a list of strings so it is iterable
 
-            # if field does not have a string or list, make it a list of strings so it is iterable
+                if not (isinstance(out[field], list) or isinstance(out[field], str)):
+                    out_field = str.join("", str(out[field]))
+                else:
+                    out_field = str.join("", out[field])
 
-            if not (isinstance(out[field], list) or isinstance(out[field], str)):
-                out_field = str.join("", str(out[field]))
-            else:
-                out_field = str.join("", out[field])
-
-            out_field = set(out_field)
-            # iterate through each character of each element in the field to check for at least one alphanumeric character
-            if any([char.isalnum() for char in out_field]):
-                has.append(field)
-    out["has"] = has
+                out_field = set(out_field)
+                # iterate through each character of each element in the field to check for at least one alphanumeric character
+                if any([char.isalnum() for char in out_field]):
+                    has.append(field)
+        out["has"] = has
 
     return out
